@@ -1,8 +1,4 @@
-# ADR-001: Modular Architecture
-
-**Status:** Accepted
-
-**Date:** 2025-08-19
+# Modular Architecture
 
 ## Context
 
