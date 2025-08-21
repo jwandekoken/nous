@@ -56,7 +56,18 @@ class Settings(BaseSettings):
             f"@{self.postgres_server}:{self.postgres_port}/{self.postgres_db}"
         )
 
-    # Graph Database (Neo4j example)
+    # Graph Database (KuzuDB API Server)
+    graph_api_url: str = Field(
+        default="http://localhost:8000", description="KuzuDB API server URL"
+    )
+    graph_api_username: str | None = Field(
+        default=None, description="KuzuDB API server username for basic auth"
+    )
+    graph_api_password: str | None = Field(
+        default=None, description="KuzuDB API server password for basic auth"
+    )
+
+    # Legacy Graph Database (Neo4j example) - kept for backward compatibility
     graph_uri: str = Field(
         default="bolt://localhost:7687", description="Graph database URI"
     )

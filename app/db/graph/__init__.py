@@ -1,76 +1,104 @@
 """Graph database connection and utilities.
-This example uses Neo4j as the graph database.
+This implementation uses KuzuDB through the KuzuDB API server.
 """
 
-from contextlib import asynccontextmanager
-from typing import Any
+from typing import cast
+
+import httpx
+from httpx import BasicAuth
 
 from app.core.settings import get_settings
-
-# Note: You would install neo4j driver with: uv add neo4j
-# For now, we'll create a placeholder implementation
 
 
 class GraphDB:
     """Graph database connection manager.
-    This is a placeholder implementation for Neo4j.
+    This implementation connects to KuzuDB through the KuzuDB API server.
     """
 
-    def __init__(self, uri: str, user: str, password: str):
-        self.uri = uri
-        self.user = user
-        self.password = password
-        self._driver: Any | None = None
+    def __init__(
+        self, base_url: str, username: str | None = None, password: str | None = None
+    ):
+        self.base_url: str = base_url.rstrip("/")
+        self.username: str | None = username
+        self.password: str | None = password
+        self._client: httpx.AsyncClient | None = None
 
     async def connect(self) -> None:
-        """Connect to the graph database."""
-        # In a real implementation, you would:
-        # from neo4j import AsyncGraphDatabase
-        # self._driver = AsyncGraphDatabase.driver(
-        #     self.uri, auth=(self.user, self.password)
-        # )
-        print(f"Connected to graph database at {self.uri}")
+        """Connect to the KuzuDB API server."""
+        # Configure authentication if credentials are provided
+        auth = None
+        if self.username and self.password:
+            auth = BasicAuth(self.username, self.password)
+
+        self._client = httpx.AsyncClient(
+            base_url=self.base_url, timeout=30.0, auth=auth
+        )
+        # Test the connection by getting server status
+        _ = await self.get_server_status()
+        auth_status = " with authentication" if auth else " without authentication"
+        print(f"Connected to KuzuDB API server at {self.base_url}{auth_status}")
 
     async def disconnect(self) -> None:
-        """Disconnect from the graph database."""
-        if self._driver:
-            # await self._driver.close()
-            print("Disconnected from graph database")
+        """Disconnect from the KuzuDB API server."""
+        if self._client:
+            await self._client.aclose()
+            self._client = None
+            print("Disconnected from KuzuDB API server")
 
-    @asynccontextmanager
-    async def session(self):
-        """Get a database session."""
-        # In a real implementation:
-        # async with self._driver.session() as session:
-        #     yield session
-        yield MockSession()
+    async def get_server_status(self) -> dict[str, str | float]:
+        """Get the status of the KuzuDB API server."""
+        if not self._client:
+            raise RuntimeError("Not connected to KuzuDB API server")
+
+        response = await self._client.get("/")
+        _ = response.raise_for_status()  # Validate response status
+        return cast(dict[str, str | float], response.json())
+
+    async def get_schema(
+        self,
+    ) -> dict[str, list[dict[str, str | list[dict[str, str | bool]]]]]:
+        """Get the schema of the database."""
+        if not self._client:
+            raise RuntimeError("Not connected to KuzuDB API server")
+
+        response = await self._client.get("/schema")
+        _ = response.raise_for_status()  # Validate response status
+        return cast(
+            dict[str, list[dict[str, str | list[dict[str, str | bool]]]]],
+            response.json(),
+        )
 
     async def execute_query(
-        self, query: str, parameters: dict[str, Any] | None = None
-    ) -> Any:
-        """Execute a Cypher query."""
-        async with self.session():
-            # In a real implementation:
-            # result = await session.run(query, parameters or {})
-            # return await result.data()
-            print(f"Executing query: {query} with params: {parameters}")
-            return []
+        self, query: str, parameters: dict[str, str | int | float | bool] | None = None
+    ) -> dict[
+        str,
+        list[dict[str, str | int | float | bool | dict[str, str | int]]]
+        | dict[str, str]
+        | bool,
+    ]:
+        """Execute a Cypher query and get the result."""
+        if not self._client:
+            raise RuntimeError("Not connected to KuzuDB API server")
 
+        request_data: dict[str, str | dict[str, str | int | float | bool]] = {
+            "query": query
+        }
+        if parameters:
+            request_data["params"] = parameters
 
-class MockSession:
-    """Mock session for development."""
-
-    async def run(self, query: str, parameters: dict[str, Any] | None = None) -> Any:
-        """Mock query execution."""
-        return MockResult()
-
-
-class MockResult:
-    """Mock result for development."""
-
-    async def data(self) -> list[Any]:
-        """Mock data return."""
-        return []
+        response = await self._client.post(
+            "/cypher", json=request_data, headers={"Content-Type": "application/json"}
+        )
+        _ = response.raise_for_status()  # Validate response status
+        return cast(
+            dict[
+                str,
+                list[dict[str, str | int | float | bool | dict[str, str | int]]]
+                | dict[str, str]
+                | bool,
+            ],
+            response.json(),
+        )
 
 
 # Global graph database instance
@@ -83,9 +111,9 @@ async def get_graph_db() -> GraphDB:
     if _graph_db is None:
         settings = get_settings()
         _graph_db = GraphDB(
-            uri=settings.graph_uri,
-            user=settings.graph_user,
-            password=settings.graph_password,
+            base_url=settings.graph_api_url,
+            username=settings.graph_api_username,
+            password=settings.graph_api_password,
         )
         await _graph_db.connect()
 

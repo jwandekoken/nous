@@ -21,6 +21,7 @@ dependencies = [
     "passlib[bcrypt]>=1.7.4",
     "sqlmodel>=0.0.24",
     "fastapi-cli>=0.0.8",
+    "httpx>=0.28.1",
 ]
 
 [dependency-groups]
