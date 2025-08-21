@@ -8,7 +8,7 @@ This document outlines the KùzuDB graph schema designed to function as a flexib
 -- The canonical Entity node, identified by a system-managed UUID
 CREATE NODE TABLE Entity (
     id UUID,
-    created_at TIMESTAMPLTZ,
+    created_at TIMESTAMP,
     metadata MAP(STRING, STRING),
     PRIMARY KEY (id)
 );
@@ -20,16 +20,20 @@ CREATE NODE TABLE Identifier (
     PRIMARY KEY (value)
 );
 
+-- Note: KùzuDB does not support composite primary keys.
+-- A synthetic key `fact_id` is created by the application (e.g., "type:name")
+-- to ensure the uniqueness of each fact.
 CREATE NODE TABLE Fact (
+  fact_id STRING,
   name STRING,
   type STRING,
-  PRIMARY KEY (name, type)
+  PRIMARY KEY (fact_id)
 );
 
 CREATE NODE TABLE Source (
   id UUID,
   content STRING,
-  timestamp TIMESTAMPLTZ,
+  timestamp TIMESTAMP,
   PRIMARY KEY (id)
 );
 
@@ -37,14 +41,14 @@ CREATE NODE TABLE Source (
 CREATE REL TABLE HAS_IDENTIFIER (
     FROM Entity TO Identifier,
     is_primary BOOLEAN,
-    created_at TIMESTAMPLTZ
+    created_at TIMESTAMP
 );
 
 CREATE REL TABLE HAS_FACT (
   FROM Entity TO Fact,
   verb STRING,
   confidence_score DOUBLE,
-  created_at TIMESTAMPLTZ
+  created_at TIMESTAMP
 );
 
 CREATE REL TABLE DERIVED_FROM (
@@ -66,8 +70,10 @@ A key feature of this schema is the separation of the canonical `Entity` from it
 
 This schema deliberately uses two different approaches for primary keys, depending on the node's purpose.
 
-- **Natural Keys**: For nodes like `Identifier` and `Fact`, the primary key is based on their "natural" real-world properties (e.g., the identifier's `value`, or the fact's `name` and `type`). This is because the identity of these nodes _is_ their data. This is a graph best practice for nodes that represent unique concepts and are typically found or created using the `MERGE` command.
-- **System Keys**: For nodes like `Entity` and `Source` that lack a stable, natural identifier, we use a system-generated `UUID` as the primary key. This provides a reliable, unchanging internal anchor, even if the node's other properties change.
+- **Natural & Synthetic Keys**: For nodes like `Identifier` and `Fact`, the primary key is based on their real-world properties.
+  - `Identifier` uses a **natural key** (`value`), as the identifier itself is unique.
+  - `Fact` uses a **synthetic key** (`fact_id`), which is constructed by the application (e.g., by concatenating `type` and `name`). This is a workaround for KùzuDB's lack of composite key support and ensures that each fact node is unique.
+- **System Keys**: For nodes like `Entity` and `Source` that lack a stable, natural identifier, we use a system-generated `UUID` as the primary key. This provides a reliable, unchanging internal anchor.
 
 ### Node Tables
 
@@ -75,8 +81,8 @@ This schema deliberately uses two different approaches for primary keys, dependi
 
 - **Purpose**: The abstract, central subject of the graph (e.g., a user). It acts as the canonical anchor for all related facts and identifiers.
 - **Rationale**:
-  - `id` is a system-controlled `PRIMARY KEY`, ensuring the entity's reference is stable and independent of changing external identifiers.
-  - `metadata MAP(STRING, STRING)` provides a flexible "catch-all" for semi-structured data, avoiding frequent schema alterations.
+  - `id` is a system-controlled `PRIMARY KEY`, ensuring the entity's reference is stable.
+  - `metadata MAP(STRING, STRING)` provides a flexible "catch-all" for semi-structured data.
 
 #### `Identifier`
 
@@ -89,7 +95,7 @@ This schema deliberately uses two different approaches for primary keys, dependi
 
 - **Purpose**: A discrete piece of knowledge or a named entity (e.g., a location, company, or hobby).
 - **Rationale**:
-  - The composite `PRIMARY KEY (name, type)` is a natural key that uniquely identifies a fact, distinguishing between concepts with the same name but different types (e.g., "Paris" as a `Location` vs. "Paris" as a `Person`).
+  - The `fact_id` is a synthetic `PRIMARY KEY` (e.g., "Location:Paris") created by the application to enforce uniqueness, as composite keys are not supported.
 
 #### `Source`
 
@@ -103,25 +109,25 @@ This schema deliberately uses two different approaches for primary keys, dependi
 #### `HAS_IDENTIFIER`
 
 - **Purpose**: A directed relationship connecting an `Entity` to its `Identifier`.
-- **Rationale**: This link formally associates the abstract `Entity` with its real-world identifier(s). Properties like `is_primary` can add valuable context.
+- **Rationale**: This link formally associates the abstract `Entity` with its real-world identifier(s).
 
 #### `HAS_FACT`
 
 - **Purpose**: A directed relationship connecting an `Entity` to a `Fact` it possesses.
 - **Rationale**:
-  - Properties like `verb` and `confidence_score` add rich semantic context directly to the connection itself, describing _how_ the entity and fact are related.
+  - Properties like `verb` add rich semantic context to the connection.
 
 #### `DERIVED_FROM`
 
 - **Purpose**: A directed relationship linking a `Fact` back to the `Source` where it was found.
 - **Rationale**:
-  - This relationship is the cornerstone of traceability, making it possible to answer the critical question: **"How do we know this fact?"**
+  - This relationship is the cornerstone of traceability, answering the question: **"How do we know this fact?"**
 
 ### Core Design Principle: Timestamps
 
 A crucial design choice is the deliberate distinction between timestamp fields:
 
-- **`Source.timestamp`**: This is the **real-world event time**. It records when the original message was sent or the event occurred.
-- **`created_at`**: This is the **system's internal audit time**. It records when a node or relationship was created _in our database_.
+- **`Source.timestamp`**: This is the **real-world event time**.
+- **`created_at`**: This is the **system's internal audit time**.
 
 This separation allows for accurate contextual queries ("What did the user say on Monday?") while also enabling system-level auditing ("What new facts did the system learn today?").
