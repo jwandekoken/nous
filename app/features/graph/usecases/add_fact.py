@@ -3,7 +3,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from app.features.graph.graph_models import (
+from app.features.graph.models import (
     Fact,
     HasFact,
     Source,

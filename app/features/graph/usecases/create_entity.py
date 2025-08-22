@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from app.features.graph.graph_models import (
+from app.features.graph.models import (
     Entity,
     Identifier,
     create_entity_with_identifier,

@@ -4,7 +4,7 @@ from typing import Any
 from uuid import UUID
 
 from app.db.graph import GraphDB
-from app.features.graph.graph_models import (
+from app.features.graph.models import (
     Entity,
     Fact,
     HasFact,
