@@ -2,7 +2,7 @@
 This implementation uses KuzuDB through the KuzuDB API server.
 """
 
-from typing import cast
+from typing import Mapping, cast
 
 import httpx
 from httpx import BasicAuth
@@ -69,7 +69,9 @@ class GraphDB:
         )
 
     async def execute_query(
-        self, query: str, parameters: dict[str, str | int | float | bool] | None = None
+        self,
+        query: str,
+        parameters: Mapping[str, str | int | float | bool | None] | None = None,
     ) -> dict[
         str,
         list[dict[str, str | int | float | bool | dict[str, str | int]]]
@@ -80,7 +82,7 @@ class GraphDB:
         if not self._client:
             raise RuntimeError("Not connected to KuzuDB API server")
 
-        request_data: dict[str, str | dict[str, str | int | float | bool]] = {
+        request_data: dict[str, str | Mapping[str, str | int | float | bool | None]] = {
             "query": query
         }
         if parameters:
