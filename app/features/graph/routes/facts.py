@@ -16,13 +16,13 @@ async def get_graph() -> GraphDB:
     return await get_graph_db()
 
 
-def get_fact_repository(graph: GraphDB = Depends(get_graph)) -> FactRepository:
+def get_fact_repository(graph: GraphDB = Depends(get_graph)) -> FactRepository:  # pyright: ignore[reportCallInDefaultInitializer]
     """Dependency to get the fact repository."""
     return FactRepository(db=graph)
 
 
 def get_get_fact_usecase(
-    repo: FactRepository = Depends(get_fact_repository),
+    repo: FactRepository = Depends(get_fact_repository),  # pyright: ignore[reportCallInDefaultInitializer]
 ) -> GetFactUsecase:
     """Dependency to get the get fact usecase."""
     return GetFactUsecase(repo=repo)
@@ -30,7 +30,8 @@ def get_get_fact_usecase(
 
 @router.get("/facts/{fact_id}", response_model=GetFactResponse)
 async def get_fact(
-    fact_id: str, usecase: GetFactUsecase = Depends(get_get_fact_usecase)
+    fact_id: str,
+    usecase: GetFactUsecase = Depends(get_get_fact_usecase),  # pyright: ignore[reportCallInDefaultInitializer]
 ) -> GetFactResponse:
     """Get a fact with its source information."""
     try:

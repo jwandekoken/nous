@@ -29,39 +29,39 @@ async def get_graph() -> GraphDB:
     return await get_graph_db()
 
 
-def get_entity_repository(graph: GraphDB = Depends(get_graph)) -> EntityRepository:
+def get_entity_repository(graph: GraphDB = Depends(get_graph)) -> EntityRepository:  # pyright: ignore[reportCallInDefaultInitializer]
     """Dependency to get the entity repository."""
     return EntityRepository(db=graph)
 
 
 def get_create_entity_usecase(
-    repo: EntityRepository = Depends(get_entity_repository),
+    repo: EntityRepository = Depends(get_entity_repository),  # pyright: ignore[reportCallInDefaultInitializer]
 ) -> CreateEntityUsecase:
     """Dependency to get the create entity usecase."""
     return CreateEntityUsecase(repo=repo)
 
 
 def get_get_entity_usecase(
-    repo: EntityRepository = Depends(get_entity_repository),
+    repo: EntityRepository = Depends(get_entity_repository),  # pyright: ignore[reportCallInDefaultInitializer]
 ) -> GetEntityUsecase:
     """Dependency to get the get entity usecase."""
     return GetEntityUsecase(repo=repo)
 
 
 def get_search_entities_usecase(
-    repo: EntityRepository = Depends(get_entity_repository),
+    repo: EntityRepository = Depends(get_entity_repository),  # pyright: ignore[reportCallInDefaultInitializer]
 ) -> SearchEntitiesUsecase:
     """Dependency to get the search entities usecase."""
     return SearchEntitiesUsecase(repo=repo)
 
 
-def get_fact_repository(graph: GraphDB = Depends(get_graph)) -> FactRepository:
+def get_fact_repository(graph: GraphDB = Depends(get_graph)) -> FactRepository:  # pyright: ignore[reportCallInDefaultInitializer]
     """Dependency to get the fact repository."""
     return FactRepository(db=graph)
 
 
 def get_add_fact_usecase(
-    repo: FactRepository = Depends(get_fact_repository),
+    repo: FactRepository = Depends(get_fact_repository),  # pyright: ignore[reportCallInDefaultInitializer]
 ) -> AddFactUsecase:
     """Dependency to get the add fact usecase."""
     return AddFactUsecase(repo=repo)
@@ -74,7 +74,7 @@ def get_add_fact_usecase(
 )
 async def create_entity(
     request: CreateEntityRequest,
-    usecase: CreateEntityUsecase = Depends(get_create_entity_usecase),
+    usecase: CreateEntityUsecase = Depends(get_create_entity_usecase),  # pyright: ignore[reportCallInDefaultInitializer]
 ) -> CreateEntityResponse:
     """Create a new entity with an identifier.
 
@@ -103,7 +103,7 @@ async def create_entity(
 @router.get("/entities/{entity_id}", response_model=GetEntityResponse)
 async def get_entity(
     entity_id: UUID,
-    usecase: GetEntityUsecase = Depends(get_get_entity_usecase),
+    usecase: GetEntityUsecase = Depends(get_get_entity_usecase),  # pyright: ignore[reportCallInDefaultInitializer]
 ) -> GetEntityResponse:
     """Get an entity with all its identifiers and facts."""
     try:
@@ -132,7 +132,7 @@ async def search_entities(
     identifier_value: str | None = None,
     identifier_type: str | None = None,
     limit: int = 50,
-    usecase: SearchEntitiesUsecase = Depends(get_search_entities_usecase),
+    usecase: SearchEntitiesUsecase = Depends(get_search_entities_usecase),  # pyright: ignore[reportCallInDefaultInitializer]
 ) -> SearchEntitiesResponse:
     """Search for entities by identifier."""
     try:
@@ -155,7 +155,7 @@ async def search_entities(
 async def add_fact_to_entity(
     entity_id: UUID,
     request: AddFactRequest,
-    usecase: AddFactUsecase = Depends(get_add_fact_usecase),
+    usecase: AddFactUsecase = Depends(get_add_fact_usecase),  # pyright: ignore[reportCallInDefaultInitializer]
 ) -> AddFactResponse:
     """Add a fact to an existing entity with source information."""
     try:

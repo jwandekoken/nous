@@ -49,7 +49,7 @@ def create_app() -> FastAPI:
     app.include_router(graph_router, prefix="/api/v1")
 
     @app.get("/health")
-    async def health_check() -> dict[str, str]:
+    async def health_check() -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
         """Health check endpoint."""
         return {"status": "healthy"}
 
