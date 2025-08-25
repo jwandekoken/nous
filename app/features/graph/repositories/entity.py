@@ -11,7 +11,7 @@ class EntityRepository:
     """Handles all entity-related database operations."""
 
     def __init__(self, db: GraphDB):
-        self.db = db
+        self.db: GraphDB = db
 
     async def create_entity(
         self, entity: Entity, identifier: Identifier, relationship: HasIdentifier

@@ -14,7 +14,7 @@ class CreateEntityUsecase:
     """Business logic for creating entities."""
 
     def __init__(self, repo: EntityRepository):
-        self.repo = repo
+        self.repo: EntityRepository = repo
 
     async def execute(
         self,
