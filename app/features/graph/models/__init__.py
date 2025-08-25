@@ -19,12 +19,11 @@ from .base import GraphBaseModel
 
 # Node models
 from .entity import Entity
-from .fact import Fact
-from .identifier import Identifier
+from .fact import Fact, HasFact
+from .identifier import HasIdentifier, Identifier
 
 # Relationship models
-from .relationships import DerivedFrom, HasFact, HasIdentifier
-from .source import Source
+from .source import DerivedFrom, Source
 
 # Utility models and helper functions
 from .utils import (

@@ -12,9 +12,8 @@ from pydantic import Field
 from .base import GraphBaseModel
 from .entity import Entity
 from .fact import Fact
-from .identifier import Identifier
-from .relationships import DerivedFrom, HasIdentifier
-from .source import Source
+from .identifier import HasIdentifier, Identifier
+from .source import DerivedFrom, Source
 
 
 # Utility Models for API Operations

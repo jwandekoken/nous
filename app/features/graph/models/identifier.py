@@ -4,6 +4,9 @@ This module defines the Identifier model for external identifiers
 like email addresses, phone numbers, usernames, etc.
 """
 
+from datetime import datetime, timezone
+from uuid import UUID
+
 from pydantic import Field, field_validator
 
 from .base import GraphBaseModel
@@ -39,3 +42,24 @@ class Identifier(GraphBaseModel):
         if v not in valid_types:
             raise ValueError(f"Identifier type must be one of: {valid_types}")
         return v
+
+
+class HasIdentifier(GraphBaseModel):
+    """Relationship connecting an Entity to its external Identifiers.
+
+    This relationship allows entities to have multiple identifiers
+    while maintaining a canonical UUID as the primary key.
+    """
+
+    from_entity_id: UUID = Field(..., description="Entity that owns the identifier")
+    to_identifier_value: str = Field(
+        ..., description="Identifier value being connected"
+    )
+    is_primary: bool = Field(
+        default=False,
+        description="Whether this is the primary identifier for the entity",
+    )
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        description="When this relationship was established",
+    )

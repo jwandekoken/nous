@@ -4,6 +4,9 @@ This module defines the Fact model for representing discrete pieces
 of knowledge or named entities.
 """
 
+from datetime import datetime, timezone
+from uuid import UUID
+
 from pydantic import Field, field_validator, model_validator
 
 from .base import GraphBaseModel
@@ -52,3 +55,34 @@ class Fact(GraphBaseModel):
     def create_fact_id(cls, fact_type: str, name: str) -> str:
         """Helper method to create a synthetic fact_id."""
         return f"{fact_type}:{name}"
+
+
+class HasFact(GraphBaseModel):
+    """Relationship connecting an Entity to a Fact it possesses.
+
+    The verb provides semantic context about how the entity relates to the fact.
+    """
+
+    from_entity_id: UUID = Field(..., description="Entity that possesses the fact")
+    to_fact_id: str = Field(..., description="Fact being connected")
+    verb: str = Field(
+        ..., description="Semantic relationship (e.g., 'lives_in', 'works_at')"
+    )
+    confidence_score: float = Field(
+        ge=0.0,
+        le=1.0,
+        default=1.0,
+        description="Confidence level of this fact (0.0 to 1.0)",
+    )
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        description="When this relationship was established",
+    )
+
+    @field_validator("verb")
+    @classmethod
+    def validate_verb(cls, v: str) -> str:
+        """Ensure verb is a valid semantic relationship."""
+        if not v or not v.strip():
+            raise ValueError("Verb cannot be empty")
+        return v.strip().lower()

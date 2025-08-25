@@ -33,3 +33,14 @@ class Source(GraphBaseModel):
         if not v or not v.strip():
             raise ValueError("Source content cannot be empty")
         return v.strip()
+
+
+class DerivedFrom(GraphBaseModel):
+    """Relationship connecting a Fact to its Source.
+
+    This enables traceability by linking facts back to their origins,
+    answering the question: "How do we know this fact?"
+    """
+
+    from_fact_id: str = Field(..., description="Fact that was derived")
+    to_source_id: UUID = Field(..., description="Source where the fact originated")
