@@ -2,14 +2,14 @@
 
 from typing import Any
 
-from app.features.graph.repository import GraphRepository
+from app.features.graph.repositories import EntityRepository
 
 
 class SearchEntitiesUsecase:
     """Business logic for searching entities."""
 
-    def __init__(self, repo: GraphRepository):
-        self.repo = repo
+    def __init__(self, repo: EntityRepository):
+        self.repo: EntityRepository = repo
 
     async def execute(
         self,

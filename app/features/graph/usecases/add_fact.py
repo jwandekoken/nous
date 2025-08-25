@@ -9,13 +9,13 @@ from app.features.graph.models import (
     Source,
     create_fact_with_source,
 )
-from app.features.graph.repository import GraphRepository
+from app.features.graph.repositories import FactRepository
 
 
 class AddFactUsecase:
     """Business logic for adding facts to entities."""
 
-    def __init__(self, repo: GraphRepository):
+    def __init__(self, repo: FactRepository):
         self.repo = repo
 
     async def execute(

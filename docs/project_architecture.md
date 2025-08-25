@@ -6,7 +6,12 @@ We need a scalable and maintainable structure for our growing FastAPI applicatio
 
 ## Decision
 
-We will adopt a modular, feature-based architecture with **inline tests**. Test files will be co-located with the source code they verify. The project will be organized by business domains (e.g., `users`, `items`), with each module containing its own routes, logic, models, and tests.
+We have implemented a modular, feature-based architecture with **inline tests** and **entity-specific separation**. The project is organized by business domains (e.g., `users`, `graph`), with each feature containing its own routes, logic, models, repositories, and tests. We follow the **Clean Architecture** principles with clear separation between:
+
+- **Presentation Layer** (Routes/APIs)
+- **Application Layer** (Use Cases/Business Logic)
+- **Domain Layer** (Models/Entities)
+- **Infrastructure Layer** (Repositories/Databases)
 
 ## Development Environment
 
@@ -17,27 +22,44 @@ Tests will be run by pointing `pytest` to the application source directory: `uv 
 ## Architecture Overview
 
 ```plaintext
-/my_fastapi_project/
+/nous-api/
 |
 |-- /app/
-|   |-- main.py
+|   |-- main.py                    # FastAPI app factory & router inclusion
 |   |-- /core/
 |   |   |-- security.py
-|   |   `-- test_security.py      # Test co-located with code
+|   |   `-- test_security.py       # Test co-located with code
 |   |
 |   |-- /db/
-|   |   |-- /postgres/
-|   |   `-- /graph/
+|   |   |-- /postgres/             # PostgreSQL connection logic
+|   |   `-- /graph/                # Graph DB connection logic
 |   |
 |   `-- /features/
-|       `-- /users/               # Example feature module
-|           |-- router.py
-|           |-- test_router.py    # Test for the router
-|           |-- service.py
-|           |-- test_service.py   # Test for the service
-|           |-- schemas.py
-|           |-- models.py
-|           `-- graph_models.py
+|       |-- /users/                # User management feature
+|       |   |-- router.py
+|       |   |-- test_router.py     # Test co-located with code
+|       |   |-- service.py
+|       |   |-- models.py
+|       |   `-- schemas.py
+|       |
+|       `-- /graph/                # Graph database feature (IMPLEMENTED)
+|           |-- router.py          # Main router including all entity routes
+|           |-- /models/           # Domain models (Entity, Fact, etc.)
+|           |-- /repositories/     # Entity-specific repositories
+|           |   |-- entity.py      # EntityRepository
+|           |   |-- fact.py        # FactRepository
+|           |   |-- identifier.py  # IdentifierRepository
+|           |   `-- source.py      # SourceRepository
+|           |-- /routes/           # Entity-specific route modules
+|           |   |-- entities.py    # Entity CRUD routes
+|           |   |-- facts.py       # Fact retrieval routes
+|           |   |-- entity_facts.py # Entity-Fact relationship routes
+|           |   `-- __init__.py    # Route exports
+|           `-- /usecases/         # Business logic use cases
+|               |-- create_entity.py
+|               |-- get_entity.py
+|               |-- add_fact.py
+|               `-- ...
 |
 `-- pyproject.toml
 ```
@@ -58,31 +80,30 @@ This approach reduces code duplication and ensures consistency between database 
 
 ### Component Responsibilities
 
-| Component         | Responsibility                                                                                |
-| :---------------- | :-------------------------------------------------------------------------------------------- |
-| `main.py`         | Creates and configures the main `FastAPI` instance.                                           |
-| `core/`           | App-wide concerns (settings, security).                                                       |
-| `db/`             | Contains isolated connection logic for each database.                                         |
-| `router.py`       | **API Layer:** Handles HTTP requests and responses.                                           |
-| `service.py`      | **Logic Layer:** Implements business rules.                                                   |
-| `schemas.py`      | **Data Layer:** Defines pure Pydantic models for API I/O (when separate from DB models).      |
-| `models.py`       | **Persistence Layer:** Defines SQLModel classes that serve as both DB tables and API schemas. |
-| `graph_models.py` | **Persistence Layer:** Defines graph DB node/edge models.                                     |
-| `test_*.py`       | **Testing Layer:** Verifies the correctness of a module.                                      |
+| Component         | Responsibility                                                                     |
+| :---------------- | :--------------------------------------------------------------------------------- |
+| `main.py`         | Creates and configures the main `FastAPI` instance with router inclusion.          |
+| `core/`           | App-wide concerns (settings, security).                                            |
+| `db/`             | Contains isolated connection logic for each database.                              |
+| `router.py`       | **Main Router:** Orchestrates entity-specific route modules.                       |
+| `routes/`         | **API Layer:** Entity-specific route modules handling HTTP requests/responses.     |
+| `usecases/`       | **Application Layer:** Business logic use cases with validation and rules.         |
+| `repositories/`   | **Infrastructure Layer:** Entity-specific database operations and queries.         |
+| `models/`         | **Domain Layer:** Core business entities, relationships, and domain models.        |
+| `schemas.py`      | **Data Layer:** Pure Pydantic models for API I/O (when separate from DB models).   |
+| `models.py`       | **Persistence Layer:** SQLModel classes serving as both DB tables and API schemas. |
+| `graph_models.py` | **Persistence Layer:** Graph DB node/edge models.                                  |
+| `test_*.py`       | **Testing Layer:** Verifies the correctness of each module.                        |
 
-## Consequences
+### API Structure
 
-### Positive
-
-- **High Cohesion:** Feature-specific code and its tests are grouped together.
-- **Test Proximity:** Locating tests next to source code improves discoverability and encourages consistent testing.
-- **Polyglot Persistence:** Natively supports using the right database for the right task.
-- **Scalability:** Adding new features is straightforward.
-- **Unified Data Models:** SQLModel eliminates duplication between database models and API schemas, ensuring consistency and reducing maintenance overhead.
-- **Type Safety:** Full type checking across database operations and API serialization.
-
-### Negative
-
-- **Source Directory Clutter:** Production and test code are mixed within the `app` directory.
-- **Increased Complexity:** Managing services across multiple databases is inherently complex.
-- **Packaging:** Requires explicit configuration to exclude test files from a production build artifact.
+```
+FastAPI Application
+├── /api/v1/graph/
+│   ├── POST /entities           # Create entity with identifier
+│   ├── GET /entities/{id}       # Get entity by ID
+│   ├── GET /entities            # Search entities by identifier
+│   ├── GET /facts/{id}          # Get fact by ID
+│   └── POST /entities/{id}/facts # Add fact to entity
+└── /health                      # Health check endpoint
+```

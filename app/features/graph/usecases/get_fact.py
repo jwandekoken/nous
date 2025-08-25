@@ -2,14 +2,14 @@
 
 from typing import Any
 
-from app.features.graph.repository import GraphRepository
+from app.features.graph.repositories import FactRepository
 
 
 class GetFactUsecase:
     """Business logic for retrieving facts."""
 
-    def __init__(self, repo: GraphRepository):
-        self.repo = repo
+    def __init__(self, repo: FactRepository):
+        self.repo: FactRepository = repo
 
     async def execute(self, fact_id: str) -> dict[str, Any] | None:
         """Execute fact retrieval with business rules."""

@@ -7,13 +7,13 @@ from app.features.graph.models import (
     Identifier,
     create_entity_with_identifier,
 )
-from app.features.graph.repository import GraphRepository
+from app.features.graph.repositories import EntityRepository
 
 
 class CreateEntityUsecase:
     """Business logic for creating entities."""
 
-    def __init__(self, repo: GraphRepository):
+    def __init__(self, repo: EntityRepository):
         self.repo = repo
 
     async def execute(

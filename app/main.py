@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.settings import get_settings
-from app.features.users.router import router as users_router
+from app.features.graph.router import router as graph_router
 
 
 @asynccontextmanager
@@ -46,7 +46,7 @@ def create_app() -> FastAPI:
     )
 
     # Include routers
-    app.include_router(users_router, prefix="/api/v1")
+    app.include_router(graph_router, prefix="/api/v1")
 
     @app.get("/health")
     async def health_check() -> dict[str, str]:
