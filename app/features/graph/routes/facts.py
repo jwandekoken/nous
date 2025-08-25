@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.db.graph import GraphDB, get_graph_db
-from app.features.graph.models import GetFactResponse
+from app.features.graph.dtos import GetFactResponse
 from app.features.graph.repositories import FactRepository
 from app.features.graph.usecases.get_fact import GetFactUsecase
 
