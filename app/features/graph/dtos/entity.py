@@ -3,13 +3,13 @@
 This module defines request and response models for entity operations.
 """
 
-from typing import Any
-
 from pydantic import BaseModel, Field
 
 from ..models.base import GraphBaseModel
 from ..models.entity import Entity
+from ..models.fact import Fact
 from ..models.identifier import Identifier
+from ..models.source import Source
 
 
 class CreateEntityRequest(BaseModel):
@@ -21,7 +21,7 @@ class CreateEntityRequest(BaseModel):
     identifier_type: str = Field(
         ..., description="Type of identifier (email, phone, username, etc.)"
     )
-    metadata: dict[str, Any] | None = Field(
+    metadata: dict[str, str] | None = Field(
         default=None, description="Optional metadata for the entity"
     )
 
@@ -43,16 +43,14 @@ class GetEntityResponse(GraphBaseModel):
     identifiers: list[Identifier] = Field(
         ..., description="All identifiers for the entity"
     )
-    facts: list[dict[str, Any]] = Field(
-        ..., description="Facts associated with the entity"
-    )
-    sources: list = Field(..., description="Sources for the facts")
+    facts: list[Fact] = Field(..., description="Facts associated with the entity")
+    sources: list[Source] = Field(..., description="Sources for the facts")
 
 
 class SearchEntitiesResponse(GraphBaseModel):
     """Response model for entity search."""
 
-    entities: list[dict[str, Any]] = Field(
+    entities: list[Entity] = Field(
         ..., description="List of matching entities with their identifiers"
     )
     total_count: int = Field(..., description="Total number of entities found")

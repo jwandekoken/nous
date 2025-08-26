@@ -2,7 +2,8 @@
 This implementation uses KuzuDB through the KuzuDB API server.
 """
 
-from typing import Mapping, cast
+from collections.abc import Mapping
+from typing import Any
 
 import httpx
 from httpx import BasicAuth
@@ -45,39 +46,29 @@ class GraphDB:
             self._client = None
             print("Disconnected from KuzuDB API server")
 
-    async def get_server_status(self) -> dict[str, str | float]:
+    async def get_server_status(self) -> Any:
         """Get the status of the KuzuDB API server."""
         if not self._client:
             raise RuntimeError("Not connected to KuzuDB API server")
 
         response = await self._client.get("/")
         _ = response.raise_for_status()  # Validate response status
-        return cast(dict[str, str | float], response.json())
+        return response.json()
 
-    async def get_schema(
-        self,
-    ) -> dict[str, list[dict[str, str | list[dict[str, str | bool]]]]]:
+    async def get_schema(self) -> Any:
         """Get the schema of the database."""
         if not self._client:
             raise RuntimeError("Not connected to KuzuDB API server")
 
         response = await self._client.get("/schema")
         _ = response.raise_for_status()  # Validate response status
-        return cast(
-            dict[str, list[dict[str, str | list[dict[str, str | bool]]]]],
-            response.json(),
-        )
+        return response.json()
 
     async def execute_query(
         self,
         query: str,
-        parameters: Mapping[str, str | int | float | bool | None] | None = None,
-    ) -> dict[
-        str,
-        list[dict[str, str | int | float | bool | dict[str, str | int]]]
-        | dict[str, str]
-        | bool,
-    ]:
+        parameters: Any | None = None,
+    ) -> Any:
         """Execute a Cypher query and get the result."""
         if not self._client:
             raise RuntimeError("Not connected to KuzuDB API server")
@@ -91,16 +82,10 @@ class GraphDB:
         response = await self._client.post(
             "/cypher", json=request_data, headers={"Content-Type": "application/json"}
         )
+
         _ = response.raise_for_status()  # Validate response status
-        return cast(
-            dict[
-                str,
-                list[dict[str, str | int | float | bool | dict[str, str | int]]]
-                | dict[str, str]
-                | bool,
-            ],
-            response.json(),
-        )
+        response_json = response.json()
+        return response_json
 
 
 # Global graph database instance

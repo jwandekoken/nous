@@ -1,7 +1,5 @@
 """Create entity usecase - handles entity creation business logic."""
 
-from typing import Any
-
 from app.features.graph.models import (
     Entity,
     Identifier,
@@ -20,7 +18,7 @@ class CreateEntityUsecase:
         self,
         identifier_value: str,
         identifier_type: str,
-        metadata: dict[str, Any] | None,
+        metadata: dict[str, str] | None,
     ) -> tuple[Entity, Identifier]:
         """Execute entity creation with validation and business rules."""
         entity, identifier, relationship = create_entity_with_identifier(

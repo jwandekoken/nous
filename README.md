@@ -115,6 +115,23 @@ Run specific test file:
 uv run pytest app/features/users/test_router.py -v
 ```
 
+#### Integration Tests
+
+Run integration tests for EntityRepository (uses real KuzuDB database):
+
+```bash
+# Run all integration tests for entity repository
+uv run python -m pytest app/features/graph/repositories/test_entity_integration.py -v
+
+# Run specific integration test with detailed output
+uv run python -m pytest app/features/graph/repositories/test_entity_integration.py::TestEntityIntegration::test_create_entity_basic -v -s
+
+# Run integration tests with coverage
+uv run python -m pytest app/features/graph/repositories/test_entity_integration.py --cov=app.features.graph.repositories.entity
+```
+
+**Note**: Integration tests connect to your actual KuzuDB database, so ensure your database is running and properly configured in your environment variables.
+
 ### Development Tools
 
 **Format and lint code**:
