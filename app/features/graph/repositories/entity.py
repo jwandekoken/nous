@@ -1,5 +1,6 @@
 """Entity repository for database operations."""
 
+import json
 from typing import Any
 from uuid import UUID
 
@@ -20,22 +21,20 @@ class EntityRepository:
         query = """
         MERGE (i:Identifier {value: $identifier_value})
         ON CREATE SET i.type = $identifier_type
-        CREATE (e:Entity {
-            id: $entity_id,
-            created_at: $created_at,
-            metadata: $metadata
-        })
-        CREATE (e)-[:HAS_IDENTIFIER {
-            is_primary: $is_primary,
-            created_at: $relationship_created_at
-        }]->(i)
+        MERGE (e:Entity)-[r:HAS_IDENTIFIER]->(i)
+        ON CREATE SET
+            e.id = $entity_id,
+            e.created_at = $created_at,
+            e.metadata = $metadata,
+            r.is_primary = $is_primary,
+            r.created_at = $relationship_created_at
         RETURN e.id AS entityId, i.value AS identifierValue
         """
 
         parameters = {
             "entity_id": str(entity.id),
             "created_at": entity.created_at.isoformat(),
-            "metadata": entity.metadata,
+            "metadata": json.dumps(entity.metadata),
             "identifier_value": identifier.value,
             "identifier_type": identifier.type,
             "is_primary": relationship.is_primary,
