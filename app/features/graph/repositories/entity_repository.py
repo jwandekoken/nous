@@ -1,6 +1,5 @@
 """Entity repository for database operations."""
 
-import json
 from typing import Any
 from uuid import UUID
 
@@ -18,31 +17,46 @@ class EntityRepository:
         self, entity: Entity, identifier: Identifier, relationship: HasIdentifier
     ) -> bool:
         """Create a new entity with identifier in the database."""
-        query = """
-        MERGE (i:Identifier {value: $identifier_value})
+        created_at_str = entity.created_at.strftime("%Y-%m-%d %H:%M:%S")
+        relationship_created_at_str = relationship.created_at.strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
+
+        # Convert metadata dict to KuzuDB MAP format
+        metadata_clause = ""
+        if entity.metadata:
+            # Convert dict to MAP using map([keys], [values]) syntax
+            keys = list(entity.metadata.keys())
+            values = list(entity.metadata.values())
+            keys_str = ", ".join([f"'{k}'" for k in keys])
+            values_str = ", ".join([f"'{v}'" for v in values])
+            metadata_clause = f"e.metadata = map([{keys_str}], [{values_str}])"
+        else:
+            metadata_clause = "e.metadata = map([], [])"
+
+        query = f"""
+        MERGE (i:Identifier {{value: $identifier_value}})
         ON CREATE SET i.type = $identifier_type
-        MERGE (e:Entity)-[r:HAS_IDENTIFIER]->(i)
+        MERGE (e:Entity {{id: uuid('{entity.id}')}})
         ON CREATE SET
-            e.id = $entity_id,
-            e.created_at = $created_at,
-            e.metadata = $metadata,
+            e.created_at = timestamp('{created_at_str}')
+            {"," + metadata_clause if metadata_clause else ""}
+        MERGE (e)-[r:HAS_IDENTIFIER]->(i)
+        ON CREATE SET
             r.is_primary = $is_primary,
-            r.created_at = $relationship_created_at
+            r.created_at = timestamp('{relationship_created_at_str}')
         RETURN e.id AS entityId, i.value AS identifierValue
         """
 
         parameters = {
-            "entity_id": str(entity.id),
-            "created_at": entity.created_at.isoformat(),
-            "metadata": json.dumps(entity.metadata),
             "identifier_value": identifier.value,
             "identifier_type": identifier.type,
             "is_primary": relationship.is_primary,
-            "relationship_created_at": relationship.created_at.isoformat(),
         }
 
         result = await self.db.execute_query(query, parameters)
-        return result.get("success", False)
+        # Query is successful if we get a response with rows (no HTTP error occurred)
+        return len(result.get("rows", [])) > 0
 
     async def find_entity_by_id(self, entity_id: UUID) -> dict[str, Any] | None:
         """Find entity by ID with all its identifiers and facts."""

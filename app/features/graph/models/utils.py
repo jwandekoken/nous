@@ -9,11 +9,11 @@ from typing import Any
 
 from pydantic import Field
 
-from .base import GraphBaseModel
-from .entity import Entity
-from .fact import Fact
-from .identifier import HasIdentifier, Identifier
-from .source import DerivedFrom, Source
+from .base_model import GraphBaseModel
+from .entity_model import Entity
+from .fact_model import Fact
+from .identifier_model import HasIdentifier, Identifier
+from .source_model import DerivedFrom, Source
 
 
 # Utility Models for API Operations

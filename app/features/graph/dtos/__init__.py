@@ -3,13 +3,13 @@
 This module re-exports all Data Transfer Objects for convenient importing.
 """
 
-from .entity import (
+from .entity_dto import (
     CreateEntityRequest,
     CreateEntityResponse,
     GetEntityResponse,
     SearchEntitiesResponse,
 )
-from .fact import (
+from .fact_dto import (
     AddFactRequest,
     AddFactResponse,
     GetFactResponse,

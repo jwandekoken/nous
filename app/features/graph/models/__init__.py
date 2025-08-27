@@ -5,15 +5,15 @@ including nodes, relationships, API models, and utility functions.
 """
 
 # Base models
-from .base import GraphBaseModel
+from .base_model import GraphBaseModel
 
 # Node models
-from .entity import Entity
-from .fact import Fact, HasFact
-from .identifier import HasIdentifier, Identifier
+from .entity_model import Entity
+from .fact_model import Fact, HasFact
+from .identifier_model import HasIdentifier, Identifier
 
 # Relationship models
-from .source import DerivedFrom, Source
+from .source_model import DerivedFrom, Source
 
 # Utility models and helper functions
 from .utils import (

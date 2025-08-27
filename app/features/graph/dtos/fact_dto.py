@@ -5,10 +5,10 @@ This module defines request and response models for fact operations.
 
 from pydantic import BaseModel, Field
 
-from ..models.base import GraphBaseModel
-from ..models.entity import Entity
-from ..models.fact import Fact, HasFact
-from ..models.source import Source
+from ..models.base_model import GraphBaseModel
+from ..models.entity_model import Entity
+from ..models.fact_model import Fact, HasFact
+from ..models.source_model import Source
 
 
 class AddFactRequest(BaseModel):

@@ -15,10 +15,10 @@ from app.features.graph.dtos import (
     SearchEntitiesResponse,
 )
 from app.features.graph.repositories import EntityRepository, FactRepository
-from app.features.graph.usecases.add_fact import AddFactUsecase
-from app.features.graph.usecases.create_entity import CreateEntityUsecase
-from app.features.graph.usecases.get_entity import GetEntityUsecase
-from app.features.graph.usecases.search_entities import SearchEntitiesUsecase
+from app.features.graph.usecases.add_fact_usecase import AddFactUsecase
+from app.features.graph.usecases.create_entity_usecase import CreateEntityUsecase
+from app.features.graph.usecases.get_entity_usecase import GetEntityUsecase
+from app.features.graph.usecases.search_entities_usecase import SearchEntitiesUsecase
 
 router = APIRouter()
 

@@ -9,7 +9,7 @@ from uuid import UUID
 
 from pydantic import Field, field_validator, model_validator
 
-from .base import GraphBaseModel
+from .base_model import GraphBaseModel
 
 
 class Fact(GraphBaseModel):
