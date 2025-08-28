@@ -4,30 +4,36 @@ A FastAPI application built with a modular, feature-based architecture supportin
 
 ## Architecture
 
-This project follows the modular architecture defined in [ADR-001](docs/architecture/adr_001_project_architecture.md), with inline tests co-located with source code.
+This project follows the modular architecture defined in [ADR-001](docs/architecture/adr_001_project_architecture.md), with tests properly separated from application code in a dedicated `tests/` directory.
 
 ## Project Structure
 
 ```plaintext
 /nous-api/
-├── app/
+├── app/                          # Application source code
 │   ├── main.py                    # FastAPI app instance
 │   ├── core/                      # App-wide concerns
 │   │   ├── security.py           # Authentication & security
-│   │   ├── test_security.py      # Security tests
 │   │   └── settings.py           # Configuration
 │   ├── db/                       # Database connections
 │   │   ├── postgres/             # PostgreSQL connection
 │   │   └── graph/                # KuzuDB HTTP API client
 │   └── features/                 # Feature modules
-│       └── users/                # User feature
-│           ├── router.py         # API endpoints
-│           ├── test_router.py    # Router tests
-│           ├── service.py        # Business logic
-│           ├── test_service.py   # Service tests
-│           ├── schemas.py        # Pydantic models
-│           ├── models.py         # PostgreSQL models
-│           └── graph_models.py   # KuzuDB models
+│       └── graph/                # Graph feature
+│           ├── models/           # Domain models
+│           ├── repositories/     # Data access layer
+│           ├── routes/           # API endpoints
+│           └── usecases/         # Business logic
+├── tests/                        # Test suite (mirrors app structure)
+│   ├── core/
+│   │   └── test_security.py      # Security tests
+│   ├── db/
+│   │   └── graph/
+│   │       └── test_graph.py     # Graph database tests
+│   └── features/
+│       └── graph/
+│           └── repositories/
+│               └── test_entity_repository_integration.py
 └── pyproject.toml                # Dependencies & config
 ```
 
@@ -37,7 +43,7 @@ This project follows the modular architecture defined in [ADR-001](docs/architec
 - ✅ **Dual Database Support**: PostgreSQL + KuzuDB Graph Database
 - ✅ **HTTP API Integration**: KuzuDB accessed via REST API calls using httpx
 - ✅ **Authentication**: JWT-based auth with password hashing
-- ✅ **Inline Tests**: Tests co-located with source code
+- ✅ **Test Suite**: Comprehensive test coverage with separated test directory
 - ✅ **Modern Python**: Type hints, async/await, Pydantic v2, SQLModel
 - ✅ **Development Tools**: Ruff linting/formatting, basedpyright type checking, pytest
 
@@ -100,19 +106,19 @@ The API will be available at:
 Run all tests:
 
 ```bash
-uv run pytest app/
+uv run pytest tests/
 ```
 
 Run tests with coverage:
 
 ```bash
-uv run pytest app/ --cov=app --cov-report=html
+uv run pytest tests/ --cov=app --cov-report=html
 ```
 
 Run specific test file:
 
 ```bash
-uv run pytest app/features/users/test_router.py -v
+uv run pytest tests/core/test_security.py -v
 ```
 
 #### Integration Tests
@@ -121,13 +127,13 @@ Run integration tests for EntityRepository (uses real KuzuDB database):
 
 ```bash
 # Run all integration tests for entity repository
-uv run python -m pytest app/features/graph/repositories/test_entity_integration.py -v
+uv run python -m pytest tests/features/graph/repositories/test_entity_repository_integration.py -v
 
 # Run specific integration test with detailed output
-uv run python -m pytest app/features/graph/repositories/test_entity_integration.py::TestEntityIntegration::test_create_entity_basic -v -s
+uv run python -m pytest tests/features/graph/repositories/test_entity_repository_integration.py::TestEntityIntegration::test_create_entity_basic -v -s
 
 # Run integration tests with coverage
-uv run python -m pytest app/features/graph/repositories/test_entity_integration.py --cov=app.features.graph.repositories.entity
+uv run python -m pytest tests/features/graph/repositories/test_entity_repository_integration.py --cov=app.features.graph.repositories.entity
 ```
 
 **Note**: Integration tests connect to your actual KuzuDB database, so ensure your database is running and properly configured in your environment variables.
@@ -138,19 +144,19 @@ uv run python -m pytest app/features/graph/repositories/test_entity_integration.
 
 ```bash
 uv run ruff format app/
-uv run ruff check app/
+uv run ruff check app/ tests/
 ```
 
 **Fix linting issues automatically**:
 
 ```bash
-uv run ruff check app/ --fix
+uv run ruff check app/ tests/ --fix
 ```
 
 **Type checking**:
 
 ```bash
-uv run basedpyright app/
+uv run basedpyright app/ tests/
 ```
 
 ## API Endpoints
@@ -229,10 +235,18 @@ uv run basedpyright app/
    - `models.py` - SQLModel database models
    - `graph_models.py` - KuzuDB models (if needed)
 
-3. **Add inline tests**:
+3. **Add corresponding tests in `tests/` directory**:
 
-   - `test_router.py`
-   - `test_service.py`
+   Create the test directory structure:
+
+   ```bash
+   mkdir -p tests/features/your_feature
+   ```
+
+   Add test files:
+
+   - `tests/features/your_feature/test_router.py`
+   - `tests/features/your_feature/test_service.py`
 
 4. **Include router in main app**:
    ```python
@@ -247,7 +261,7 @@ All configuration is handled through environment variables. See `.env.example` f
 ## Contributing
 
 1. Follow the naming conventions in [docs/naming_convention.md](docs/naming_convention.md)
-2. Write tests for new features (inline with source code)
+2. Write tests for new features in the `tests/` directory (mirroring the `app/` structure)
 3. Use type hints for all functions
 4. Follow the modular architecture patterns
 5. Use `uv` for dependency management
