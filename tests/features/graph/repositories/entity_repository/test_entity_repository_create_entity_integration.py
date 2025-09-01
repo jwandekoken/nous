@@ -10,7 +10,10 @@ import pytest
 
 from app.db.graph import GraphDB, get_graph_db, reset_graph_db
 from app.features.graph.models import Entity, HasIdentifier, Identifier
-from app.features.graph.repositories.entity_repository import EntityRepository
+from app.features.graph.repositories.entity_repository import (
+    CreateEntityResult,
+    EntityRepository,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -76,14 +79,32 @@ class TestCreateEntityIntegration:
     ) -> None:
         """Test basic entity creation with minimal data."""
         # Act
-        result = await entity_repository.create_entity(
+        result: CreateEntityResult = await entity_repository.create_entity(
             test_entity, test_identifier, test_relationship
         )
 
         print(f"DEBUG - Result: {result}")
 
         # Assert
-        assert result is True
+        assert isinstance(result, dict)
+        assert "entity" in result
+        assert "identifier" in result
+        assert "relationship" in result
+
+        # Verify returned objects have correct properties
+        returned_entity = result["entity"]
+        returned_identifier = result["identifier"]
+        returned_relationship = result["relationship"]
+
+        assert isinstance(returned_entity, Entity)
+        assert isinstance(returned_identifier, Identifier)
+        assert isinstance(returned_relationship, HasIdentifier)
+
+        assert returned_entity.id == test_entity.id
+        assert returned_entity.metadata == test_entity.metadata
+        assert returned_identifier.value == test_identifier.value
+        assert returned_identifier.type == test_identifier.type
+        assert returned_relationship.is_primary == test_relationship.is_primary
 
     @pytest.mark.asyncio
     async def test_create_entity_with_empty_metadata(
@@ -101,12 +122,28 @@ class TestCreateEntityIntegration:
         )
 
         # Act
-        result = await entity_repository.create_entity(
+        result: CreateEntityResult = await entity_repository.create_entity(
             entity, test_identifier, relationship
         )
 
         # Assert
-        assert result is True
+        assert isinstance(result, dict)
+        assert "entity" in result
+        assert "identifier" in result
+        assert "relationship" in result
+
+        # Verify returned objects
+        returned_entity = result["entity"]
+        returned_identifier = result["identifier"]
+        returned_relationship = result["relationship"]
+
+        assert isinstance(returned_entity, Entity)
+        assert isinstance(returned_identifier, Identifier)
+        assert isinstance(returned_relationship, HasIdentifier)
+
+        assert returned_entity.metadata == {}
+        assert returned_identifier.value == test_identifier.value
+        assert returned_relationship.is_primary is True
 
     @pytest.mark.asyncio
     async def test_create_entity_with_rich_metadata(
@@ -116,15 +153,14 @@ class TestCreateEntityIntegration:
     ) -> None:
         """Test creating entity with rich metadata."""
         # Arrange
-        entity = Entity(
-            metadata={
-                "name": "Test username",
-                "age": "25",
-                "preferences": "dark_mode,notifications",
-                "integration_test": "true",
-                "test_id": str(uuid.uuid4()),
-            }
-        )
+        expected_metadata = {
+            "name": "Test username",
+            "age": "25",
+            "preferences": "dark_mode,notifications",
+            "integration_test": "true",
+            "test_id": str(uuid.uuid4()),
+        }
+        entity = Entity(metadata=expected_metadata)
         relationship = HasIdentifier(
             from_entity_id=entity.id,
             to_identifier_value=test_identifier.value,
@@ -132,12 +168,28 @@ class TestCreateEntityIntegration:
         )
 
         # Act
-        result = await entity_repository.create_entity(
+        result: CreateEntityResult = await entity_repository.create_entity(
             entity, test_identifier, relationship
         )
 
         # Assert
-        assert result is True
+        assert isinstance(result, dict)
+        assert "entity" in result
+        assert "identifier" in result
+        assert "relationship" in result
+
+        # Verify returned objects
+        returned_entity = result["entity"]
+        returned_identifier = result["identifier"]
+        returned_relationship = result["relationship"]
+
+        assert isinstance(returned_entity, Entity)
+        assert isinstance(returned_identifier, Identifier)
+        assert isinstance(returned_relationship, HasIdentifier)
+
+        assert returned_entity.metadata == expected_metadata
+        assert returned_identifier.value == test_identifier.value
+        assert returned_relationship.is_primary is True
 
     @pytest.mark.asyncio
     async def test_create_entity_different_identifier_types(
@@ -164,13 +216,22 @@ class TestCreateEntityIntegration:
             )
 
             # Act
-            result = await entity_repository.create_entity(
+            result: CreateEntityResult = await entity_repository.create_entity(
                 test_entity, identifier, relationship
             )
 
             # Assert
-            assert result is True, (
+            assert isinstance(result, dict), (
                 f"Failed to create entity with identifier type: {type_}"
+            )
+            assert "entity" in result
+            assert "identifier" in result
+            assert "relationship" in result
+
+            # Verify returned identifier type matches
+            returned_identifier = result["identifier"]
+            assert returned_identifier.type == type_, (
+                f"Identifier type mismatch for {type_}"
             )
 
     @pytest.mark.asyncio
@@ -193,9 +254,18 @@ class TestCreateEntityIntegration:
             )
 
             # Act
-            result = await entity_repository.create_entity(
+            result: CreateEntityResult = await entity_repository.create_entity(
                 entity, test_identifier, test_relationship
             )
 
             # Assert
-            assert result is True, f"Failed to create entity {i}"
+            assert isinstance(result, dict), f"Failed to create entity {i}"
+            assert "entity" in result
+            assert "identifier" in result
+            assert "relationship" in result
+
+            # Verify returned entity has the correct metadata
+            returned_entity = result["entity"]
+            assert returned_entity.metadata is not None
+            assert returned_entity.metadata["batch_test"] == "true"
+            assert returned_entity.metadata["sequence"] == str(i)

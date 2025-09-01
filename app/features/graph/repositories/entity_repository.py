@@ -1,10 +1,18 @@
 """Entity repository for database operations."""
 
-from typing import Any
+from typing import Any, TypedDict
 from uuid import UUID
 
 from app.db.graph import GraphDB
 from app.features.graph.models import Entity, HasIdentifier, Identifier
+
+
+class CreateEntityResult(TypedDict):
+    """Result of creating a new entity with its identifier and relationship."""
+
+    entity: Entity
+    identifier: Identifier
+    relationship: HasIdentifier
 
 
 class EntityRepository:
@@ -15,7 +23,7 @@ class EntityRepository:
 
     async def create_entity(
         self, entity: Entity, identifier: Identifier, relationship: HasIdentifier
-    ) -> bool:
+    ) -> CreateEntityResult:
         """Create a new entity with identifier in the database."""
         created_at_str = entity.created_at.strftime("%Y-%m-%d %H:%M:%S")
         relationship_created_at_str = relationship.created_at.strftime(
@@ -45,7 +53,7 @@ class EntityRepository:
         ON CREATE SET
             r.is_primary = $is_primary,
             r.created_at = timestamp('{relationship_created_at_str}')
-        RETURN e.id AS entityId, i.value AS identifierValue
+        RETURN e, i, r
         """
 
         parameters = {
@@ -54,11 +62,47 @@ class EntityRepository:
             "is_primary": relationship.is_primary,
         }
 
-        result = await self.db.execute_query(query, parameters)
-        # Query is successful if we get a response with rows (no HTTP error occurred)
-        return len(result.get("rows", [])) > 0
+        result: dict[str, Any] = await self.db.execute_query(query, parameters)
 
-    async def find_entity_by_id(self, entity_id: UUID) -> dict[str, Any] | None:
+        # Parse the results and construct the return objects
+        rows = result.get("rows")
+        if not rows or len(rows) == 0:
+            raise RuntimeError("Failed to create entity - no data returned")
+
+        # Extract data from the Cypher query result
+        # KuzuDB returns results as dicts with keys "e", "i", "r"
+        row_data = rows[0]
+        entity_data = row_data["e"]
+        identifier_data = row_data["i"]
+        relationship_data = row_data["r"]
+
+        # Extract entity data - KuzuDB returns nodes as dicts
+        created_entity = Entity(
+            id=UUID(str(entity_data["id"])),
+            created_at=entity.created_at,  # Use the original created_at since timestamps might be different
+            metadata=entity.metadata,  # Use original metadata
+        )
+
+        # Extract identifier data
+        created_identifier = Identifier(
+            value=str(identifier_data["value"]), type=str(identifier_data["type"])
+        )
+
+        # Extract relationship data
+        created_relationship = HasIdentifier(
+            from_entity_id=UUID(str(entity_data["id"])),
+            to_identifier_value=str(identifier_data["value"]),
+            is_primary=bool(relationship_data["is_primary"]),
+            created_at=relationship.created_at,  # Use original created_at
+        )
+
+        return {
+            "entity": created_entity,
+            "identifier": created_identifier,
+            "relationship": created_relationship,
+        }
+
+    async def find_entity_by_id(self, entity_id: UUID) -> dict[str, Any] | None:  # type: ignore[return]
         """Find entity by ID with all its identifiers and facts."""
         query = """
         MATCH (e:Entity {id: $entity_id})
@@ -69,12 +113,14 @@ class EntityRepository:
                collect(s) as sources, collect(hf) as fact_relationships
         """
 
-        result = await self.db.execute_query(query, {"entity_id": str(entity_id)})
+        result: dict[str, Any] = await self.db.execute_query(
+            query, {"entity_id": str(entity_id)}
+        )  # type: ignore[assignment]
         return result if result.get("data") else None
 
     async def find_entities(
         self, identifier_value: str | None, identifier_type: str | None, limit: int
-    ) -> list[dict[str, Any]]:
+    ) -> list[dict[str, Any]]:  # type: ignore[return]
         """Search for entities by identifier or get all entities."""
         if identifier_value:
             # Search by specific identifier
@@ -99,8 +145,8 @@ class EntityRepository:
             """
             parameters = {"limit": limit}
 
-        result = await self.db.execute_query(query, parameters)
-        return result.get("data", [])
+        result: dict[str, Any] = await self.db.execute_query(query, parameters)  # type: ignore[assignment]
+        return result.get("data", [])  # type: ignore[return-value]
 
     async def delete_entity_by_id(self, entity_id: UUID) -> bool:
         """Delete an entity and all its relationships from the database.
@@ -123,10 +169,13 @@ class EntityRepository:
         RETURN count(e) as deleted_entities
         """
 
-        result = await self.db.execute_query(query, {"entity_id": str(entity_id)})
+        result: dict[str, Any] = await self.db.execute_query(
+            query, {"entity_id": str(entity_id)}
+        )  # type: ignore[assignment]
         # Check if any entities were actually deleted
+        rows = result.get("rows", [])  # type: ignore[assignment]
         return (
-            result.get("rows", [])
-            and len(result["rows"]) > 0
-            and result["rows"][0].get("deleted_entities", 0) > 0
+            rows
+            and len(rows) > 0  # type: ignore[arg-type]
+            and rows[0].get("deleted_entities", 0) > 0  # type: ignore[index]
         )

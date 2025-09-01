@@ -73,7 +73,10 @@ class TestDeleteEntityIntegration:
         create_result = await entity_repository.create_entity(
             test_entity, test_identifier, test_relationship
         )
-        assert create_result is True
+        assert isinstance(create_result, dict)
+        assert "entity" in create_result
+        assert "identifier" in create_result
+        assert "relationship" in create_result
 
         # Verify entity exists before deletion
         found_entity = await entity_repository.find_entity_by_id(test_entity.id)
@@ -117,7 +120,10 @@ class TestDeleteEntityIntegration:
         create_result = await entity_repository.create_entity(
             test_entity, test_identifier, test_relationship
         )
-        assert create_result is True
+        assert isinstance(create_result, dict)
+        assert "entity" in create_result
+        assert "identifier" in create_result
+        assert "relationship" in create_result
 
         # Act: Delete the entity
         delete_result = await entity_repository.delete_entity_by_id(test_entity.id)
