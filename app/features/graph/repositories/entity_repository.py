@@ -101,3 +101,32 @@ class EntityRepository:
 
         result = await self.db.execute_query(query, parameters)
         return result.get("data", [])
+
+    async def delete_entity_by_id(self, entity_id: UUID) -> bool:
+        """Delete an entity and all its relationships from the database.
+
+        This method performs a cascade delete:
+        1. Removes all HAS_IDENTIFIER relationships
+        2. Removes the entity node
+        3. Note: Identifiers are kept as they might be shared with other entities
+
+        Args:
+            entity_id: UUID of the entity to delete
+
+        Returns:
+            bool: True if deletion was successful, False otherwise
+        """
+        query = """
+        MATCH (e:Entity {id: $entity_id})
+        OPTIONAL MATCH (e)-[r:HAS_IDENTIFIER]->(i:Identifier)
+        DELETE r, e
+        RETURN count(e) as deleted_entities
+        """
+
+        result = await self.db.execute_query(query, {"entity_id": str(entity_id)})
+        # Check if any entities were actually deleted
+        return (
+            result.get("rows", [])
+            and len(result["rows"]) > 0
+            and result["rows"][0].get("deleted_entities", 0) > 0
+        )
