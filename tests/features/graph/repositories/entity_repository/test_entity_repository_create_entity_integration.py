@@ -57,7 +57,7 @@ def test_relationship(
     )
 
 
-class TestEntityIntegration:
+class TestCreateEntityIntegration:
     """Integration tests for EntityRepository create_entity method."""
 
     @pytest.mark.asyncio
@@ -112,7 +112,7 @@ class TestEntityIntegration:
         # Arrange
         entity = Entity(
             metadata={
-                "name": "Test User",
+                "name": "Test username",
                 "age": "25",
                 "preferences": "dark_mode,notifications",
                 "integration_test": "true",
