@@ -124,7 +124,7 @@ class TestGraphDB:
     async def test_get_graph_db_singleton(self, mock_settings):
         """Test that get_graph_db returns a singleton instance."""
         with (
-            patch("app.db.graph.get_settings", return_value=mock_settings),
+            patch("app.db.graph.connection.get_settings", return_value=mock_settings),
             patch.object(GraphDB, "connect", new_callable=AsyncMock),
         ):
             # First call should create a new instance
@@ -145,20 +145,20 @@ class TestGraphDB:
         mock_db.disconnect = AsyncMock()
 
         with (
-            patch("app.db.graph.get_settings", return_value=mock_settings),
-            patch("app.db.graph._graph_db", mock_db),
+            patch("app.db.graph.connection.get_settings", return_value=mock_settings),
+            patch("app.db.graph.connection._graph_db", mock_db),
         ):
             await close_graph_db()
 
             mock_db.disconnect.assert_called_once()
             # Check that the global instance is reset to None
-            from app.db.graph import _graph_db
+            from app.db.graph.connection import _graph_db
 
             assert _graph_db is None
 
     @pytest.mark.asyncio
     async def test_close_graph_db_without_instance(self):
         """Test closing when no graph database instance exists."""
-        with patch("app.db.graph._graph_db", None):
+        with patch("app.db.graph.connection._graph_db", None):
             # Should not raise any exception
             await close_graph_db()
