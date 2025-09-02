@@ -22,3 +22,19 @@ class GraphBaseModel(BaseModel):
         #     UUID: str,
         # },
     )
+
+    def to_db_timestamp(self) -> str:
+        """Format this model's timestamp for database storage.
+
+        This method should be overridden by models that have timestamp fields
+        to provide their specific timestamp formatting.
+
+        Returns:
+            Formatted timestamp string for KuzuDB
+
+        Raises:
+            NotImplementedError: If the subclass doesn't implement this method
+        """
+        raise NotImplementedError(
+            f"{self.__class__.__name__} must implement to_db_timestamp()"
+        )

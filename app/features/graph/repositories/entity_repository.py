@@ -25,30 +25,19 @@ class EntityRepository:
         self, entity: Entity, identifier: Identifier, relationship: HasIdentifier
     ) -> CreateEntityResult:
         """Create a new entity with identifier in the database."""
-        created_at_str = entity.created_at.strftime("%Y-%m-%d %H:%M:%S")
-        relationship_created_at_str = relationship.created_at.strftime(
-            "%Y-%m-%d %H:%M:%S"
-        )
+        created_at_str = entity.to_db_timestamp()
+        relationship_created_at_str = relationship.to_db_timestamp()
 
-        # Convert metadata dict to KuzuDB MAP format
-        metadata_clause = ""
-        if entity.metadata:
-            # Convert dict to MAP using map([keys], [values]) syntax
-            keys = list(entity.metadata.keys())
-            values = list(entity.metadata.values())
-            keys_str = ", ".join([f"'{k}'" for k in keys])
-            values_str = ", ".join([f"'{v}'" for v in values])
-            metadata_clause = f"e.metadata = map([{keys_str}], [{values_str}])"
-        else:
-            metadata_clause = "e.metadata = map([], [])"
+        # Get metadata formatted for KuzuDB MAP format
+        metadata_clause = entity.format_metadata_for_db()
 
         query = f"""
         MERGE (i:Identifier {{value: $identifier_value}})
         ON CREATE SET i.type = $identifier_type
         MERGE (e:Entity {{id: uuid('{entity.id}')}})
         ON CREATE SET
-            e.created_at = timestamp('{created_at_str}')
-            {"," + metadata_clause if metadata_clause else ""}
+            e.created_at = timestamp('{created_at_str}'),
+            e.metadata = {metadata_clause}
         MERGE (e)-[r:HAS_IDENTIFIER]->(i)
         ON CREATE SET
             r.is_primary = $is_primary,
@@ -64,12 +53,10 @@ class EntityRepository:
 
         result: dict[str, Any] = await self.db.execute_query(query, parameters)
 
-        # Parse the results and construct the return objects
         rows = result.get("rows")
         if not rows or len(rows) == 0:
             raise RuntimeError("Failed to create entity - no data returned")
 
-        # Extract data from the Cypher query result
         # KuzuDB returns results as dicts with keys "e", "i", "r"
         row_data = rows[0]
         entity_data = row_data["e"]
@@ -85,7 +72,8 @@ class EntityRepository:
 
         # Extract identifier data
         created_identifier = Identifier(
-            value=str(identifier_data["value"]), type=str(identifier_data["type"])
+            value=str(identifier_data["value"]),
+            type=str(identifier_data["type"]),
         )
 
         # Extract relationship data
@@ -102,7 +90,7 @@ class EntityRepository:
             "relationship": created_relationship,
         }
 
-    async def find_entity_by_id(self, entity_id: UUID) -> dict[str, Any] | None:  # type: ignore[return]
+    async def find_entity_by_id(self, entity_id: UUID) -> dict[str, Any] | None:
         """Find entity by ID with all its identifiers and facts."""
         query = """
         MATCH (e:Entity {id: $entity_id})
@@ -115,12 +103,12 @@ class EntityRepository:
 
         result: dict[str, Any] = await self.db.execute_query(
             query, {"entity_id": str(entity_id)}
-        )  # type: ignore[assignment]
+        )
         return result if result.get("data") else None
 
     async def find_entities(
         self, identifier_value: str | None, identifier_type: str | None, limit: int
-    ) -> list[dict[str, Any]]:  # type: ignore[return]
+    ) -> list[dict[str, Any]]:
         """Search for entities by identifier or get all entities."""
         if identifier_value:
             # Search by specific identifier
@@ -145,8 +133,8 @@ class EntityRepository:
             """
             parameters = {"limit": limit}
 
-        result: dict[str, Any] = await self.db.execute_query(query, parameters)  # type: ignore[assignment]
-        return result.get("data", [])  # type: ignore[return-value]
+        result: dict[str, Any] = await self.db.execute_query(query, parameters)
+        return result.get("data", [])
 
     async def delete_entity_by_id(self, entity_id: UUID) -> bool:
         """Delete an entity and all its relationships from the database.
@@ -154,7 +142,7 @@ class EntityRepository:
         This method performs a cascade delete:
         1. Removes all HAS_IDENTIFIER relationships
         2. Removes the entity node
-        3. Note: Identifiers are kept as they might be shared with other entities
+        3. Also removes identifiers that are no longer used by other entities
 
         Args:
             entity_id: UUID of the entity to delete
@@ -165,17 +153,26 @@ class EntityRepository:
         query = """
         MATCH (e:Entity {id: $entity_id})
         OPTIONAL MATCH (e)-[r:HAS_IDENTIFIER]->(i:Identifier)
+        WITH e, r, i
+        // Check if identifier is used by other entities (excluding the one being deleted)
+        OPTIONAL MATCH (other_e:Entity)-[other_r:HAS_IDENTIFIER]->(i)
+        WHERE other_e <> e
+        WITH e, r, i, count(other_r) as other_rel_count
+        // Delete entity and HAS_IDENTIFIER relationship
         DELETE r, e
+        // Conditionally delete identifier only if it has no other relationships
+        FOREACH (_ IN CASE WHEN other_rel_count = 0 THEN [1] ELSE [] END |
+          DELETE i
+        )
         RETURN count(e) as deleted_entities
         """
 
         result: dict[str, Any] = await self.db.execute_query(
             query, {"entity_id": str(entity_id)}
-        )  # type: ignore[assignment]
-        # Check if any entities were actually deleted
-        rows = result.get("rows", [])  # type: ignore[assignment]
-        return (
-            rows
-            and len(rows) > 0  # type: ignore[arg-type]
-            and rows[0].get("deleted_entities", 0) > 0  # type: ignore[index]
         )
+
+        print("DEBUG - Result: ", result)
+
+        # Check if any entities were actually deleted
+        rows = result.get("rows", [])
+        return rows and len(rows) > 0 and rows[0].get("deleted_entities", 0) > 0
