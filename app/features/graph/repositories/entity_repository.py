@@ -34,21 +34,24 @@ class EntityRepository:
         query = f"""
         MERGE (i:Identifier {{value: $identifier_value}})
         ON CREATE SET i.type = $identifier_type
-        MERGE (e:Entity {{id: uuid('{entity.id}')}})
+        MERGE (e:Entity {{id: uuid($entity_id)}})
         ON CREATE SET
-            e.created_at = timestamp('{created_at_str}'),
+            e.created_at = timestamp($created_at_str),
             e.metadata = {metadata_clause}
         MERGE (e)-[r:HAS_IDENTIFIER]->(i)
         ON CREATE SET
             r.is_primary = $is_primary,
-            r.created_at = timestamp('{relationship_created_at_str}')
+            r.created_at = timestamp($relationship_created_at_str)
         RETURN e, i, r
         """
 
         parameters = {
             "identifier_value": identifier.value,
             "identifier_type": identifier.type,
+            "entity_id": str(entity.id),
+            "created_at_str": created_at_str,
             "is_primary": relationship.is_primary,
+            "relationship_created_at_str": relationship_created_at_str,
         }
 
         result: dict[str, Any] = await self.db.execute_query(query, parameters)
