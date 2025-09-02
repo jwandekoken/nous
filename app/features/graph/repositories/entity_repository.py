@@ -92,8 +92,8 @@ class EntityRepository:
 
     async def find_entity_by_id(self, entity_id: UUID) -> dict[str, Any] | None:
         """Find entity by ID with all its identifiers and facts."""
-        query = """
-        MATCH (e:Entity {id: $entity_id})
+        query = f"""
+        MATCH (e:Entity {{id: uuid('{entity_id}')}})
         OPTIONAL MATCH (e)-[hi:HAS_IDENTIFIER]->(i:Identifier)
         OPTIONAL MATCH (e)-[hf:HAS_FACT]->(f:Fact)
         OPTIONAL MATCH (f)-[:DERIVED_FROM]->(s:Source)
@@ -101,9 +101,7 @@ class EntityRepository:
                collect(s) as sources, collect(hf) as fact_relationships
         """
 
-        result: dict[str, Any] = await self.db.execute_query(
-            query, {"entity_id": str(entity_id)}
-        )
+        result: dict[str, Any] = await self.db.execute_query(query)
         return result if result.get("data") else None
 
     async def find_entities(
@@ -150,29 +148,25 @@ class EntityRepository:
         Returns:
             bool: True if deletion was successful, False otherwise
         """
-        query = """
-        MATCH (e:Entity {id: $entity_id})
+        query = f"""
+        MATCH (e:Entity {{id: uuid('{entity_id}')}})
         OPTIONAL MATCH (e)-[r:HAS_IDENTIFIER]->(i:Identifier)
-        WITH e, r, i
-        // Check if identifier is used by other entities (excluding the one being deleted)
+        WITH e, r, i, count(e) as entity_count
         OPTIONAL MATCH (other_e:Entity)-[other_r:HAS_IDENTIFIER]->(i)
         WHERE other_e <> e
-        WITH e, r, i, count(other_r) as other_rel_count
-        // Delete entity and HAS_IDENTIFIER relationship
+        WITH e, r, i, entity_count, count(other_r) as other_rel_count
         DELETE r, e
-        // Conditionally delete identifier only if it has no other relationships
-        FOREACH (_ IN CASE WHEN other_rel_count = 0 THEN [1] ELSE [] END |
-          DELETE i
-        )
-        RETURN count(e) as deleted_entities
+        WITH i, entity_count, other_rel_count
+        WHERE other_rel_count = 0
+        DELETE i
+        RETURN entity_count as deleted_entities
         """
 
-        result: dict[str, Any] = await self.db.execute_query(
-            query, {"entity_id": str(entity_id)}
-        )
-
-        print("DEBUG - Result: ", result)
+        result: dict[str, Any] = await self.db.execute_query(query)
 
         # Check if any entities were actually deleted
         rows = result.get("rows", [])
-        return rows and len(rows) > 0 and rows[0].get("deleted_entities", 0) > 0
+        if not rows:
+            # No entity was found to delete
+            return False
+        return rows[0].get("deleted_entities", 0) > 0

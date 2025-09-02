@@ -67,9 +67,6 @@ class GraphDB:
     ) -> Any:
         """Execute a Cypher query and get the result."""
 
-        print(f"DEBUG - Query: {query}")
-        print(f"DEBUG - Parameters: {parameters}")
-
         if not self._client:
             raise RuntimeError("Not connected to KuzuDB API server")
 
