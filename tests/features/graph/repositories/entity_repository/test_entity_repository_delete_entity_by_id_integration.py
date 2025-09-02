@@ -8,9 +8,15 @@ import uuid
 
 import pytest
 
-from app.db.graph import GraphDB, get_graph_db
+from app.db.graph import GraphDB, get_graph_db, reset_graph_db
 from app.features.graph.models import Entity, HasIdentifier, Identifier
 from app.features.graph.repositories.entity_repository import EntityRepository
+
+
+@pytest.fixture(autouse=True)
+async def reset_db_connection():
+    """Reset database connection before each test."""
+    await reset_graph_db()
 
 
 @pytest.fixture
