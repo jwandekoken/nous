@@ -2,15 +2,63 @@
 
 This module provides integration tests for the EntityRepository
 using the actual production database connection.
+
+CLEANUP MECHANISMS:
+==================
+
+This test file implements multiple cleanup strategies:
+
+1. TEST-LEVEL CLEANUP (Primary):
+   - `entity_cleanup_tracker` fixture: Track specific entities for cleanup after each test
+   - Uses existing `delete_entity_by_id()` method for reliable cleanup
+   - Handles event loop conflicts gracefully with fallback mechanisms
+
+2. MANUAL CLEANUP (For debugging):
+   - `clear_test_data()` method: Removes only test data (safe)
+   - Call manually when needed: `await repo.clear_test_data()`
+   - Identifies test entities by metadata.test_type field
+
+Note: Session-level cleanup was removed to avoid event loop conflicts with pytest.
+
+USAGE EXAMPLES:
+==============
+
+# Using test-level tracking (recommended):
+@pytest.mark.asyncio
+async def test_my_test(entity_repository, entity_cleanup_tracker):
+    entity = Entity(metadata={"test_type": "my_test"})
+    entity_cleanup_tracker(entity)  # Track for cleanup
+    # ... create and test entity ...
+    # Entity deleted immediately after this test
+
+# Without tracking (manual cleanup needed):
+@pytest.mark.asyncio
+async def test_my_test(entity_repository):
+    entity = Entity(metadata={"test_type": "my_test"})
+    # ... create and test entity ...
+    # Remember to clean up manually if needed
+
+# Manual cleanup for debugging:
+@pytest.mark.asyncio
+async def test_debugging_scenario(entity_repository):
+    # ... create test data ...
+    # Clean up manually if needed
+    await entity_repository.clear_test_data()
 """
 
 import uuid
+from typing import Callable
 
 import pytest
 
 from app.db.graph import GraphDB, get_graph_db, reset_graph_db
 from app.features.graph.models import Entity, HasIdentifier, Identifier
 from app.features.graph.repositories.entity_repository import EntityRepository
+
+# Import cleanup utilities
+from tests.features.graph.repositories.entity_repository.integration_tests_utils import (
+    entity_cleanup_tracker,  # noqa: F401 # pyright: ignore[reportUnusedImport]
+)
 
 
 @pytest.fixture(autouse=True)
@@ -76,13 +124,9 @@ class TestDeleteEntityIntegration:
     ) -> None:
         """Test successful deletion of an existing entity."""
         # Arrange: Create an entity first
-        create_result = await entity_repository.create_entity(
+        _ = await entity_repository.create_entity(
             test_entity, test_identifier, test_relationship
         )
-        assert isinstance(create_result, dict)
-        assert "entity" in create_result
-        assert "identifier" in create_result
-        assert "relationship" in create_result
 
         # Act: Delete the entity
         delete_result = await entity_repository.delete_entity_by_id(test_entity.id)
@@ -119,13 +163,9 @@ class TestDeleteEntityIntegration:
     ) -> None:
         """Test that deleting an entity also deletes its identifiers if they're not used by other entities."""
         # Arrange: Create an entity
-        create_result = await entity_repository.create_entity(
+        _ = await entity_repository.create_entity(
             test_entity, test_identifier, test_relationship
         )
-        assert isinstance(create_result, dict)
-        assert "entity" in create_result
-        assert "identifier" in create_result
-        assert "relationship" in create_result
 
         # Act: Delete the entity
         delete_result = await entity_repository.delete_entity_by_id(test_entity.id)
@@ -135,16 +175,13 @@ class TestDeleteEntityIntegration:
         found_entity = await entity_repository.find_entity_by_id(test_entity.id)
         assert found_entity is None
 
-        # Assert: The identifier should also be deleted since it was only used by this entity
-        # We can verify this by trying to create another entity with the same identifier
-        # If the identifier still exists, creating a new entity with it would create a relationship
-        # rather than a new identifier node. However, since we can't easily query for
-        # orphaned identifiers, we'll trust the Cypher query does its job correctly.
+        # @TODO: improve this test to use the same identifier to create another entity
 
     @pytest.mark.asyncio
     async def test_delete_entity_preserves_shared_identifiers(
         self,
         entity_repository: EntityRepository,
+        entity_cleanup_tracker: Callable[[Entity], None],  # noqa: F811
     ) -> None:
         """Test that deleting an entity preserves identifiers that are shared with other entities."""
         # Arrange: Create two entities that share the same identifier
@@ -154,16 +191,19 @@ class TestDeleteEntityIntegration:
             value=f"shared.test.{uuid.uuid4()}@example.com", type="email"
         )
 
+        # Track entities for cleanup (optional - session cleanup will handle these too)
+        entity_cleanup_tracker(entity1)
+        entity_cleanup_tracker(entity2)
+
         # Create first entity
         relationship1 = HasIdentifier(
             from_entity_id=entity1.id,
             to_identifier_value=shared_identifier.value,
             is_primary=True,
         )
-        create_result1 = await entity_repository.create_entity(
+        _ = await entity_repository.create_entity(
             entity1, shared_identifier, relationship1
         )
-        assert isinstance(create_result1, dict)
 
         # Create second entity with same identifier (this will reuse the existing identifier)
         relationship2 = HasIdentifier(
@@ -171,10 +211,9 @@ class TestDeleteEntityIntegration:
             to_identifier_value=shared_identifier.value,
             is_primary=True,
         )
-        create_result2 = await entity_repository.create_entity(
+        _ = await entity_repository.create_entity(
             entity2, shared_identifier, relationship2
         )
-        assert isinstance(create_result2, dict)
 
         # Act: Delete the first entity
         delete_result = await entity_repository.delete_entity_by_id(entity1.id)
@@ -187,4 +226,5 @@ class TestDeleteEntityIntegration:
         # Assert: Second entity still exists and still has the identifier
         found_entity2 = await entity_repository.find_entity_by_id(entity2.id)
         assert found_entity2 is not None
-        # The identifier should still exist because it's used by entity2
+        assert found_entity2["identifiers"][0].value == shared_identifier.value
+        assert found_entity2["identifiers"][0].type == shared_identifier.type

@@ -126,8 +126,8 @@ class EntityRepository:
         Returns:
             Complete entity data with all relationships, or None if not found
         """
-        query = f"""
-        MATCH (e:Entity {{id: uuid('{entity_id}')}})
+        query = """
+        MATCH (e:Entity {id: uuid($entity_id)})
         OPTIONAL MATCH (e)-[hi:HAS_IDENTIFIER]->(i:Identifier)
         OPTIONAL MATCH (e)-[hf:HAS_FACT]->(f:Fact)
         OPTIONAL MATCH (f)-[:DERIVED_FROM]->(s:Source)
@@ -135,7 +135,9 @@ class EntityRepository:
                collect(s) as sources, collect(hf) as fact_relationships
         """
 
-        result: dict[str, Any] = await self.db.execute_query(query)
+        result: dict[str, Any] = await self.db.execute_query(
+            query, {"entity_id": str(entity_id)}
+        )
         if not result.get("rows"):
             return None
 
@@ -265,20 +267,22 @@ class EntityRepository:
         """
 
         # First check if entity exists
-        check_query = f"""
-        MATCH (e:Entity {{id: uuid('{entity_id}')}})
+        check_query = """
+        MATCH (e:Entity {id: uuid($entity_id)})
         RETURN e.id as entity_id
         """
 
-        check_result = await self.db.execute_query(check_query)
+        check_result = await self.db.execute_query(
+            check_query, {"entity_id": str(entity_id)}
+        )
         check_rows = check_result.get("rows", [])
         if not check_rows:
             # Entity doesn't exist
             return False
 
         # Entity exists, now delete it
-        delete_query = f"""
-        MATCH (e:Entity {{id: uuid('{entity_id}')}})
+        delete_query = """
+        MATCH (e:Entity {id: uuid($entity_id)})
         OPTIONAL MATCH (e)-[r:HAS_IDENTIFIER]->(i:Identifier)
         WITH e, r, i
         OPTIONAL MATCH (other_e:Entity)-[other_r:HAS_IDENTIFIER]->(i)
@@ -290,5 +294,52 @@ class EntityRepository:
         DELETE i
         """
 
-        await self.db.execute_query(delete_query)
+        await self.db.execute_query(delete_query, {"entity_id": str(entity_id)})
         return True
+
+    async def clear_test_data(self) -> None:
+        """Clear all test data from the database.
+
+        This method deletes all entities, identifiers, facts, and sources that were
+        created during integration testing. It identifies test data by looking for
+        entities with test-related metadata.
+
+        Warning: This method is destructive and should only be used in test environments.
+        """
+        # Delete all entities with test metadata
+        delete_test_entities_query = """
+        MATCH (e:Entity)
+        WHERE e.metadata.test_type IS NOT NULL
+        OPTIONAL MATCH (e)-[r:HAS_IDENTIFIER]->(i:Identifier)
+        WITH e, r, i
+        OPTIONAL MATCH (other_e:Entity)-[other_r:HAS_IDENTIFIER]->(i)
+        WHERE other_e <> e AND other_e.metadata.test_type IS NULL
+        WITH e, r, i, count(other_r) as other_rel_count
+        DELETE r, e
+        WITH i, other_rel_count
+        WHERE other_rel_count = 0
+        DELETE i
+        """
+
+        # Delete orphaned facts and sources (facts not connected to any entity)
+        delete_orphaned_facts_query = """
+        MATCH (f:Fact)
+        WHERE NOT (f)<-[:HAS_FACT]-(:Entity)
+        OPTIONAL MATCH (f)-[:DERIVED_FROM]->(s:Source)
+        DELETE f, s
+        """
+
+        # Delete completely orphaned sources
+        delete_orphaned_sources_query = """
+        MATCH (s:Source)
+        WHERE NOT (:Fact)-[:DERIVED_FROM]->(s)
+        DELETE s
+        """
+
+        try:
+            await self.db.execute_query(delete_test_entities_query)
+            await self.db.execute_query(delete_orphaned_facts_query)
+            await self.db.execute_query(delete_orphaned_sources_query)
+        except Exception as e:
+            # Log the error but don't fail the cleanup
+            print(f"Warning: Error during test data cleanup: {e}")

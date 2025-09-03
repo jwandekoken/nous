@@ -5,6 +5,7 @@ using the actual production database connection.
 """
 
 import uuid
+from typing import Callable
 
 import pytest
 
@@ -13,6 +14,11 @@ from app.features.graph.models import Entity, HasIdentifier, Identifier
 from app.features.graph.repositories.entity_repository import (
     EntityRepository,
     EntityWithRelations,
+)
+
+# Import cleanup utilities
+from tests.features.graph.repositories.entity_repository.integration_tests_utils import (
+    entity_cleanup_tracker,  # noqa: F401 # pyright: ignore[reportUnusedImport]
 )
 
 
@@ -76,10 +82,14 @@ class TestFindEntityByIdIntegration:
         test_entity: Entity,
         test_identifier: Identifier,
         test_relationship: HasIdentifier,
+        entity_cleanup_tracker: Callable[[Entity], None],  # noqa: F811
     ) -> None:
         """Test finding an existing entity by ID."""
+        # Track entity for cleanup
+        entity_cleanup_tracker(test_entity)
+
         # Arrange - Create an entity first
-        await entity_repository.create_entity(
+        _ = await entity_repository.create_entity(
             test_entity, test_identifier, test_relationship
         )
 
@@ -139,6 +149,7 @@ class TestFindEntityByIdIntegration:
         self,
         entity_repository: EntityRepository,
         test_identifier: Identifier,
+        entity_cleanup_tracker: Callable[[Entity], None],  # noqa: F811
     ) -> None:
         """Test finding an entity with empty metadata."""
         # Arrange
@@ -149,8 +160,11 @@ class TestFindEntityByIdIntegration:
             is_primary=True,
         )
 
+        # Track entity for cleanup
+        entity_cleanup_tracker(entity)
+
         # Create the entity
-        await entity_repository.create_entity(entity, test_identifier, relationship)
+        _ = await entity_repository.create_entity(entity, test_identifier, relationship)
 
         # Act
         result: EntityWithRelations | None = await entity_repository.find_entity_by_id(
@@ -168,6 +182,7 @@ class TestFindEntityByIdIntegration:
         self,
         entity_repository: EntityRepository,
         test_identifier: Identifier,
+        entity_cleanup_tracker: Callable[[Entity], None],  # noqa: F811
     ) -> None:
         """Test finding an entity with rich metadata."""
         # Arrange
@@ -185,8 +200,11 @@ class TestFindEntityByIdIntegration:
             is_primary=True,
         )
 
+        # Track entity for cleanup
+        entity_cleanup_tracker(entity)
+
         # Create the entity
-        await entity_repository.create_entity(entity, test_identifier, relationship)
+        _ = await entity_repository.create_entity(entity, test_identifier, relationship)
 
         # Act
         result: EntityWithRelations | None = await entity_repository.find_entity_by_id(
@@ -206,6 +224,7 @@ class TestFindEntityByIdIntegration:
     async def test_find_entity_by_id_different_identifier_types(
         self,
         entity_repository: EntityRepository,
+        entity_cleanup_tracker: Callable[[Entity], None],  # noqa: F811
     ) -> None:
         """Test finding entities with different identifier types."""
         # Test cases for different identifier types
@@ -232,8 +251,11 @@ class TestFindEntityByIdIntegration:
                 is_primary=True,
             )
 
+            # Track entity for cleanup
+            entity_cleanup_tracker(entity)
+
             # Create the entity
-            await entity_repository.create_entity(entity, identifier, relationship)
+            _ = await entity_repository.create_entity(entity, identifier, relationship)
 
             # Act
             result: (
@@ -257,6 +279,7 @@ class TestFindEntityByIdIntegration:
         entity_repository: EntityRepository,
         test_identifier: Identifier,
         test_relationship: HasIdentifier,
+        entity_cleanup_tracker: Callable[[Entity], None],  # noqa: F811
     ) -> None:
         """Test finding multiple different entities by their IDs."""
         # Create multiple entities
@@ -270,8 +293,11 @@ class TestFindEntityByIdIntegration:
                 }
             )
 
+            # Track entity for cleanup
+            entity_cleanup_tracker(entity)
+
             # Create the entity
-            await entity_repository.create_entity(
+            _ = await entity_repository.create_entity(
                 entity, test_identifier, test_relationship
             )
             created_entities.append(entity)
@@ -295,6 +321,7 @@ class TestFindEntityByIdIntegration:
     async def test_find_entity_by_id_no_identifiers(
         self,
         entity_repository: EntityRepository,
+        entity_cleanup_tracker: Callable[[Entity], None],  # noqa: F811
     ) -> None:
         """Test finding an entity that has no identifiers."""
         # Arrange - Create entity without identifier (this might not be possible
@@ -310,7 +337,10 @@ class TestFindEntityByIdIntegration:
             is_primary=True,
         )
 
-        await entity_repository.create_entity(entity, identifier, relationship)
+        # Track entity for cleanup
+        entity_cleanup_tracker(entity)
+
+        _ = await entity_repository.create_entity(entity, identifier, relationship)
 
         # Act
         result: EntityWithRelations | None = await entity_repository.find_entity_by_id(

@@ -5,6 +5,7 @@ using the actual production database connection.
 """
 
 import uuid
+from typing import Callable
 
 import pytest
 
@@ -13,6 +14,11 @@ from app.features.graph.models import Entity, HasIdentifier, Identifier
 from app.features.graph.repositories.entity_repository import (
     CreateEntityResult,
     EntityRepository,
+)
+
+# Import cleanup utilities
+from tests.features.graph.repositories.entity_repository.integration_tests_utils import (
+    entity_cleanup_tracker,  # noqa: F401 # pyright: ignore[reportUnusedImport]
 )
 
 
@@ -76,8 +82,12 @@ class TestCreateEntityIntegration:
         test_entity: Entity,
         test_identifier: Identifier,
         test_relationship: HasIdentifier,
+        entity_cleanup_tracker: Callable[[Entity], None],  # noqa: F811
     ) -> None:
         """Test basic entity creation with minimal data."""
+        # Track entity for cleanup
+        entity_cleanup_tracker(test_entity)
+
         # Act
         result: CreateEntityResult = await entity_repository.create_entity(
             test_entity, test_identifier, test_relationship
@@ -111,6 +121,7 @@ class TestCreateEntityIntegration:
         self,
         entity_repository: EntityRepository,
         test_identifier: Identifier,
+        entity_cleanup_tracker: Callable[[Entity], None],  # noqa: F811
     ) -> None:
         """Test creating entity with empty metadata."""
         # Arrange
@@ -120,6 +131,9 @@ class TestCreateEntityIntegration:
             to_identifier_value=test_identifier.value,
             is_primary=True,
         )
+
+        # Track entity for cleanup
+        entity_cleanup_tracker(entity)
 
         # Act
         result: CreateEntityResult = await entity_repository.create_entity(
@@ -150,6 +164,7 @@ class TestCreateEntityIntegration:
         self,
         entity_repository: EntityRepository,
         test_identifier: Identifier,
+        entity_cleanup_tracker: Callable[[Entity], None],  # noqa: F811
     ) -> None:
         """Test creating entity with rich metadata."""
         # Arrange
@@ -166,6 +181,9 @@ class TestCreateEntityIntegration:
             to_identifier_value=test_identifier.value,
             is_primary=True,
         )
+
+        # Track entity for cleanup
+        entity_cleanup_tracker(entity)
 
         # Act
         result: CreateEntityResult = await entity_repository.create_entity(
@@ -195,7 +213,7 @@ class TestCreateEntityIntegration:
     async def test_create_entity_different_identifier_types(
         self,
         entity_repository: EntityRepository,
-        test_entity: Entity,
+        entity_cleanup_tracker: Callable[[Entity], None],  # noqa: F811
     ) -> None:
         """Test creating entities with different identifier types."""
         # Test cases for different identifier types
@@ -208,16 +226,25 @@ class TestCreateEntityIntegration:
 
         for value, type_ in test_cases:
             # Arrange
+            entity = Entity(
+                metadata={
+                    "test_type": "identifier_types_test",
+                    "identifier_type": type_,
+                }
+            )
             identifier = Identifier(value=value, type=type_)
             relationship = HasIdentifier(
-                from_entity_id=test_entity.id,
+                from_entity_id=entity.id,
                 to_identifier_value=identifier.value,
                 is_primary=True,
             )
 
+            # Track entity for cleanup
+            entity_cleanup_tracker(entity)
+
             # Act
             result: CreateEntityResult = await entity_repository.create_entity(
-                test_entity, identifier, relationship
+                entity, identifier, relationship
             )
 
             # Assert
@@ -240,9 +267,11 @@ class TestCreateEntityIntegration:
         entity_repository: EntityRepository,
         test_identifier: Identifier,
         test_relationship: HasIdentifier,
+        entity_cleanup_tracker: Callable[[Entity], None],  # noqa: F811
     ) -> None:
         """Test creating multiple entities in sequence."""
         # Create multiple entities
+
         for i in range(3):
             # Arrange
             entity = Entity(
@@ -252,6 +281,9 @@ class TestCreateEntityIntegration:
                     "test_run": str(uuid.uuid4()),
                 }
             )
+
+            # Track entity for cleanup
+            entity_cleanup_tracker(entity)
 
             # Act
             result: CreateEntityResult = await entity_repository.create_entity(
