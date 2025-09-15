@@ -1,6 +1,6 @@
 """Identifier repository for database operations."""
 
-from app.db.graph import GraphDB
+from app.db.arcadedb import GraphDB
 
 
 class IdentifierRepository:

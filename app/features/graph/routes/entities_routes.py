@@ -5,7 +5,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from app.db.graph import GraphDB, get_graph_db
+from app.db.arcadedb import GraphDB, get_graph_db
 from app.features.graph.dtos import (
     AddFactRequest,
     AddFactResponse,

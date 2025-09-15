@@ -3,7 +3,7 @@
 from typing import Any, TypedDict
 from uuid import UUID
 
-from app.db.graph import GraphDB
+from app.db.arcadedb import GraphDB
 from app.features.graph.models import (
     Entity,
     Fact,

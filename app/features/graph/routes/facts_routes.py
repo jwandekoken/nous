@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from app.db.graph import GraphDB, get_graph_db
+from app.db.arcadedb import GraphDB, get_graph_db
 from app.features.graph.dtos import GetFactResponse
 from app.features.graph.repositories import FactRepository
 from app.features.graph.usecases.get_fact_usecase import GetFactUsecase

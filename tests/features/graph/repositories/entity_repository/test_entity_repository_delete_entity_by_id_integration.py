@@ -51,7 +51,7 @@ from typing import Callable
 
 import pytest
 
-from app.db.graph import GraphDB, get_graph_db, reset_graph_db
+from app.db.arcadedb import GraphDB, get_graph_db, reset_graph_db
 from app.features.graph.models import Entity, HasIdentifier, Identifier
 from app.features.graph.repositories.entity_repository import EntityRepository
 
