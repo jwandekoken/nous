@@ -91,17 +91,27 @@ class GraphDB:
         query: str,
         database: str,
         parameters: Any | None = None,
+        language: str = "sql",
     ) -> Any:
-        """Execute a query using ArcadeDB HTTP API."""
+        """Execute a query using ArcadeDB HTTP API.
+
+        Args:
+            query: The command/query to execute
+            database: The database name
+            parameters: Optional map of parameters to pass to the query engine
+            language: The query language used (default: "sql")
+                     Supported values: "sql", "sqlscript", "graphql", "cypher", "gremlin", "mongo"
+                     and any other language supported by ArcadeDB and available at runtime.
+        """
 
         if not self._client:
             raise RuntimeError("Not connected to ArcadeDB HTTP API")
 
         request_data: dict[str, str | Mapping[str, str | int | float | bool | None]] = {
-            "query": query
+            "language": language,
+            "command": query,
+            "params": parameters if parameters else {},
         }
-        if parameters:
-            request_data["params"] = parameters
 
         response = await self._client.post(
             f"/api/v1/query/{database}",
