@@ -8,52 +8,60 @@ The following Data Definition Language (DDL) commands are written in ArcadeDB's 
 
 ```sql
 -- The canonical Entity vertex, identified by an application-managed UUID
-CREATE VERTEX TYPE Entity;
-CREATE PROPERTY Entity.id STRING (mandatory true);
-CREATE PROPERTY Entity.created_at DATETIME (mandatory true, default "sysdate()");
-CREATE PROPERTY Entity.metadata MAP;
-CREATE INDEX ON Entity (id) UNIQUE;
+CREATE VERTEX TYPE Entity IF NOT EXISTS;
+CREATE PROPERTY Entity.id STRING (mandatory true) IF NOT EXISTS;
+CREATE PROPERTY Entity.created_at DATETIME (mandatory true, default sysdate('YYYY-MM-DD HH:MM:SS') IF NOT EXISTS;
+CREATE PROPERTY Entity.metadata MAP IF NOT EXISTS;
+CREATE INDEX ON Entity (id) UNIQUE IF NOT EXISTS;
 
 -- A dedicated vertex for external identifiers like emails or phone numbers
-CREATE VERTEX TYPE Identifier;
-CREATE PROPERTY Identifier.value STRING (mandatory true);
-CREATE PROPERTY Identifier.type STRING;
-CREATE INDEX ON Identifier (value) UNIQUE;
+CREATE VERTEX TYPE Identifier IF NOT EXISTS;
+CREATE PROPERTY Identifier.value STRING (mandatory true) IF NOT EXISTS;
+CREATE PROPERTY Identifier.type STRING IF NOT EXISTS;
+CREATE INDEX ON Identifier (value) UNIQUE IF NOT EXISTS;
 
 -- A Fact vertex, representing a piece of knowledge.
--- A synthetic key `fact_id` is created by the application (e.g., "type:name")
--- to ensure the uniqueness of each fact.
-CREATE VERTEX TYPE Fact;
-CREATE PROPERTY Fact.fact_id STRING (mandatory true);
-CREATE PROPERTY Fact.name STRING;
-CREATE PROPERTY Fact.type STRING;
-CREATE INDEX ON Fact (fact_id) UNIQUE;
+CREATE VERTEX TYPE Fact IF NOT EXISTS;
+CREATE PROPERTY Fact.fact_id STRING (mandatory true) IF NOT EXISTS;
+CREATE PROPERTY Fact.name STRING IF NOT EXISTS;
+CREATE PROPERTY Fact.type STRING IF NOT EXISTS;
+CREATE INDEX ON Fact (fact_id) UNIQUE IF NOT EXISTS;
 
 -- The Source vertex, representing the origin of the information
-CREATE VERTEX TYPE Source;
-CREATE PROPERTY Source.id STRING (mandatory true);
-CREATE PROPERTY Source.content STRING;
-CREATE PROPERTY Source.timestamp DATETIME;
-CREATE INDEX ON Source (id) UNIQUE;
+CREATE VERTEX TYPE Source IF NOT EXISTS;
+CREATE PROPERTY Source.id STRING (mandatory true) IF NOT EXISTS;
+CREATE PROPERTY Source.content STRING IF NOT EXISTS;
+CREATE PROPERTY Source.timestamp DATETIME IF NOT EXISTS;
+CREATE INDEX ON Source (id) UNIQUE IF NOT EXISTS;
 
 -- Connects an Entity to its various external Identifiers
-CREATE EDGE TYPE HAS_IDENTIFIER;
-CREATE PROPERTY HAS_IDENTIFIER.is_primary BOOLEAN;
-CREATE PROPERTY HAS_IDENTIFIER.created_at DATETIME (default "sysdate()");
+CREATE EDGE TYPE HAS_IDENTIFIER IF NOT EXISTS;
+CREATE PROPERTY HAS_IDENTIFIER.is_primary BOOLEAN IF NOT EXISTS;
+CREATE PROPERTY HAS_IDENTIFIER.created_at DATETIME (default sysdate('YYYY-MM-DD HH:MM:SS') IF NOT EXISTS;
 
 -- Connects an Entity to a Fact it possesses
-CREATE EDGE TYPE HAS_FACT;
-CREATE PROPERTY HAS_FACT.verb STRING;
-CREATE PROPERTY HAS_FACT.confidence_score DOUBLE;
-CREATE PROPERTY HAS_FACT.created_at DATETIME (default "sysdate()");
+CREATE EDGE TYPE HAS_FACT IF NOT EXISTS;
+CREATE PROPERTY HAS_FACT.verb STRING IF NOT EXISTS;
+CREATE PROPERTY HAS_FACT.confidence_score DOUBLE IF NOT EXISTS;
+CREATE PROPERTY HAS_FACT.created_at DATETIME (default sysdate('YYYY-MM-DD HH:MM:SS') IF NOT EXISTS;
 
 -- Connects a Fact to the Source it was derived from
-CREATE EDGE TYPE DERIVED_FROM;
+CREATE EDGE TYPE DERIVED_FROM IF NOT EXISTS;
 ```
 
 ## Schema Rationale
 
 The schema is designed around principles of robust identity management, clarity, traceability, and query performance, tailored to ArcadeDB's capabilities.
+
+### Core Design Principle: Record ID (RID) vs. Application-Managed UUID
+
+A foundational decision in this schema is to use an application-managed `id` property (typically a UUID) for `Entity` and `Source` vertices, even though ArcadeDB provides a native `Record ID` (RID) for every record. While the RID offers the fastest possible direct record access (O(1)), it serves as a _physical address_ within the database and is not suitable as a long-term, logical entity identifier for several critical reasons:
+
+- **Non-Portability**: RIDs are specific to a database instance and will change if the data is ever exported and imported.
+- **Internal-Facing**: RIDs should not be exposed to external systems, used in URLs, or sent between services.
+- **Potential for Recycling**: Newer versions of ArcadeDB may recycle RIDs from deleted records to optimize storage, which could lead to catastrophic data integrity issues if an old RID is used to reference a new, unrelated record.
+
+Therefore, this schema uses the application-managed `id` property as the stable, portable, and externally-safe **business identifier**, while leveraging the internal RID for the performance benefits it provides during graph traversals.
 
 ### Core Design Principle: Identity Management
 
@@ -123,6 +131,6 @@ This schema deliberately uses two different approaches for unique identification
 A crucial design choice is the deliberate distinction between timestamp fields, using ArcadeDB's `DATETIME` type [1]:
 
 - **`Source.timestamp`**: This is the **real-world event time**.
-- **`created_at`**: This is the **system's internal audit time**, automatically populated using `default "sysdate()"` when a record is created.
+- **`created_at`**: This is the **system's internal audit time**, automatically populated using `default sysdate('YYYY-MM-DD HH:MM:SS')` when a record is created.
 
 This separation allows for accurate contextual queries ("What did the user say on Monday?") while also enabling system-level auditing ("What new facts did the system learn today?").
