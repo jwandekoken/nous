@@ -65,19 +65,19 @@ class TestArcadeDBIntegration:
         except Exception as e:
             pytest.skip(f"ArcadeDB server not available: {e}")
 
-    # @pytest.mark.asyncio
-    # async def test_query_endpoint_simple(self, arcadedb_client: GraphDB, database_name):
-    #     """Test POST /api/v1/query/{database} with a simple query."""
-    #     try:
-    #         # Simple query that should work on most ArcadeDB instances
-    #         result = await arcadedb_client.execute_query(
-    #             query="SELECT 1 as test_value", database=database_name
-    #         )
-    #         assert isinstance(result, dict)
-    #         # Should contain query results
-    #         assert "result" in result or isinstance(result, list)
-    #     except Exception as e:
-    #         pytest.skip(f"ArcadeDB server not available or query failed: {e}")
+    @pytest.mark.asyncio
+    async def test_query_endpoint_simple(self, arcadedb_client: GraphDB, database_name):
+        """Test POST /api/v1/query/{database} with a simple query."""
+        try:
+            # Simple query that should work on most ArcadeDB instances
+            result = await arcadedb_client.execute_query(
+                query="SELECT 1 as test_value", database=database_name
+            )
+            assert isinstance(result, dict)
+            # Should contain query results
+            assert "result" in result or isinstance(result, list)
+        except Exception as e:
+            pytest.skip(f"ArcadeDB server not available or query failed: {e}")
 
     # @pytest.mark.asyncio
     # async def test_query_endpoint_with_parameters(self, arcadedb_client: GraphDB, database_name):

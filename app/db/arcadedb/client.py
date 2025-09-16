@@ -1,7 +1,6 @@
 """Graph database client implementation."""
 
-from collections.abc import Mapping
-from typing import Any, TypedDict
+from typing import Any, TypedDict, cast
 
 import httpx
 from httpx import BasicAuth
@@ -75,7 +74,7 @@ class GraphDB:
 
         # Handle different response formats
         try:
-            data: dict[str, Any] = response.json()
+            data = cast(dict[str, str], response.json())
             # Extract the required fields from the server response
             return {
                 "user": data.get("user", ""),
@@ -90,7 +89,7 @@ class GraphDB:
         self,
         query: str,
         database: str,
-        parameters: Any | None = None,
+        parameters: dict[str, str | int | float | bool | None] | None = None,
         language: str = "sql",
     ) -> Any:
         """Execute a query using ArcadeDB HTTP API.
@@ -107,7 +106,7 @@ class GraphDB:
         if not self._client:
             raise RuntimeError("Not connected to ArcadeDB HTTP API")
 
-        request_data: dict[str, str | Mapping[str, str | int | float | bool | None]] = {
+        request_data: dict[str, str | dict[str, str | int | float | bool | None]] = {
             "language": language,
             "command": query,
             "params": parameters if parameters else {},
@@ -133,18 +132,49 @@ class GraphDB:
         self,
         command: str,
         database: str,
-        parameters: Any | None = None,
+        parameters: dict[str, str | int | float | bool | None] | None = None,
+        language: str = "sql",
+        await_response: bool = True,
+        limit: int | None = None,
+        retries: int | None = None,
+        serializer: str | None = None,
     ) -> Any:
-        """Execute a database command (CREATE, UPDATE, DELETE, etc.) using ArcadeDB HTTP API."""
+        """Execute a database command (CREATE, UPDATE, DELETE, etc.) using ArcadeDB HTTP API.
+
+        Args:
+            command: The command to execute in encoded format
+            database: The database name
+            parameters: Optional map of parameters to pass to the query engine
+            language: The query language used (default: "sql")
+                     Supported values: "sql", "sqlscript", "graphql", "cypher", "gremlin", "mongo"
+                     and any other language supported by ArcadeDB and available at runtime.
+            await_response: If True (default), wait for command completion and return results.
+                           If False, execute asynchronously and return only acknowledgement.
+            limit: Optional maximum number of results to return
+            retries: Optional number of times the command (transaction) is retried
+            serializer: Optional serializer for the result:
+                      - "graph": returns a graph separating vertices from edges
+                      - "record": returns everything as records
+                      - "studio": like record but with additional metadata for vertices
+        """
 
         if not self._client:
             raise RuntimeError("Not connected to ArcadeDB HTTP API")
 
-        request_data: dict[str, str | Mapping[str, str | int | float | bool | None]] = {
-            "command": command
+        request_data: dict[str, Any] = {
+            "language": language,
+            "command": command,
+            "awaitResponse": await_response,
         }
+
         if parameters:
             request_data["params"] = parameters
+        if limit is not None:
+            request_data["limit"] = limit
+        if retries is not None:
+            request_data["retries"] = retries
+        if serializer:
+            request_data["serializer"] = serializer
 
         response = await self._client.post(
             f"/api/v1/command/{database}",
