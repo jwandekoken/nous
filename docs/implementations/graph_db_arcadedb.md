@@ -9,41 +9,41 @@ The following Data Definition Language (DDL) commands are written in ArcadeDB's 
 ```sql
 -- The canonical Entity vertex, identified by an application-managed UUID
 CREATE VERTEX TYPE Entity IF NOT EXISTS;
-CREATE PROPERTY Entity.id STRING (mandatory true) IF NOT EXISTS;
-CREATE PROPERTY Entity.created_at DATETIME (mandatory true, default sysdate('YYYY-MM-DD HH:MM:SS') IF NOT EXISTS;
-CREATE PROPERTY Entity.metadata MAP IF NOT EXISTS;
-CREATE INDEX ON Entity (id) UNIQUE IF NOT EXISTS;
+CREATE PROPERTY Entity.id IF NOT EXISTS STRING (mandatory true);
+CREATE PROPERTY Entity.created_at IF NOT EXISTS DATETIME (mandatory true, default sysdate('YYYY-MM-DD HH:MM:SS'));
+CREATE PROPERTY Entity.metadata IF NOT EXISTS MAP;
+CREATE INDEX IF NOT EXISTS ON Entity (id) UNIQUE;
 
 -- A dedicated vertex for external identifiers like emails or phone numbers
 CREATE VERTEX TYPE Identifier IF NOT EXISTS;
-CREATE PROPERTY Identifier.value STRING (mandatory true) IF NOT EXISTS;
-CREATE PROPERTY Identifier.type STRING IF NOT EXISTS;
-CREATE INDEX ON Identifier (value) UNIQUE IF NOT EXISTS;
+CREATE PROPERTY Identifier.value IF NOT EXISTS STRING (mandatory true);
+CREATE PROPERTY Identifier.type IF NOT EXISTS STRING;
+CREATE INDEX IF NOT EXISTS ON Identifier (value) UNIQUE;
 
 -- A Fact vertex, representing a piece of knowledge.
 CREATE VERTEX TYPE Fact IF NOT EXISTS;
-CREATE PROPERTY Fact.fact_id STRING (mandatory true) IF NOT EXISTS;
-CREATE PROPERTY Fact.name STRING IF NOT EXISTS;
-CREATE PROPERTY Fact.type STRING IF NOT EXISTS;
-CREATE INDEX ON Fact (fact_id) UNIQUE IF NOT EXISTS;
+CREATE PROPERTY Fact.fact_id IF NOT EXISTS STRING (mandatory true);
+CREATE PROPERTY Fact.name IF NOT EXISTS STRING;
+CREATE PROPERTY Fact.type IF NOT EXISTS STRING;
+CREATE INDEX IF NOT EXISTS ON Fact (fact_id) UNIQUE;
 
 -- The Source vertex, representing the origin of the information
 CREATE VERTEX TYPE Source IF NOT EXISTS;
-CREATE PROPERTY Source.id STRING (mandatory true) IF NOT EXISTS;
-CREATE PROPERTY Source.content STRING IF NOT EXISTS;
-CREATE PROPERTY Source.timestamp DATETIME IF NOT EXISTS;
-CREATE INDEX ON Source (id) UNIQUE IF NOT EXISTS;
+CREATE PROPERTY Source.id IF NOT EXISTS STRING (mandatory true);
+CREATE PROPERTY Source.content IF NOT EXISTS STRING;
+CREATE PROPERTY Source.timestamp IF NOT EXISTS DATETIME;
+CREATE INDEX IF NOT EXISTS ON Source (id) UNIQUE;
 
 -- Connects an Entity to its various external Identifiers
 CREATE EDGE TYPE HAS_IDENTIFIER IF NOT EXISTS;
-CREATE PROPERTY HAS_IDENTIFIER.is_primary BOOLEAN IF NOT EXISTS;
-CREATE PROPERTY HAS_IDENTIFIER.created_at DATETIME (default sysdate('YYYY-MM-DD HH:MM:SS') IF NOT EXISTS;
+CREATE PROPERTY HAS_IDENTIFIER.is_primary IF NOT EXISTS BOOLEAN;
+CREATE PROPERTY HAS_IDENTIFIER.created_at IF NOT EXISTS DATETIME (default sysdate('YYYY-MM-DD HH:M:SS'));
 
 -- Connects an Entity to a Fact it possesses
 CREATE EDGE TYPE HAS_FACT IF NOT EXISTS;
-CREATE PROPERTY HAS_FACT.verb STRING IF NOT EXISTS;
-CREATE PROPERTY HAS_FACT.confidence_score DOUBLE IF NOT EXISTS;
-CREATE PROPERTY HAS_FACT.created_at DATETIME (default sysdate('YYYY-MM-DD HH:MM:SS') IF NOT EXISTS;
+CREATE PROPERTY HAS_FACT.verb IF NOT EXISTS STRING;
+CREATE PROPERTY HAS_FACT.confidence_score IF NOT EXISTS DOUBLE;
+CREATE PROPERTY HAS_FACT.created_at IF NOT EXISTS DATETIME (default sysdate('YYYY-MM-DD HH:M:SS'));
 
 -- Connects a Fact to the Source it was derived from
 CREATE EDGE TYPE DERIVED_FROM IF NOT EXISTS;
