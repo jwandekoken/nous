@@ -1,0 +1,37 @@
+---
+description: Always run Python commands using uv run instead of direct python execution
+alwaysApply: true
+---
+
+# Python Command Execution with `uv`
+
+All Python commands in this project **must** be executed using `uv run` instead of calling `python` or `python3` directly.
+
+**✅ Always use `uv run`**
+
+- Never run `python script.py`, `python -m pytest`, or similar commands directly
+- Always prefix Python execution with `uv run`
+
+**🔁 Correct usage**
+
+```bash
+# Instead of: python script.py
+uv run python script.py
+
+# Instead of: python -m pytest tests/
+uv run python -m pytest tests/
+
+# Instead of: python -m mymodule
+uv run python -m mymodule
+```
+
+**❌ Incorrect usage**
+
+```bash
+# Don't do this:
+python script.py
+python -m pytest tests/
+python3 -c "print('hello')"
+```
+
+This ensures that all Python execution uses the correct virtual environment and dependencies managed by `uv`.
