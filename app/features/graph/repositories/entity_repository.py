@@ -63,9 +63,11 @@ class EntityRepository:
                 "metadata": metadata_dict,
                 "identifier_value": identifier.value,
                 "identifier_type": identifier.type,
+                "is_primary": relationship.is_primary,
+                "relationship_created_at": relationship.created_at.isoformat(),
             }
 
-            # Use sqlscript with transaction for the CREATE VERTEX operations
+            # Use sqlscript with transaction for the CREATE VERTEX and CREATE EDGE operations
             transaction_script = """
             BEGIN;
             CREATE VERTEX Entity
@@ -75,6 +77,11 @@ class EntityRepository:
             CREATE VERTEX Identifier
             SET value = :identifier_value,
                 type = :identifier_type;
+            CREATE EDGE HAS_IDENTIFIER
+            FROM (SELECT FROM Entity WHERE id = :entity_id)
+            TO (SELECT FROM Identifier WHERE value = :identifier_value)
+            SET is_primary = :is_primary,
+                created_at = :relationship_created_at;
             COMMIT;
             """
 
