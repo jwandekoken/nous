@@ -137,7 +137,7 @@ class GraphDB:
         self,
         command: str,
         database: str,
-        parameters: dict[str, str | int | float | bool | None] | None = None,
+        parameters: dict[str, Any] | None = None,
         language: str = "sql",
         await_response: bool = True,
         limit: int | None = None,
