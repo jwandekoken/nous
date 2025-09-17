@@ -39,23 +39,6 @@ class Settings(BaseSettings):
         default=30, description="Access token expiration time in minutes"
     )
 
-    # PostgreSQL Database
-    postgres_server: str = Field(default="localhost", description="PostgreSQL server")
-    postgres_port: int = Field(default=5432, description="PostgreSQL port")
-    postgres_user: str = Field(default="postgres", description="PostgreSQL user")
-    postgres_password: str = Field(
-        default="postgres", description="PostgreSQL password"
-    )
-    postgres_db: str = Field(default="nous", description="PostgreSQL database name")
-
-    @property
-    def postgres_url(self) -> str:
-        """Get PostgreSQL database URL."""
-        return (
-            f"postgresql+asyncpg://{self.postgres_user}:{self.postgres_password}"
-            f"@{self.postgres_server}:{self.postgres_port}/{self.postgres_db}"
-        )
-
     # Graph Database (ArcadeDB HTTP API)
     graph_api_url: str = Field(
         default="http://localhost:2480", description="ArcadeDB HTTP API server URL"

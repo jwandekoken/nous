@@ -1,6 +1,6 @@
 # Nous - FastAPI Modular Architecture
 
-A FastAPI application built with a modular, feature-based architecture supporting multiple databases (PostgreSQL and KuzuDB Graph Database).
+A FastAPI application built with a modular, feature-based architecture supporting ArcadeDB Graph Database.
 
 ## Architecture
 
@@ -16,8 +16,7 @@ This project follows the modular architecture defined in [ADR-001](docs/architec
 │   │   ├── security.py           # Authentication & security
 │   │   └── settings.py           # Configuration
 │   ├── db/                       # Database connections
-│   │   ├── postgres/             # PostgreSQL connection
-│   │   └── graph/                # KuzuDB HTTP API client
+│   │   ├── arcadedb/             # ArcadeDB HTTP API client
 │   └── features/                 # Feature modules
 │       └── graph/                # Graph feature
 │           ├── models/           # Domain models
@@ -40,8 +39,8 @@ This project follows the modular architecture defined in [ADR-001](docs/architec
 ## Features
 
 - ✅ **Modular Architecture**: Feature-based organization
-- ✅ **Dual Database Support**: PostgreSQL + KuzuDB Graph Database
-- ✅ **HTTP API Integration**: KuzuDB accessed via REST API calls using httpx
+- ✅ **Graph Database Support**: ArcadeDB Graph Database
+- ✅ **HTTP API Integration**: ArcadeDB accessed via REST API calls using httpx
 - ✅ **Authentication**: JWT-based auth with password hashing
 - ✅ **Test Suite**: Comprehensive test coverage with separated test directory
 - ✅ **Modern Python**: Type hints, async/await, Pydantic v2, SQLModel
@@ -52,8 +51,7 @@ This project follows the modular architecture defined in [ADR-001](docs/architec
 ### Prerequisites
 
 - Python 3.12+
-- PostgreSQL (optional, for full functionality)
-- KuzuDB (optional, for graph features)
+- ArcadeDB (required, for graph database features)
 - `uv` package manager
 
 ### Installation
@@ -123,7 +121,7 @@ uv run pytest tests/core/test_security.py -v
 
 #### Integration Tests
 
-Run integration tests for EntityRepository (uses real KuzuDB database):
+Run integration tests for EntityRepository (uses real ArcadeDB database):
 
 ```bash
 # Run all integration tests for entity repository
@@ -136,7 +134,7 @@ uv run python -m pytest tests/features/graph/repositories/entity_repository/test
 uv run python -m pytest tests/features/graph/repositories/entity_repository/test_entity_repository_create_entity_integration.py --cov=app.features.graph.repositories.entity
 ```
 
-**Note**: Integration tests connect to your actual KuzuDB database, so ensure your database is running and properly configured in your environment variables.
+**Note**: Integration tests connect to your actual ArcadeDB database, so ensure your database is running and properly configured in your environment variables.
 
 ### Development Tools
 
@@ -182,39 +180,23 @@ uv run basedpyright app/ tests/
 
 ## Database Setup
 
-### PostgreSQL
+### ArcadeDB Graph Database
 
-1. **Create database**:
+1. **Setup ArcadeDB** (required):
 
-   ```sql
-   CREATE DATABASE nous;
-   ```
-
-2. **Update connection settings in `.env`**:
-   ```env
-   POSTGRES_SERVER=localhost
-   POSTGRES_PORT=5432
-   POSTGRES_USER=postgres
-   POSTGRES_PASSWORD=your_password
-   POSTGRES_DB=nous
-   ```
-
-### KuzuDB Graph Database
-
-1. **Setup KuzuDB** (optional):
-
-   KuzuDB integration uses HTTP API calls, so no additional Python dependencies are required beyond `httpx` (already included).
+   ArcadeDB integration uses HTTP API calls, so no additional Python dependencies are required beyond `httpx` (already included).
 
    ```bash
-   # Install KuzuDB server (follow official KuzuDB installation guide)
-   # Or use KuzuDB cloud service
+   # Install ArcadeDB server (follow official ArcadeDB installation guide)
+   # Or use ArcadeDB cloud service
    ```
 
 2. **Update connection settings in `.env`**:
    ```env
-   KUZU_API_URL=http://localhost:8080
-   KUZU_API_KEY=your_api_key
-   KUZU_DATABASE=your_database_name
+   GRAPH_API_URL=http://localhost:2480
+   GRAPH_API_USERNAME=root
+   GRAPH_API_PASSWORD=your_password
+   GRAPH_DATABASE=your_database_name
    ```
 
 ## Development
@@ -233,7 +215,7 @@ uv run basedpyright app/ tests/
    - `service.py` - Business logic
    - `schemas.py` - Pydantic models
    - `models.py` - SQLModel database models
-   - `graph_models.py` - KuzuDB models (if needed)
+   - `graph_models.py` - ArcadeDB models (if needed)
 
 3. **Add corresponding tests in `tests/` directory**:
 

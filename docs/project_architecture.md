@@ -2,7 +2,7 @@
 
 ## Context
 
-We need a scalable and maintainable structure for our growing FastAPI application. The architecture must support multiple databases (PostgreSQL and a graph DB) and promote clear separation of concerns.
+We need a scalable and maintainable structure for our growing FastAPI application. The architecture supports ArcadeDB Graph Database and promotes clear separation of concerns.
 
 ## Decision
 
@@ -31,9 +31,7 @@ Tests will be run by pointing `pytest` to the application source directory: `uv 
 |   |   `-- test_security.py       # Test co-located with code
 |   |
 |   |-- /db/
-|   |   |-- /postgres/             # PostgreSQL connection logic
-|   |   `-- /graph/                # Graph DB connection logic
-|   |
+|   |   `-- /arcadedb/             # ArcadeDB connection logic
 |   `-- /features/
 |       |-- /users/                # User management feature
 |       |   |-- router.py
