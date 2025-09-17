@@ -19,7 +19,7 @@ async def get_graph_db() -> GraphDB:
             password=settings.graph_api_password,
         )
         await _arcadedb.connect()
-    elif _arcadedb._client is None:  # type: ignore[attr-defined]
+    elif not _arcadedb.is_connected:
         # Reconnect if client was closed
         await _arcadedb.connect()
 

@@ -27,6 +27,11 @@ class GraphDB:
         self.password: str | None = password
         self._client: httpx.AsyncClient | None = None
 
+    @property
+    def is_connected(self) -> bool:
+        """Check if the client is connected."""
+        return self._client is not None
+
     async def connect(self) -> None:
         """Connect to the ArcadeDB HTTP API server."""
         # Configure authentication if credentials are provided
