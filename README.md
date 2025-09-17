@@ -4,7 +4,7 @@ A FastAPI application built with a modular, feature-based architecture supportin
 
 ## Architecture
 
-This project follows the modular architecture defined in [ADR-001](docs/architecture/adr_001_project_architecture.md), with tests properly separated from application code in a dedicated `tests/` directory.
+This project follows the modular architecture defined in [Project-architecture](docs/project_architecture.md), with tests properly separated from application code in a dedicated `tests/` directory.
 
 ## Project Structure
 

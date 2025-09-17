@@ -8,7 +8,6 @@ from datetime import datetime, timezone
 from uuid import UUID
 
 from pydantic import Field, field_validator
-from typing_extensions import override
 
 from .base_model import GraphBaseModel
 
@@ -64,12 +63,3 @@ class HasIdentifier(GraphBaseModel):
         default_factory=lambda: datetime.now(timezone.utc),
         description="When this relationship was established",
     )
-
-    @override
-    def to_db_timestamp(self) -> str:
-        """Format this relationship's created_at timestamp for database storage.
-
-        Returns:
-            Formatted timestamp string for KuzuDB
-        """
-        return self.created_at.strftime("%Y-%m-%d %H:%M:%S")
