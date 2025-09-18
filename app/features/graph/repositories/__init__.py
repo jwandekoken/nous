@@ -1,13 +1,5 @@
 """Graph repositories package."""
 
-from .entity_repository import EntityRepository
-from .fact_repository import FactRepository
-from .identifier_repository import IdentifierRepository
-from .source_repository import SourceRepository
+from .graph_repository import GraphRepository
 
-__all__ = [
-    "EntityRepository",
-    "FactRepository",
-    "IdentifierRepository",
-    "SourceRepository",
-]
+__all__ = ["GraphRepository"]

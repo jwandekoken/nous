@@ -1,7 +1,7 @@
 """Integration test utilities for database cleanup and common fixtures.
 
 This module provides reusable utilities for integration tests that work with
-the EntityRepository and graph database.
+the GraphRepository and graph database.
 
 CLEANUP MECHANISMS:
 ==================
@@ -21,7 +21,7 @@ USAGE EXAMPLES:
 
 # Using test-level tracking (recommended):
 @pytest.mark.asyncio
-async def test_my_test(entity_repository, entity_cleanup_tracker):
+async def test_my_test(graph_repository, entity_cleanup_tracker):
     entity = Entity(metadata={"test_type": "my_test"})
     entity_cleanup_tracker(entity)  # Track for cleanup
     # ... create and test entity ...
@@ -29,10 +29,10 @@ async def test_my_test(entity_repository, entity_cleanup_tracker):
 
 # Manual cleanup for debugging:
 @pytest.mark.asyncio
-async def test_debugging_scenario(entity_repository):
+async def test_debugging_scenario(graph_repository):
     # ... create test data ...
     # Clean up manually if needed
-    await entity_repository.clear_test_data()
+    await graph_repository.clear_test_data()
 """
 
 import uuid
@@ -40,11 +40,11 @@ import uuid
 import pytest
 
 from app.features.graph.models import Entity
-from app.features.graph.repositories.entity_repository import EntityRepository
+from app.features.graph.repositories.graph_repository import GraphRepository
 
 
 @pytest.fixture
-async def entity_cleanup_tracker(entity_repository: EntityRepository):
+async def entity_cleanup_tracker(graph_repository: GraphRepository):
     """Track entities created during a test for cleanup."""
     created_entities: list[uuid.UUID] = []
 
@@ -56,16 +56,16 @@ async def entity_cleanup_tracker(entity_repository: EntityRepository):
 
     # Cleanup: Delete all tracked entities after test
     if created_entities:  # Only cleanup if there are entities to clean
-        await _cleanup_entities(entity_repository, created_entities)
+        await _cleanup_entities(graph_repository, created_entities)
 
 
 async def _cleanup_entities(
-    entity_repository: EntityRepository, entity_ids: list[uuid.UUID]
+    graph_repository: GraphRepository, entity_ids: list[uuid.UUID]
 ):
     """Helper function to cleanup entities asynchronously."""
     for entity_id in entity_ids:
         try:
-            result = await entity_repository.delete_entity_by_id(entity_id)
+            result = await graph_repository.delete_entity_by_id(entity_id)
             if result:
                 print(f"Cleaned up entity {entity_id}")
         except Exception as e:
