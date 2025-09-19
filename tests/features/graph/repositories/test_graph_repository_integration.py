@@ -119,7 +119,6 @@ class TestGraphRepositoryIntegration:
         assert returned_identifier.type == test_identifier.type
         assert returned_relationship.is_primary == test_relationship.is_primary
 
-    # @TODO: Fix this test
     @pytest.mark.asyncio
     async def test_find_entity_by_identifier(
         self,

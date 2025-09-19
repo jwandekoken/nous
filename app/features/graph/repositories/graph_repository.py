@@ -155,39 +155,58 @@ class GraphRepository:
     async def find_entity_by_identifier(
         self, identifier_value: str, identifier_type: str
     ) -> FindEntityByIdentifierResult | None:
-        """Find an entity by its identifier value and type using ArcadeDB SQL."""
+        """Find an entity by its identifier value and type using Gremlin query.
+
+        Note: ArcadeDB doesn't support parameterized Gremlin queries, so we use
+        string formatting with proper escaping for security.
+        """
+
+        # Input validation and escaping to prevent injection
+        if not identifier_value or not identifier_type:
+            raise ValueError("Identifier value and type cannot be empty")
+
+        # Escape single quotes in the values to prevent injection
+        escaped_value = identifier_value.replace("'", "\\'")
+        escaped_type = identifier_type.replace("'", "\\'")
 
         database_name = get_database_name()
 
-        # Query to find entity by identifier value and type
-        # @TODO: Fix this query - relationship is not being returned
-        query = """
-        MATCH
-            {type: `Identifier`, where: (value = :identifier_value AND type = :identifier_type), as: identifier}
-            <-HAS_IDENTIFIER-
-            {type: `Entity`, as: entity}
-        RETURN
-            entity.id AS entity_id,
-            entity.created_at AS entity_created_at,
-            entity.metadata AS entity_metadata,
-            identifier.value AS identifier_value,
-            identifier.type AS identifier_type,
-            rel.is_primary AS relationship_is_primary,
-            rel.created_at AS relationship_created_at
+        # Use hardcoded Gremlin query since ArcadeDB doesn't support parameterized Gremlin
+        query = f"""
+        g.V().hasLabel('Identifier')
+        .has('value', '{escaped_value}')
+        .has('type', '{escaped_type}')
+        .as('identifier')
+        .inE('HAS_IDENTIFIER')
+        .as('rel')
+        .outV()
+        .as('entity')
+        .project(
+            'entity_id',
+            'entity_created_at',
+            'entity_metadata',
+            'identifier_value',
+            'identifier_type',
+            'relationship_is_primary',
+            'relationship_created_at'
+        )
+        .by(select('entity').values('id'))
+        .by(select('entity').values('created_at'))
+        .by(select('entity').values('metadata'))
+        .by(select('identifier').values('value'))
+        .by(select('identifier').values('type'))
+        .by(select('rel').values('is_primary'))
+        .by(select('rel').values('created_at'))
         """
 
         try:
             result = await self.db.execute_command(
                 query,
                 database_name,
-                parameters={
-                    "identifier_value": identifier_value,
-                    "identifier_type": identifier_type,
-                },
-                language="sql",
+                language="gremlin",
             )
 
-            print("result: ", result)
+            print("find_entity_by_identifier result: ", result)
 
             # Check if we got any results
             if not result or "result" not in result or not result["result"]:
