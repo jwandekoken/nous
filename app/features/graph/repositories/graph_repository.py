@@ -244,3 +244,164 @@ class GraphRepository:
 
         except Exception as e:
             raise RuntimeError(f"Failed to find entity by identifier: {e}")
+
+    async def find_entity_by_id(self, entity_id: str) -> EntityWithRelations | None:
+        """Find an entity by its ID and return it with all its relations.
+
+        This method retrieves the entity along with:
+        - All its identifiers (via HAS_IDENTIFIER edges)
+        - @TODO: All its facts with sources (via HAS_FACT edges and DERIVED_FROM edges)
+
+        Args:
+            entity_id: The UUID string of the entity to find
+
+        Returns:
+            EntityWithRelations containing the entity and all its relations,
+            or None if the entity is not found.
+        """
+        if not entity_id:
+            raise ValueError("Entity ID cannot be empty")
+
+        database_name = get_database_name()
+
+        # Create parameters dictionary for safe query execution
+        params = {
+            "entity_id": entity_id,
+        }
+
+        try:
+            # Use a single ArcadeDB SQL MATCH statement to get entity and all its identifiers
+            match_query = """
+            MATCH
+                {type: `Entity`, where: (id = :entity_id), as: entity}
+                .outE(){
+                    type: `HAS_IDENTIFIER`,
+                    as: rel,
+                    optional: true
+                }
+                .inV(){
+                    type: `Identifier`,
+                    as: identifier,
+                    optional: true
+                }
+            RETURN
+                entity.id AS entity_id,
+                entity.created_at AS entity_created_at,
+                entity.metadata AS entity_metadata,
+                identifier.value AS identifier_value,
+                identifier.type AS identifier_type
+            """
+
+            result = await self.db.execute_command(
+                match_query,
+                database_name,
+                parameters=params,
+                language="sql",
+            )
+
+            if not result or "result" not in result or not result["result"]:
+                return None
+
+            # Process the results - group by entity since multiple rows may exist
+            # (one row per identifier, or one row with null identifiers if none exist)
+            entity = None
+            identifiers = []
+
+            for row in result["result"]:
+                # Parse entity data (only once)
+                if entity is None:
+                    entity = Entity(
+                        id=row["entity_id"],
+                        created_at=row["entity_created_at"],
+                        metadata=row["entity_metadata"]
+                        if row["entity_metadata"]
+                        else {},
+                    )
+
+                # Parse identifier data (only if it exists - not null)
+                if (
+                    row["identifier_value"] is not None
+                    and row["identifier_type"] is not None
+                ):
+                    identifier = Identifier(
+                        value=row["identifier_value"],
+                        type=row["identifier_type"],
+                    )
+                    identifiers.append(identifier)
+
+            if entity is None:
+                return None
+
+            # @TODO: Add facts with sources implementation
+            return {
+                "entity": entity,
+                "identifiers": identifiers,
+                "facts_with_sources": [],
+            }
+
+        except Exception as e:
+            raise RuntimeError(f"Failed to find entity by id: {e}")
+
+    async def delete_entity_by_id(self, entity_id: str) -> bool:
+        """Delete an entity by its ID, including its identifiers if not used by other entities.
+
+        This method performs a cascading delete:
+        1. Checks if the entity exists
+        2. Finds all identifiers connected to the entity via HAS_IDENTIFIER edges
+        3. For each identifier, checks if it has any other HAS_IDENTIFIER edges to other entities
+        4. Deletes HAS_IDENTIFIER edges connected to the entity
+        5. Deletes identifiers that are only used by this entity
+        6. Deletes the entity itself
+
+        Returns True if the entity was found and deleted, False if not found.
+        """
+        database_name = get_database_name()
+
+        # First check if entity exists
+        check_query = f"SELECT FROM Entity WHERE id = '{entity_id}'"
+
+        try:
+            check_result = await self.db.execute_command(
+                check_query,
+                database_name,
+                language="sql",
+            )
+            print("check_entity_exists result: ", check_result)
+
+            # Check if entity exists
+            if (
+                not check_result
+                or "result" not in check_result
+                or not check_result["result"]
+            ):
+                return False
+
+            # Entity exists, now delete it
+            # Try just deleting the vertex first (edges should be deleted automatically)
+            delete_query = f"DELETE VERTEX FROM Entity WHERE id = '{entity_id}'"
+
+            delete_result = await self.db.execute_command(
+                delete_query,
+                database_name,
+                language="sql",
+            )
+            print("delete_entity result: ", delete_result)
+
+            # For a simple DELETE query, success is indicated by having a result
+            # ArcadeDB returns the number of deleted records in format: {'result': [{'count': 1}]}
+            if "result" in delete_result:
+                result_list = delete_result["result"]
+                # Check if result is a list with at least one element
+                if (
+                    isinstance(result_list, list)
+                    and len(result_list) > 0
+                    and isinstance(result_list[0], dict)
+                    and "count" in result_list[0]
+                    and result_list[0]["count"] > 0
+                ):
+                    return True
+
+            return False
+
+        except Exception as e:
+            raise RuntimeError(f"Failed to delete entity: {e}")

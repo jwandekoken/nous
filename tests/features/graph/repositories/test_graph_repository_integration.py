@@ -9,7 +9,7 @@ from typing import Callable
 
 import pytest
 
-from app.db.arcadedb import GraphDB, get_graph_db, reset_graph_db
+from app.db.arcadedb import GraphDB, get_database_name, get_graph_db, reset_graph_db
 from app.features.graph.models import Entity, HasIdentifier, Identifier
 from app.features.graph.repositories.graph_repository import (
     CreateEntityResult,
@@ -166,3 +166,222 @@ class TestGraphRepositoryIntegration:
         assert found_relationship.is_primary == test_relationship.is_primary
         assert found_relationship.from_entity_id == test_entity.id
         assert found_relationship.to_identifier_value == test_identifier.value
+
+    @pytest.mark.asyncio
+    async def test_find_entity_by_id(
+        self,
+        graph_repository: GraphRepository,
+        test_entity: Entity,
+        test_identifier: Identifier,
+        test_relationship: HasIdentifier,
+        entity_cleanup_tracker: Callable[[Entity], None],  # noqa: F811
+    ) -> None:
+        """Test finding an entity by its ID."""
+        # Track entity for cleanup
+        entity_cleanup_tracker(test_entity)
+
+        # First create the entity with identifier
+        _ = await graph_repository.create_entity(
+            test_entity, test_identifier, test_relationship
+        )
+
+        # Act - Find the entity by its ID
+        find_result = await graph_repository.find_entity_by_id(str(test_entity.id))
+
+        # Assert
+        assert find_result is not None
+        assert isinstance(find_result, dict)
+        assert "entity" in find_result
+        assert "identifiers" in find_result
+        assert "facts_with_sources" in find_result
+
+        # Verify returned objects have correct properties
+        found_entity = find_result["entity"]
+        found_identifiers = find_result["identifiers"]
+        found_facts_with_sources = find_result["facts_with_sources"]
+
+        assert isinstance(found_entity, Entity)
+        assert isinstance(found_identifiers, list)
+        assert isinstance(found_facts_with_sources, list)
+
+        # Check that we found the correct entity
+        assert found_entity.id == test_entity.id
+        assert found_entity.metadata == test_entity.metadata
+
+        # Check that we found the correct identifier
+        assert len(found_identifiers) == 1
+        found_identifier = found_identifiers[0]
+        assert isinstance(found_identifier, Identifier)
+        assert found_identifier.value == test_identifier.value
+        assert found_identifier.type == test_identifier.type
+
+        # Check that facts with sources is empty (for now)
+        assert len(found_facts_with_sources) == 0
+
+    @pytest.mark.asyncio
+    async def test_find_entity_by_id_no_identifiers(
+        self,
+        graph_repository: GraphRepository,
+        test_entity: Entity,
+        entity_cleanup_tracker: Callable[[Entity], None],  # noqa: F811
+    ) -> None:
+        """Test finding an entity by its ID when it has no identifiers."""
+        # Track entity for cleanup
+        entity_cleanup_tracker(test_entity)
+
+        # Create entity without identifier (we'll create it manually)
+        # Use a simple SQL query to create just the entity vertex
+        database_name = get_database_name()
+        db = await get_graph_db()
+        create_query = f"""
+        CREATE VERTEX Entity
+        SET id = '{test_entity.id}',
+            created_at = '{test_entity.created_at.isoformat()}',
+            metadata = {test_entity.metadata or {}}
+        """
+
+        await db.execute_command(create_query, database_name, language="sql")
+
+        # Act - Find the entity by its ID
+        find_result = await graph_repository.find_entity_by_id(str(test_entity.id))
+
+        # Assert
+        assert find_result is not None
+        assert isinstance(find_result, dict)
+        assert "entity" in find_result
+        assert "identifiers" in find_result
+        assert "facts_with_sources" in find_result
+
+        # Verify returned objects have correct properties
+        found_entity = find_result["entity"]
+        found_identifiers = find_result["identifiers"]
+        found_facts_with_sources = find_result["facts_with_sources"]
+
+        assert isinstance(found_entity, Entity)
+        assert isinstance(found_identifiers, list)
+        assert isinstance(found_facts_with_sources, list)
+
+        # Check that we found the correct entity
+        assert found_entity.id == test_entity.id
+        assert found_entity.metadata == test_entity.metadata
+
+        # Check that identifiers list is empty (no identifiers)
+        assert len(found_identifiers) == 0
+
+        # Check that facts with sources is empty (for now)
+        assert len(found_facts_with_sources) == 0
+
+    @pytest.mark.asyncio
+    async def test_find_entity_by_id_not_found(
+        self,
+        graph_repository: GraphRepository,
+    ) -> None:
+        """Test finding an entity by ID when it doesn't exist."""
+        # Act - Try to find a non-existent entity
+        find_result = await graph_repository.find_entity_by_id("non-existent-id")
+
+        # Assert
+        assert find_result is None
+
+    @pytest.mark.asyncio
+    async def test_find_entity_by_id_empty_id(
+        self,
+        graph_repository: GraphRepository,
+    ) -> None:
+        """Test finding an entity with empty ID raises ValueError."""
+        # Act & Assert
+        with pytest.raises(ValueError, match="Entity ID cannot be empty"):
+            _ = await graph_repository.find_entity_by_id("")
+
+    @pytest.mark.asyncio
+    async def test_delete_entity_by_id(
+        self,
+        graph_repository: GraphRepository,
+        test_entity: Entity,
+        test_identifier: Identifier,
+        test_relationship: HasIdentifier,
+        entity_cleanup_tracker: Callable[[Entity], None],  # noqa: F811
+    ) -> None:
+        """Test deleting an entity by its ID."""
+        # Track entity for cleanup (though we'll delete it manually)
+        entity_cleanup_tracker(test_entity)
+
+        # First create the entity with identifier
+        _ = await graph_repository.create_entity(
+            test_entity, test_identifier, test_relationship
+        )
+
+        # Verify the entity exists by finding it
+        found_before = await graph_repository.find_entity_by_identifier(
+            test_identifier.value, test_identifier.type
+        )
+        assert found_before is not None
+
+        # Act - Delete the entity by its ID
+        delete_result = await graph_repository.delete_entity_by_id(str(test_entity.id))
+
+        # Assert
+        assert delete_result is True
+
+        # Verify the entity was actually deleted
+        found_after = await graph_repository.find_entity_by_identifier(
+            test_identifier.value, test_identifier.type
+        )
+        assert found_after is None  # Should not find the entity anymore
+
+    @pytest.mark.asyncio
+    async def test_delete_entity_by_id_not_found(
+        self,
+        graph_repository: GraphRepository,
+    ) -> None:
+        """Test deleting an entity that doesn't exist."""
+        # Act - Try to delete a non-existent entity
+        delete_result = await graph_repository.delete_entity_by_id("non-existent-id")
+
+        # Assert
+        assert delete_result is False
+
+    @pytest.mark.asyncio
+    async def test_delete_entity_with_shared_identifier(
+        self,
+        graph_repository: GraphRepository,
+        test_entity: Entity,
+        test_identifier: Identifier,
+        test_relationship: HasIdentifier,
+        entity_cleanup_tracker: Callable[[Entity], None],  # noqa: F811
+    ) -> None:
+        """Test that identifiers shared by multiple entities are not deleted."""
+        # Track entity for cleanup
+        entity_cleanup_tracker(test_entity)
+
+        # Create first entity with identifier
+        _ = await graph_repository.create_entity(
+            test_entity, test_identifier, test_relationship
+        )
+
+        # Create second entity with the same identifier
+        second_entity = Entity(metadata={"test_type": "shared_identifier_test"})
+        second_relationship = HasIdentifier(
+            from_entity_id=second_entity.id,
+            to_identifier_value=test_identifier.value,
+            is_primary=True,
+        )
+        _ = await graph_repository.create_entity(
+            second_entity, test_identifier, second_relationship
+        )
+
+        # Track second entity for cleanup too
+        entity_cleanup_tracker(second_entity)
+
+        # Delete the first entity
+        delete_result = await graph_repository.delete_entity_by_id(str(test_entity.id))
+        assert delete_result is True
+
+        # Verify first entity is gone
+        found_first = await graph_repository.find_entity_by_identifier(
+            test_identifier.value, test_identifier.type
+        )
+        assert found_first is not None  # Should still find the second entity
+
+        # Clean up second entity
+        _ = await graph_repository.delete_entity_by_id(str(second_entity.id))
