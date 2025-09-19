@@ -72,8 +72,8 @@ def test_relationship(
     )
 
 
-class TestGraphRepositoryIntegration:
-    """Integration tests for GraphRepository create_entity method."""
+class TestCreateEntity:
+    """Integration tests for GraphRepository.create_entity method."""
 
     @pytest.mark.asyncio
     async def test_create_entity_basic(
@@ -118,6 +118,10 @@ class TestGraphRepositoryIntegration:
         assert returned_identifier.value == test_identifier.value
         assert returned_identifier.type == test_identifier.type
         assert returned_relationship.is_primary == test_relationship.is_primary
+
+
+class TestFindEntityByIdentifier:
+    """Integration tests for GraphRepository.find_entity_by_identifier method."""
 
     @pytest.mark.asyncio
     async def test_find_entity_by_identifier(
@@ -166,6 +170,10 @@ class TestGraphRepositoryIntegration:
         assert found_relationship.is_primary == test_relationship.is_primary
         assert found_relationship.from_entity_id == test_entity.id
         assert found_relationship.to_identifier_value == test_identifier.value
+
+
+class TestFindEntityById:
+    """Integration tests for GraphRepository.find_entity_by_id method."""
 
     @pytest.mark.asyncio
     async def test_find_entity_by_id(
@@ -292,6 +300,10 @@ class TestGraphRepositoryIntegration:
         # Act & Assert
         with pytest.raises(ValueError, match="Entity ID cannot be empty"):
             _ = await graph_repository.find_entity_by_id("")
+
+
+class TestDeleteEntityById:
+    """Integration tests for GraphRepository.delete_entity_by_id method."""
 
     @pytest.mark.asyncio
     async def test_delete_entity_by_id(
