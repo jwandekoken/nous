@@ -22,8 +22,6 @@ async def test_my_test(graph_repository, entity_cleanup_tracker):
     # Entity deleted immediately after this test
 """
 
-import uuid
-
 import pytest
 
 from app.features.graph.models import Entity
@@ -31,29 +29,65 @@ from app.features.graph.repositories.graph_repository import GraphRepository
 
 
 @pytest.fixture
-async def entity_cleanup_tracker(graph_repository: GraphRepository):
-    """Track entities created during a test for cleanup."""
-    created_entities: list[uuid.UUID] = []
+async def resource_tracker(graph_repository: GraphRepository):
+    """Track resources created during a test for cleanup.
 
-    def track_entity(entity: Entity):
-        """Track an entity for later cleanup."""
-        created_entities.append(entity.id)
+    This fixture provides a `track(resource)` function that can track
+    any type of graph resource (Entity, Fact, Source) for cleanup.
+    At the end of the test, all tracked resources are deleted.
+    """
+    created_resources: list[
+        tuple[str, str]
+    ] = []  # List of (resource_type, resource_id)
 
-    yield track_entity
+    def track_resource(resource):
+        """Track a resource for later cleanup.
 
-    # Cleanup: Delete all tracked entities after test
-    if created_entities:  # Only cleanup if there are entities to clean
-        await _cleanup_entities(graph_repository, created_entities)
+        Args:
+            resource: The resource object to track (Entity, Fact, Source, etc.)
+        """
+        from app.features.graph.models import Fact, Source
+
+        if isinstance(resource, Entity):
+            created_resources.append(("entity", str(resource.id)))
+        elif isinstance(resource, Fact):
+            created_resources.append(("fact", resource.fact_id))
+        elif isinstance(resource, Source):
+            created_resources.append(("source", str(resource.id)))
+        else:
+            raise ValueError(f"Unsupported resource type: {type(resource)}")
+
+    yield track_resource
+
+    # Cleanup: Delete all tracked resources after test
+    if created_resources:  # Only cleanup if there are resources to clean
+        await _cleanup_resources(graph_repository, created_resources)
 
 
-async def _cleanup_entities(
-    graph_repository: GraphRepository, entity_ids: list[uuid.UUID]
+async def _cleanup_resources(
+    graph_repository: GraphRepository, resources: list[tuple[str, str]]
 ):
-    """Helper function to cleanup entities asynchronously."""
-    for entity_id in entity_ids:
+    """Helper function to cleanup resources asynchronously."""
+    for resource_type, resource_id in resources:
         try:
-            result = await graph_repository.delete_entity_by_id(str(entity_id))
+            if resource_type == "entity":
+                result = await graph_repository.delete_entity_by_id(resource_id)
+                action = "entity"
+            elif resource_type == "fact":
+                result = await graph_repository.delete_fact_by_id(resource_id)
+                action = "fact"
+            elif resource_type == "source":
+                result = await graph_repository.delete_source_by_id(resource_id)
+                action = "source"
+            else:
+                print(
+                    f"Warning: Unknown resource type {resource_type} for {resource_id}"
+                )
+                continue
+
             if result:
-                print(f"Cleaned up entity {entity_id}")
+                print(f"Cleaned up {action} {resource_id}")
+            else:
+                print(f"Warning: {action} {resource_id} was not found for cleanup")
         except Exception as e:
-            print(f"Warning: Failed to cleanup entity {entity_id}: {e}")
+            print(f"Warning: Failed to cleanup {resource_type} {resource_id}: {e}")

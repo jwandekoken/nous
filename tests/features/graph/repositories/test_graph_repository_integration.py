@@ -5,7 +5,6 @@ using the actual production database connection.
 """
 
 import uuid
-from typing import Callable
 
 import pytest
 
@@ -14,11 +13,6 @@ from app.features.graph.models import Entity, HasIdentifier, Identifier
 from app.features.graph.repositories.graph_repository import (
     CreateEntityResult,
     GraphRepository,
-)
-
-# Import cleanup utilities
-from tests.features.graph.repositories.integration_tests_utils import (
-    entity_cleanup_tracker,  # noqa: F401 # pyright: ignore[reportUnusedImport]
 )
 
 
@@ -82,11 +76,8 @@ class TestCreateEntity:
         test_entity: Entity,
         test_identifier: Identifier,
         test_relationship: HasIdentifier,
-        entity_cleanup_tracker: Callable[[Entity], None],  # noqa: F811
     ) -> None:
         """Test basic entity creation with minimal data."""
-        # Track entity for cleanup
-        entity_cleanup_tracker(test_entity)
 
         # Act
         result: CreateEntityResult = await graph_repository.create_entity(
@@ -130,11 +121,8 @@ class TestFindEntityByIdentifier:
         test_entity: Entity,
         test_identifier: Identifier,
         test_relationship: HasIdentifier,
-        entity_cleanup_tracker: Callable[[Entity], None],  # noqa: F811
     ) -> None:
         """Test finding an entity by its identifier value and type."""
-        # Track entity for cleanup
-        entity_cleanup_tracker(test_entity)
 
         # First create the entity with identifier
         _ = await graph_repository.create_entity(
@@ -182,11 +170,8 @@ class TestFindEntityById:
         test_entity: Entity,
         test_identifier: Identifier,
         test_relationship: HasIdentifier,
-        entity_cleanup_tracker: Callable[[Entity], None],  # noqa: F811
     ) -> None:
         """Test finding an entity by its ID."""
-        # Track entity for cleanup
-        entity_cleanup_tracker(test_entity)
 
         # First create the entity with identifier
         _ = await graph_repository.create_entity(
@@ -231,11 +216,8 @@ class TestFindEntityById:
         self,
         graph_repository: GraphRepository,
         test_entity: Entity,
-        entity_cleanup_tracker: Callable[[Entity], None],  # noqa: F811
     ) -> None:
         """Test finding an entity by its ID when it has no identifiers."""
-        # Track entity for cleanup
-        entity_cleanup_tracker(test_entity)
 
         # Create entity without identifier (we'll create it manually)
         # Use a simple SQL query to create just the entity vertex
@@ -313,11 +295,8 @@ class TestDeleteEntityById:
         test_entity: Entity,
         test_identifier: Identifier,
         test_relationship: HasIdentifier,
-        entity_cleanup_tracker: Callable[[Entity], None],  # noqa: F811
     ) -> None:
         """Test deleting an entity by its ID."""
-        # Track entity for cleanup (though we'll delete it manually)
-        entity_cleanup_tracker(test_entity)
 
         # First create the entity with identifier
         _ = await graph_repository.create_entity(
@@ -361,11 +340,8 @@ class TestDeleteEntityById:
         test_entity: Entity,
         test_identifier: Identifier,
         test_relationship: HasIdentifier,
-        entity_cleanup_tracker: Callable[[Entity], None],  # noqa: F811
     ) -> None:
         """Test that identifiers shared by multiple entities are not deleted."""
-        # Track entity for cleanup
-        entity_cleanup_tracker(test_entity)
 
         # Create first entity with identifier
         _ = await graph_repository.create_entity(
@@ -382,9 +358,6 @@ class TestDeleteEntityById:
         _ = await graph_repository.create_entity(
             second_entity, test_identifier, second_relationship
         )
-
-        # Track second entity for cleanup too
-        entity_cleanup_tracker(second_entity)
 
         # Delete the first entity
         delete_result = await graph_repository.delete_entity_by_id(str(test_entity.id))

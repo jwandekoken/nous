@@ -60,6 +60,7 @@ class GraphRepository:
     def __init__(self, db: GraphDB):
         self.db: GraphDB = db
 
+    # @TODO: verify if this method is idempotent (add test for this)
     async def create_entity(
         self, entity: Entity, identifier: Identifier, relationship: HasIdentifier
     ) -> CreateEntityResult:
@@ -91,12 +92,12 @@ class GraphRepository:
             SET id = :entity_id,
                 created_at = :created_at,
                 metadata = :metadata;
-            CREATE VERTEX Identifier
-            SET value = :identifier_value,
-                type = :identifier_type;
+            UPDATE Identifier
+            SET value = :identifier_value, type = :identifier_type
+            UPSERT WHERE value = :identifier_value AND type = :identifier_type;
             CREATE EDGE HAS_IDENTIFIER
             FROM (SELECT FROM Entity WHERE id = :entity_id)
-            TO (SELECT FROM Identifier WHERE value = :identifier_value)
+            TO (SELECT FROM Identifier WHERE value = :identifier_value AND type = :identifier_type)
             SET is_primary = :is_primary,
                 created_at = :relationship_created_at;
             COMMIT;
@@ -328,64 +329,40 @@ class GraphRepository:
             raise RuntimeError(f"Failed to find entity by id: {e}")
 
     async def delete_entity_by_id(self, entity_id: str) -> bool:
-        """Delete an entity by its ID, including its identifiers if not used by other entities.
+        """Delete an entity by its ID.
 
-        This method performs a cascading delete:
-        1. Checks if the entity exists
-        2. Finds all identifiers connected to the entity via HAS_IDENTIFIER edges
-        3. For each identifier, checks if it has any other HAS_IDENTIFIER edges to other entities
-        4. Deletes HAS_IDENTIFIER edges connected to the entity
-        5. Deletes identifiers that are only used by this entity
-        6. Deletes the entity itself
+        This method deletes the entity vertex. Connected edges are automatically
+        removed by ArcadeDB, but connected vertices (identifiers, facts, sources)
+        are not deleted to avoid breaking other entities that might reference them.
 
         Returns True if the entity was found and deleted, False if not found.
         """
+        if not entity_id:
+            raise ValueError("Entity ID cannot be empty")
+
         database_name = get_database_name()
 
-        # First check if entity exists
-        check_query = f"SELECT FROM Entity WHERE id = '{entity_id}'"
-
         try:
+            # Check if entity exists
+            check_query = f"SELECT FROM Entity WHERE id = '{entity_id}'"
             check_result = await self.db.execute_command(
-                check_query,
-                database_name,
-                language="sql",
+                check_query, database_name, language="sql"
             )
 
-            # Check if entity exists
-            if (
-                not check_result
-                or "result" not in check_result
-                or not check_result["result"]
-            ):
+            if not check_result or not check_result.get("result"):
                 return False
 
-            # Entity exists, now delete it
-            # Try just deleting the vertex first (edges should be deleted automatically)
+            # Delete the entity (edges are automatically removed)
             delete_query = f"DELETE VERTEX FROM Entity WHERE id = '{entity_id}'"
-
             delete_result = await self.db.execute_command(
-                delete_query,
-                database_name,
-                language="sql",
+                delete_query, database_name, language="sql"
             )
-            print("delete_entity result: ", delete_result)
 
-            # For a simple DELETE query, success is indicated by having a result
-            # ArcadeDB returns the number of deleted records in format: {'result': [{'count': 1}]}
-            if "result" in delete_result:
-                result_list = delete_result["result"]
-                # Check if result is a list with at least one element
-                if (
-                    isinstance(result_list, list)
-                    and len(result_list) > 0
-                    and isinstance(result_list[0], dict)
-                    and "count" in result_list[0]
-                    and result_list[0]["count"] > 0
-                ):
-                    return True
-
-            return False
+            return bool(
+                delete_result
+                and delete_result.get("result")
+                and delete_result["result"][0].get("count", 0) > 0
+            )
 
         except Exception as e:
             raise RuntimeError(f"Failed to delete entity: {e}")
