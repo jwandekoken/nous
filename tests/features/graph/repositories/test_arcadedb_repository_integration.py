@@ -375,3 +375,130 @@ class TestDeleteEntityById:
 
         # Clean up second entity
         _ = await arcadedb_repository.delete_entity_by_id(str(second_entity.id))
+
+    # @TODO: verify this test
+    @pytest.mark.asyncio
+    async def test_delete_entity_cascading_cleanup_orphaned_identifiers(
+        self,
+        arcadedb_repository: ArcadedbRepository,
+        test_entity: Entity,
+    ) -> None:
+        """Test that delete_entity_by_id removes orphaned identifiers but preserves shared ones.
+
+        This test creates two scenarios:
+        1. An entity with a unique identifier (orphaned when entity is deleted)
+        2. Two entities sharing the same identifier (preserved when one entity is deleted)
+
+        Setup:
+        - entity_with_unique: has unique_identifier (only connected to entity_with_unique)
+        - entity_with_unique: also has shared_identifier (connected to both entities)
+        - entity_with_shared: has shared_identifier (connected to both entities)
+
+        When entity_with_unique is deleted:
+        - unique_identifier should be deleted (orphaned)
+        - shared_identifier should be preserved (still connected to entity_with_shared)
+        """
+
+        # Create identifiers
+        unique_identifier = Identifier(
+            value=f"unique.test.{uuid.uuid4()}@example.com", type="email"
+        )
+        shared_identifier = Identifier(
+            value=f"shared.test.{uuid.uuid4()}@example.com", type="email"
+        )
+
+        # Create Entity A (will be deleted) - the entity with both unique and shared identifiers
+        entity_with_unique = test_entity
+        unique_relationship = HasIdentifier(
+            from_entity_id=entity_with_unique.id,
+            to_identifier_value=unique_identifier.value,
+            is_primary=False,  # Not primary since we'll have a shared one
+        )
+        shared_relationship_a = HasIdentifier(
+            from_entity_id=entity_with_unique.id,
+            to_identifier_value=shared_identifier.value,
+            is_primary=True,  # Primary identifier
+        )
+
+        # Create Entity A with unique identifier first
+        _ = await arcadedb_repository.create_entity(
+            entity_with_unique, unique_identifier, unique_relationship
+        )
+
+        # Add shared identifier to Entity A (this creates a second HAS_IDENTIFIER edge)
+        # We need to manually create this since create_entity only handles one identifier
+        database_name = get_database_name()
+        db = await get_graph_db()
+        add_shared_to_entity_a_query = f"""
+        CREATE EDGE HAS_IDENTIFIER
+        FROM (SELECT FROM Entity WHERE id = '{entity_with_unique.id}')
+        TO (SELECT FROM Identifier WHERE value = '{shared_identifier.value}' AND type = '{shared_identifier.type}')
+        UPSERT WHERE value = '{shared_identifier.value}' AND type = '{shared_identifier.type}'
+        SET is_primary = {str(shared_relationship_a.is_primary).lower()},
+            created_at = '{shared_relationship_a.created_at.isoformat()}'
+        """
+        await db.execute_command(
+            add_shared_to_entity_a_query, database_name, language="sql"
+        )
+
+        # Create Entity B with the shared identifier (the one that will survive)
+        entity_with_shared = Entity(
+            metadata={"test_type": "entity_with_shared_identifier_cleanup_test"}
+        )
+        shared_relationship_b = HasIdentifier(
+            from_entity_id=entity_with_shared.id,
+            to_identifier_value=shared_identifier.value,
+            is_primary=True,
+        )
+
+        # Create Entity B with shared identifier
+        _ = await arcadedb_repository.create_entity(
+            entity_with_shared, shared_identifier, shared_relationship_b
+        )
+
+        # Verify both entities exist and can be found
+        entity_a_found = await arcadedb_repository.find_entity_by_identifier(
+            unique_identifier.value, unique_identifier.type
+        )
+        assert entity_a_found is not None
+        assert entity_a_found["entity"].id == entity_with_unique.id
+
+        entity_b_found = await arcadedb_repository.find_entity_by_identifier(
+            shared_identifier.value, shared_identifier.type
+        )
+        assert (
+            entity_b_found is not None
+        )  # Should find one of the entities with shared identifier
+
+        # Act - Delete Entity A (should cascade to unique identifier but preserve shared one)
+        delete_result = await arcadedb_repository.delete_entity_by_id(
+            str(entity_with_unique.id)
+        )
+
+        # Assert deletion was successful
+        assert delete_result is True
+
+        # Verify Entity A is completely gone
+        entity_a_after = await arcadedb_repository.find_entity_by_id(
+            str(entity_with_unique.id)
+        )
+        assert entity_a_after is None
+
+        # Verify unique identifier is gone (orphaned and should have been cleaned up)
+        unique_identifier_after = await arcadedb_repository.find_entity_by_identifier(
+            unique_identifier.value, unique_identifier.type
+        )
+        assert unique_identifier_after is None
+
+        # Verify shared identifier still exists (still connected to Entity B)
+        shared_identifier_after = await arcadedb_repository.find_entity_by_identifier(
+            shared_identifier.value, shared_identifier.type
+        )
+        assert shared_identifier_after is not None
+        assert shared_identifier_after["entity"].id == entity_with_shared.id
+
+        # Clean up - delete Entity B
+        cleanup_result = await arcadedb_repository.delete_entity_by_id(
+            str(entity_with_shared.id)
+        )
+        assert cleanup_result is True
