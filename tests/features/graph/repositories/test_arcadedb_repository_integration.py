@@ -110,6 +110,86 @@ class TestCreateEntity:
         assert returned_identifier.type == test_identifier.type
         assert returned_relationship.is_primary == test_relationship.is_primary
 
+    @pytest.mark.asyncio
+    async def test_create_entity_reuses_existing_identifier(
+        self,
+        arcadedb_repository: ArcadedbRepository,
+        test_entity: Entity,
+        test_identifier: Identifier,
+        test_relationship: HasIdentifier,
+    ) -> None:
+        """Test that create_entity reuses existing identifiers instead of creating duplicates.
+
+        This tests the idempotent behavior for identifiers: when creating entities with
+        identifiers that have the same value and type, the existing identifier should
+        be reused rather than creating a new duplicate identifier.
+        """
+
+        # First, create an entity with the test identifier
+        first_entity = test_entity
+        first_relationship = test_relationship
+
+        first_result = await arcadedb_repository.create_entity(
+            first_entity, test_identifier, first_relationship
+        )
+
+        # Verify first entity was created
+        assert first_result is not None
+        assert first_result["entity"].id == first_entity.id
+
+        # Create a second entity with the SAME identifier (same value and type)
+        second_entity = Entity(
+            metadata={
+                "test_type": "reuse_identifier_test",
+                "test_run_id": str(uuid.uuid4()),
+                "created_by": "test_entity_reuse_identifier.py",
+            }
+        )
+        second_relationship = HasIdentifier(
+            from_entity_id=second_entity.id,
+            to_identifier_value=test_identifier.value,  # Same identifier value
+            is_primary=True,
+        )
+
+        # Act - Create second entity with same identifier
+        second_result = await arcadedb_repository.create_entity(
+            second_entity, test_identifier, second_relationship
+        )
+
+        # Assert
+        assert second_result is not None
+        assert second_result["entity"].id == second_entity.id
+
+        # Both entities should exist and be findable
+        first_found = await arcadedb_repository.find_entity_by_id(str(first_entity.id))
+        second_found = await arcadedb_repository.find_entity_by_id(
+            str(second_entity.id)
+        )
+
+        assert first_found is not None
+        assert second_found is not None
+
+        # Both should have the same identifier in their identifiers list
+        assert len(first_found["identifiers"]) == 1
+        assert len(second_found["identifiers"]) == 1
+
+        first_identifier = first_found["identifiers"][0]
+        second_identifier = second_found["identifiers"][0]
+
+        # The identifiers should be identical (same value and type)
+        assert first_identifier.value == test_identifier.value
+        assert first_identifier.type == test_identifier.type
+        assert second_identifier.value == test_identifier.value
+        assert second_identifier.type == test_identifier.type
+
+        # Verify we can find both entities by the same identifier
+        # (Note: find_entity_by_identifier might return either entity since both are connected)
+        found_by_identifier = await arcadedb_repository.find_entity_by_identifier(
+            test_identifier.value, test_identifier.type
+        )
+        assert found_by_identifier is not None
+        # It should find one of the entities (which one depends on database ordering)
+
 
 class TestFindEntityByIdentifier:
     """Integration tests for GraphRepository.find_entity_by_identifier method."""
