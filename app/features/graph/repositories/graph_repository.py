@@ -259,39 +259,36 @@ class GraphRepository:
 
         database_name = get_database_name()
 
-        # Create parameters dictionary for safe query execution
-        params = {
-            "entity_id": entity_id,
-        }
-
         try:
-            # Use a single ArcadeDB SQL MATCH statement to get entity and all its identifiers
-            match_query = """
-            MATCH
-                {type: `Entity`, where: (id = :entity_id), as: entity}
-                .outE(){
-                    type: `HAS_IDENTIFIER`,
-                    as: rel,
-                    optional: true
-                }
-                .inV(){
-                    type: `Identifier`,
-                    as: identifier,
-                    optional: true
-                }
-            RETURN
-                entity.id AS entity_id,
-                entity.created_at AS entity_created_at,
-                entity.metadata AS entity_metadata,
-                identifier.value AS identifier_value,
-                identifier.type AS identifier_type
+            # Use Gremlin to find entity by ID and optionally get its identifiers
+            # Note: ArcadeDB doesn't support parameterized Gremlin queries, so we use string formatting
+            # with proper escaping for security
+            escaped_entity_id = entity_id.replace("'", "\\'")
+
+            query = f"""
+            g.V().hasLabel('Entity').has('id', '{escaped_entity_id}')
+            .project(
+                'entity_id',
+                'entity_created_at',
+                'entity_metadata',
+                'identifiers'
+            )
+            .by(values('id'))
+            .by(values('created_at'))
+            .by(values('metadata'))
+            .by(
+                outE('HAS_IDENTIFIER').inV()
+                .project('value', 'type')
+                .by(values('value'))
+                .by(values('type'))
+                .fold()
+            )
             """
 
             query_response = await self.db.execute_command(
-                match_query,
+                query,
                 database_name,
-                parameters=params,
-                language="sql",
+                language="gremlin",
             )
 
             if (
@@ -301,35 +298,25 @@ class GraphRepository:
             ):
                 return None
 
-            # Process the results - group by entity since multiple rows may exist
-            # (one row per identifier, or one row with null identifiers if none exist)
-            entity = None
+            # Parse the result
+            row = query_response["result"][0]
+
+            # Parse entity data
+            entity = Entity(
+                id=row["entity_id"],
+                created_at=row["entity_created_at"],
+                metadata=row["entity_metadata"] if row["entity_metadata"] else {},
+            )
+
+            # Parse identifiers data
             identifiers = []
-
-            for row in query_response["result"]:
-                # Parse entity data (only once)
-                if entity is None:
-                    entity = Entity(
-                        id=row["entity_id"],
-                        created_at=row["entity_created_at"],
-                        metadata=row["entity_metadata"]
-                        if row["entity_metadata"]
-                        else {},
-                    )
-
-                # Parse identifier data (only if it exists - not null)
-                if (
-                    row["identifier_value"] is not None
-                    and row["identifier_type"] is not None
-                ):
+            if row["identifiers"]:
+                for identifier_data in row["identifiers"]:
                     identifier = Identifier(
-                        value=row["identifier_value"],
-                        type=row["identifier_type"],
+                        value=identifier_data["value"],
+                        type=identifier_data["type"],
                     )
                     identifiers.append(identifier)
-
-            if entity is None:
-                return None
 
             return {
                 "entity": entity,
