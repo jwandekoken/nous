@@ -1,28 +1,23 @@
-"""DTOs for graph database API.
+"""Graph database DTOs package.
 
-This module re-exports all Data Transfer Objects for convenient importing.
+This package contains all Data Transfer Objects for API responses
+and requests in the graph database feature.
 """
 
-from .entity_dto import (
-    CreateEntityRequest,
-    CreateEntityResponse,
-    GetEntityResponse,
-    SearchEntitiesResponse,
-)
-from .fact_dto import (
-    AddFactRequest,
-    AddFactResponse,
-    GetFactResponse,
+from .knowledge_dto import (
+    AssimilateKnowledgeRequest,
+    AssimilateKnowledgeResponse,
+    EntityDto,
+    FactDto,
+    IdentifierPayload,
+    SourceDto,
 )
 
 __all__ = [
-    # Entity DTOs
-    "CreateEntityRequest",
-    "CreateEntityResponse",
-    "GetEntityResponse",
-    "SearchEntitiesResponse",
-    # Fact DTOs
-    "AddFactRequest",
-    "AddFactResponse",
-    "GetFactResponse",
+    "EntityDto",
+    "FactDto",
+    "IdentifierPayload",
+    "AssimilateKnowledgeRequest",
+    "AssimilateKnowledgeResponse",
+    "SourceDto",
 ]

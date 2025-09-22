@@ -1,11 +1,43 @@
 """Graph database API routes - main router that includes all entity-specific route modules."""
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
-from app.features.graph.routes import entities_router, facts_router
+from app.db.arcadedb.connection import get_graph_db
+from app.features.graph.dtos.knowledge_dto import (
+    AssimilateKnowledgeRequest,
+    AssimilateKnowledgeResponse,
+)
+from app.features.graph.repositories import ArcadedbRepository
+from app.features.graph.usecases import AssimilateKnowledgeUseCaseImpl
 
 router = APIRouter(prefix="/graph", tags=["graph"])
 
-# Include all entity-specific route modules
-router.include_router(entities_router)
-router.include_router(facts_router)
+
+async def get_assimilate_knowledge_use_case() -> AssimilateKnowledgeUseCaseImpl:
+    """Dependency injection for the assimilate knowledge use case."""
+
+    # TODO: Replace with actual fact extractor service
+    class StubFactExtractor:
+        async def extract_facts(self, content: str) -> list[dict[str, str]]:
+            """Stub implementation - returns empty list for now."""
+            return []
+
+    db = await get_graph_db()
+    return AssimilateKnowledgeUseCaseImpl(
+        repository=ArcadedbRepository(db), fact_extractor=StubFactExtractor()
+    )
+
+
+@router.post("/entities/assimilate", response_model=AssimilateKnowledgeResponse)
+async def assimilate_knowledge(
+    request: AssimilateKnowledgeRequest,
+    use_case: AssimilateKnowledgeUseCaseImpl = Depends(
+        get_assimilate_knowledge_use_case
+    ),
+) -> AssimilateKnowledgeResponse:
+    """Assimilate knowledge by processing content and associating facts with an entity.
+
+    This endpoint processes textual content, extracts facts, and associates them
+    with the specified entity in the knowledge graph.
+    """
+    return await use_case.execute(request)

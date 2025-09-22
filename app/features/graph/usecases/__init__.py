@@ -1,1 +1,14 @@
-"""Graph usecase layer - business logic for graph operations."""
+"""Graph database use cases package.
+
+This package contains all use cases for the graph database feature.
+"""
+
+from .assimilate_knowledge_usecase import (
+    AssimilateKnowledgeUseCase,
+    AssimilateKnowledgeUseCaseImpl,
+)
+
+__all__ = [
+    "AssimilateKnowledgeUseCase",
+    "AssimilateKnowledgeUseCaseImpl",
+]
