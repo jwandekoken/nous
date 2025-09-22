@@ -6,10 +6,19 @@ extracting facts, and associating them with entities.
 
 from typing import Protocol
 
-from ...dtos.knowledge_dto import (
+from app.features.graph.dtos.knowledge_dto import (
     AssimilateKnowledgeRequest,
     AssimilateKnowledgeResponse,
 )
+from app.features.graph.repositories.arcadedb_repository import ArcadedbRepository
+
+
+class FactExtractor(Protocol):
+    """Protocol for extracting facts from text content."""
+
+    async def extract_facts(self, content: str) -> list[dict[str, str]]:
+        """Extract facts from text content."""
+        ...
 
 
 class AssimilateKnowledgeUseCase(Protocol):
@@ -25,15 +34,15 @@ class AssimilateKnowledgeUseCase(Protocol):
 class AssimilateKnowledgeUseCaseImpl:
     """Implementation of the assimilate knowledge use case."""
 
-    def __init__(self, repository, fact_extractor):
+    def __init__(self, repository: ArcadedbRepository, fact_extractor: FactExtractor):
         """Initialize the use case with dependencies.
 
         Args:
             repository: Repository for graph database operations
             fact_extractor: Service for extracting facts from text
         """
-        self.repository = repository
-        self.fact_extractor = fact_extractor
+        self.repository: ArcadedbRepository = repository
+        self.fact_extractor: FactExtractor = fact_extractor
 
     async def execute(
         self, request: AssimilateKnowledgeRequest
