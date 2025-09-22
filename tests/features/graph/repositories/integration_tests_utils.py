@@ -6,33 +6,20 @@ the GraphRepository and graph database.
 CLEANUP MECHANISMS:
 ==================
 
-1. TEST-LEVEL CLEANUP (Primary):
+TEST-LEVEL CLEANUP (Primary):
    - `entity_cleanup_tracker` fixture: Track specific entities for cleanup after each test
    - Uses existing `delete_entity_by_id()` method for reliable cleanup
-   - Handles event loop conflicts gracefully with fallback mechanisms
-
-2. MANUAL CLEANUP (For debugging):
-   - `clear_test_data()` method: Removes only test data (safe)
-   - Call manually when needed: `await repo.clear_test_data()`
-   - Identifies test entities by metadata.test_type field
 
 USAGE EXAMPLES:
 ==============
 
-# Using test-level tracking (recommended):
+# Using test-level tracking:
 @pytest.mark.asyncio
 async def test_my_test(graph_repository, entity_cleanup_tracker):
     entity = Entity(metadata={"test_type": "my_test"})
     entity_cleanup_tracker(entity)  # Track for cleanup
     # ... create and test entity ...
     # Entity deleted immediately after this test
-
-# Manual cleanup for debugging:
-@pytest.mark.asyncio
-async def test_debugging_scenario(graph_repository):
-    # ... create test data ...
-    # Clean up manually if needed
-    await graph_repository.clear_test_data()
 """
 
 import uuid
@@ -65,7 +52,7 @@ async def _cleanup_entities(
     """Helper function to cleanup entities asynchronously."""
     for entity_id in entity_ids:
         try:
-            result = await graph_repository.delete_entity_by_id(entity_id)
+            result = await graph_repository.delete_entity_by_id(str(entity_id))
             if result:
                 print(f"Cleaned up entity {entity_id}")
         except Exception as e:

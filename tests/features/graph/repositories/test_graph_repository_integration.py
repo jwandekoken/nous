@@ -252,6 +252,7 @@ class TestFindEntityById:
 
         # Act - Find the entity by its ID
         find_result = await graph_repository.find_entity_by_id(str(test_entity.id))
+        print("DEBUG - Find result: ", find_result)
 
         # Assert
         assert find_result is not None

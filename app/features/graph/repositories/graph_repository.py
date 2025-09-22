@@ -111,7 +111,6 @@ class GraphRepository:
                     language="sqlscript",
                 ),
             )
-            print("created_entity_result: ", created_entity_result)
 
             # Check if entity was created successfully
             if (
@@ -134,24 +133,18 @@ class GraphRepository:
             if commit_result.get("operation") != "commit":
                 raise RuntimeError("Transaction did not commit successfully")
 
-            # Use the original entity data since transaction succeeded
-            created_entity = Entity(
-                id=entity.id,
-                created_at=entity.created_at,
-                metadata=entity.metadata,
-            )
-
-            # Return mock data for identifier and relationship (since we're focusing on entity creation)
+            # Return the original entity, identifier, and relationship to avoid another database query
             return {
-                "entity": created_entity,
-                "identifier": identifier,  # Return the original identifier
-                "relationship": relationship,  # Return the original relationship
+                "entity": entity,
+                "identifier": identifier,
+                "relationship": relationship,
             }
 
         except Exception as e:
             # If any command fails, raise an error
             raise RuntimeError(f"Failed to create entity: {e}")
 
+    # @TODO: return facts with sources.
     async def find_entity_by_identifier(
         self, identifier_value: str, identifier_type: str
     ) -> FindEntityByIdentifierResult | None:
@@ -200,20 +193,22 @@ class GraphRepository:
         """
 
         try:
-            result = await self.db.execute_command(
+            query_response = await self.db.execute_command(
                 query,
                 database_name,
                 language="gremlin",
             )
 
-            print("find_entity_by_identifier result: ", result)
-
             # Check if we got any results
-            if not result or "result" not in result or not result["result"]:
+            if (
+                not query_response
+                or "result" not in query_response
+                or not query_response["result"]
+            ):
                 return None
 
             # Get the first result (should only be one due to unique constraints)
-            row = result["result"][0]
+            row = query_response["result"][0]
 
             # Parse the entity data
             entity = Entity(
@@ -245,12 +240,12 @@ class GraphRepository:
         except Exception as e:
             raise RuntimeError(f"Failed to find entity by identifier: {e}")
 
+    # @TODO: return facts with sources.
     async def find_entity_by_id(self, entity_id: str) -> EntityWithRelations | None:
         """Find an entity by its ID and return it with all its relations.
 
         This method retrieves the entity along with:
         - All its identifiers (via HAS_IDENTIFIER edges)
-        - @TODO: All its facts with sources (via HAS_FACT edges and DERIVED_FROM edges)
 
         Args:
             entity_id: The UUID string of the entity to find
@@ -292,14 +287,18 @@ class GraphRepository:
                 identifier.type AS identifier_type
             """
 
-            result = await self.db.execute_command(
+            query_response = await self.db.execute_command(
                 match_query,
                 database_name,
                 parameters=params,
                 language="sql",
             )
 
-            if not result or "result" not in result or not result["result"]:
+            if (
+                not query_response
+                or "result" not in query_response
+                or not query_response["result"]
+            ):
                 return None
 
             # Process the results - group by entity since multiple rows may exist
@@ -307,7 +306,7 @@ class GraphRepository:
             entity = None
             identifiers = []
 
-            for row in result["result"]:
+            for row in query_response["result"]:
                 # Parse entity data (only once)
                 if entity is None:
                     entity = Entity(
@@ -332,7 +331,6 @@ class GraphRepository:
             if entity is None:
                 return None
 
-            # @TODO: Add facts with sources implementation
             return {
                 "entity": entity,
                 "identifiers": identifiers,
@@ -366,7 +364,6 @@ class GraphRepository:
                 database_name,
                 language="sql",
             )
-            print("check_entity_exists result: ", check_result)
 
             # Check if entity exists
             if (
