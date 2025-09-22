@@ -1,6 +1,6 @@
-"""Integration tests for GraphRepository using real database connection.
+"""Integration tests for ArcadedbRepository using real database connection.
 
-This module provides integration tests for the GraphRepository
+This module provides integration tests for the ArcadedbRepository
 using the actual production database connection.
 """
 
@@ -10,9 +10,9 @@ import pytest
 
 from app.db.arcadedb import GraphDB, get_database_name, get_graph_db, reset_graph_db
 from app.features.graph.models import Entity, HasIdentifier, Identifier
-from app.features.graph.repositories.graph_repository import (
+from app.features.graph.repositories.arcadedb_repository import (
+    ArcadedbRepository,
     CreateEntityResult,
-    GraphRepository,
 )
 
 
@@ -29,9 +29,9 @@ async def graph_db() -> GraphDB:
 
 
 @pytest.fixture
-async def graph_repository(graph_db: GraphDB) -> GraphRepository:
-    """GraphRepository instance for testing."""
-    return GraphRepository(graph_db)
+async def arcadedb_repository(graph_db: GraphDB) -> ArcadedbRepository:
+    """ArcadedbRepository instance for testing."""
+    return ArcadedbRepository(graph_db)
 
 
 @pytest.fixture
@@ -67,12 +67,12 @@ def test_relationship(
 
 
 class TestCreateEntity:
-    """Integration tests for GraphRepository.create_entity method."""
+    """Integration tests for ArcadedbRepository.create_entity method."""
 
     @pytest.mark.asyncio
     async def test_create_entity_basic(
         self,
-        graph_repository: GraphRepository,
+        arcadedb_repository: ArcadedbRepository,
         test_entity: Entity,
         test_identifier: Identifier,
         test_relationship: HasIdentifier,
@@ -80,7 +80,7 @@ class TestCreateEntity:
         """Test basic entity creation with minimal data."""
 
         # Act
-        result: CreateEntityResult = await graph_repository.create_entity(
+        result: CreateEntityResult = await arcadedb_repository.create_entity(
             test_entity, test_identifier, test_relationship
         )
 
@@ -117,7 +117,7 @@ class TestFindEntityByIdentifier:
     @pytest.mark.asyncio
     async def test_find_entity_by_identifier(
         self,
-        graph_repository: GraphRepository,
+        arcadedb_repository: ArcadedbRepository,
         test_entity: Entity,
         test_identifier: Identifier,
         test_relationship: HasIdentifier,
@@ -125,12 +125,12 @@ class TestFindEntityByIdentifier:
         """Test finding an entity by its identifier value and type."""
 
         # First create the entity with identifier
-        _ = await graph_repository.create_entity(
+        _ = await arcadedb_repository.create_entity(
             test_entity, test_identifier, test_relationship
         )
 
         # Act - Find the entity by identifier
-        find_result = await graph_repository.find_entity_by_identifier(
+        find_result = await arcadedb_repository.find_entity_by_identifier(
             test_identifier.value, test_identifier.type
         )
 
@@ -166,7 +166,7 @@ class TestFindEntityById:
     @pytest.mark.asyncio
     async def test_find_entity_by_id(
         self,
-        graph_repository: GraphRepository,
+        arcadedb_repository: ArcadedbRepository,
         test_entity: Entity,
         test_identifier: Identifier,
         test_relationship: HasIdentifier,
@@ -174,12 +174,12 @@ class TestFindEntityById:
         """Test finding an entity by its ID."""
 
         # First create the entity with identifier
-        _ = await graph_repository.create_entity(
+        _ = await arcadedb_repository.create_entity(
             test_entity, test_identifier, test_relationship
         )
 
         # Act - Find the entity by its ID
-        find_result = await graph_repository.find_entity_by_id(str(test_entity.id))
+        find_result = await arcadedb_repository.find_entity_by_id(str(test_entity.id))
 
         # Assert
         assert find_result is not None
@@ -214,7 +214,7 @@ class TestFindEntityById:
     @pytest.mark.asyncio
     async def test_find_entity_by_id_no_identifiers(
         self,
-        graph_repository: GraphRepository,
+        arcadedb_repository: ArcadedbRepository,
         test_entity: Entity,
     ) -> None:
         """Test finding an entity by its ID when it has no identifiers."""
@@ -233,7 +233,7 @@ class TestFindEntityById:
         await db.execute_command(create_query, database_name, language="sql")
 
         # Act - Find the entity by its ID
-        find_result = await graph_repository.find_entity_by_id(str(test_entity.id))
+        find_result = await arcadedb_repository.find_entity_by_id(str(test_entity.id))
         print("DEBUG - Find result: ", find_result)
 
         # Assert
@@ -265,11 +265,11 @@ class TestFindEntityById:
     @pytest.mark.asyncio
     async def test_find_entity_by_id_not_found(
         self,
-        graph_repository: GraphRepository,
+        arcadedb_repository: ArcadedbRepository,
     ) -> None:
         """Test finding an entity by ID when it doesn't exist."""
         # Act - Try to find a non-existent entity
-        find_result = await graph_repository.find_entity_by_id("non-existent-id")
+        find_result = await arcadedb_repository.find_entity_by_id("non-existent-id")
 
         # Assert
         assert find_result is None
@@ -277,12 +277,12 @@ class TestFindEntityById:
     @pytest.mark.asyncio
     async def test_find_entity_by_id_empty_id(
         self,
-        graph_repository: GraphRepository,
+        arcadedb_repository: ArcadedbRepository,
     ) -> None:
         """Test finding an entity with empty ID raises ValueError."""
         # Act & Assert
         with pytest.raises(ValueError, match="Entity ID cannot be empty"):
-            _ = await graph_repository.find_entity_by_id("")
+            _ = await arcadedb_repository.find_entity_by_id("")
 
 
 class TestDeleteEntityById:
@@ -291,7 +291,7 @@ class TestDeleteEntityById:
     @pytest.mark.asyncio
     async def test_delete_entity_by_id(
         self,
-        graph_repository: GraphRepository,
+        arcadedb_repository: ArcadedbRepository,
         test_entity: Entity,
         test_identifier: Identifier,
         test_relationship: HasIdentifier,
@@ -299,24 +299,26 @@ class TestDeleteEntityById:
         """Test deleting an entity by its ID."""
 
         # First create the entity with identifier
-        _ = await graph_repository.create_entity(
+        _ = await arcadedb_repository.create_entity(
             test_entity, test_identifier, test_relationship
         )
 
         # Verify the entity exists by finding it
-        found_before = await graph_repository.find_entity_by_identifier(
+        found_before = await arcadedb_repository.find_entity_by_identifier(
             test_identifier.value, test_identifier.type
         )
         assert found_before is not None
 
         # Act - Delete the entity by its ID
-        delete_result = await graph_repository.delete_entity_by_id(str(test_entity.id))
+        delete_result = await arcadedb_repository.delete_entity_by_id(
+            str(test_entity.id)
+        )
 
         # Assert
         assert delete_result is True
 
         # Verify the entity was actually deleted
-        found_after = await graph_repository.find_entity_by_identifier(
+        found_after = await arcadedb_repository.find_entity_by_identifier(
             test_identifier.value, test_identifier.type
         )
         assert found_after is None  # Should not find the entity anymore
@@ -324,11 +326,11 @@ class TestDeleteEntityById:
     @pytest.mark.asyncio
     async def test_delete_entity_by_id_not_found(
         self,
-        graph_repository: GraphRepository,
+        arcadedb_repository: ArcadedbRepository,
     ) -> None:
         """Test deleting an entity that doesn't exist."""
         # Act - Try to delete a non-existent entity
-        delete_result = await graph_repository.delete_entity_by_id("non-existent-id")
+        delete_result = await arcadedb_repository.delete_entity_by_id("non-existent-id")
 
         # Assert
         assert delete_result is False
@@ -336,7 +338,7 @@ class TestDeleteEntityById:
     @pytest.mark.asyncio
     async def test_delete_entity_with_shared_identifier(
         self,
-        graph_repository: GraphRepository,
+        arcadedb_repository: ArcadedbRepository,
         test_entity: Entity,
         test_identifier: Identifier,
         test_relationship: HasIdentifier,
@@ -344,7 +346,7 @@ class TestDeleteEntityById:
         """Test that identifiers shared by multiple entities are not deleted."""
 
         # Create first entity with identifier
-        _ = await graph_repository.create_entity(
+        _ = await arcadedb_repository.create_entity(
             test_entity, test_identifier, test_relationship
         )
 
@@ -355,19 +357,21 @@ class TestDeleteEntityById:
             to_identifier_value=test_identifier.value,
             is_primary=True,
         )
-        _ = await graph_repository.create_entity(
+        _ = await arcadedb_repository.create_entity(
             second_entity, test_identifier, second_relationship
         )
 
         # Delete the first entity
-        delete_result = await graph_repository.delete_entity_by_id(str(test_entity.id))
+        delete_result = await arcadedb_repository.delete_entity_by_id(
+            str(test_entity.id)
+        )
         assert delete_result is True
 
         # Verify first entity is gone
-        found_first = await graph_repository.find_entity_by_identifier(
+        found_first = await arcadedb_repository.find_entity_by_identifier(
             test_identifier.value, test_identifier.type
         )
         assert found_first is not None  # Should still find the second entity
 
         # Clean up second entity
-        _ = await graph_repository.delete_entity_by_id(str(second_entity.id))
+        _ = await arcadedb_repository.delete_entity_by_id(str(second_entity.id))

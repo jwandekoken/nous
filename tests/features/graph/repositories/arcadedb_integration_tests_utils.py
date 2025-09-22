@@ -15,7 +15,7 @@ USAGE EXAMPLES:
 
 # Using test-level tracking:
 @pytest.mark.asyncio
-async def test_my_test(graph_repository, entity_cleanup_tracker):
+async def test_my_test(arcadedb_repository, entity_cleanup_tracker):
     entity = Entity(metadata={"test_type": "my_test"})
     entity_cleanup_tracker(entity)  # Track for cleanup
     # ... create and test entity ...
@@ -25,11 +25,11 @@ async def test_my_test(graph_repository, entity_cleanup_tracker):
 import pytest
 
 from app.features.graph.models import Entity
-from app.features.graph.repositories.graph_repository import GraphRepository
+from app.features.graph.repositories.arcadedb_repository import ArcadedbRepository
 
 
 @pytest.fixture
-async def resource_tracker(graph_repository: GraphRepository):
+async def resource_tracker(arcadedb_repository: ArcadedbRepository):
     """Track resources created during a test for cleanup.
 
     This fixture provides a `track(resource)` function that can track
@@ -61,23 +61,23 @@ async def resource_tracker(graph_repository: GraphRepository):
 
     # Cleanup: Delete all tracked resources after test
     if created_resources:  # Only cleanup if there are resources to clean
-        await _cleanup_resources(graph_repository, created_resources)
+        await _cleanup_resources(arcadedb_repository, created_resources)
 
 
 async def _cleanup_resources(
-    graph_repository: GraphRepository, resources: list[tuple[str, str]]
+    arcadedb_repository: ArcadedbRepository, resources: list[tuple[str, str]]
 ):
     """Helper function to cleanup resources asynchronously."""
     for resource_type, resource_id in resources:
         try:
             if resource_type == "entity":
-                result = await graph_repository.delete_entity_by_id(resource_id)
+                result = await arcadedb_repository.delete_entity_by_id(resource_id)
                 action = "entity"
             elif resource_type == "fact":
-                result = await graph_repository.delete_fact_by_id(resource_id)
+                result = await arcadedb_repository.delete_fact_by_id(resource_id)
                 action = "fact"
             elif resource_type == "source":
-                result = await graph_repository.delete_source_by_id(resource_id)
+                result = await arcadedb_repository.delete_source_by_id(resource_id)
                 action = "source"
             else:
                 print(

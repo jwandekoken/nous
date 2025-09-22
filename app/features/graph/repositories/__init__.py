@@ -1,5 +1,5 @@
 """Graph repositories package."""
 
-from .graph_repository import GraphRepository
+from .arcadedb_repository import ArcadedbRepository
 
-__all__ = ["GraphRepository"]
+__all__ = ["ArcadedbRepository"]

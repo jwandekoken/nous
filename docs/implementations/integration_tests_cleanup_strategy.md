@@ -4,22 +4,22 @@ This document outlines the plan to implement a robust cleanup strategy for integ
 
 ## Analysis of the Current Situation
 
-Currently, the `entity_cleanup_tracker` in `integration_tests_utils.py` only tracks `Entity` objects and uses `graph_repository.delete_entity_by_id()` for cleanup.
+Currently, the `entity_cleanup_tracker` in `integration_tests_utils.py` only tracks `Entity` objects and uses `arcadedb_repository.delete_entity_by_id()` for cleanup.
 
-The current implementation of `delete_entity_by_id` in `graph_repository.py` only deletes the `Entity` vertex. While ArcadeDB removes the connecting edges (`HAS_IDENTIFIER`, `HAS_FACT`), it does not delete the vertices at the other end of those edges, leading to orphaned `Identifier`, `Fact`, and `Source` vertices in the database after test runs.
+The current implementation of `delete_entity_by_id` in `arcadedb_repository.py` only deletes the `Entity` vertex. While ArcadeDB removes the connecting edges (`HAS_IDENTIFIER`, `HAS_FACT`), it does not delete the vertices at the other end of those edges, leading to orphaned `Identifier`, `Fact`, and `Source` vertices in the database after test runs.
 
 ## Proposed Plan: Repository-Driven Cleanup
 
-The proposed solution is to enhance the `GraphRepository` to handle all resource deletions correctly and then use this enhanced logic within a unified test fixture. This approach ensures that our tests validate the same deletion logic that would be used in a production environment.
+The proposed solution is to enhance the `ArcadedbRepository` to handle all resource deletions correctly and then use this enhanced logic within a unified test fixture. This approach ensures that our tests validate the same deletion logic that would be used in a production environment.
 
 The plan is divided into two phases:
 
-### Phase 1: Enhance `GraphRepository` with Complete Deletion Logic
+### Phase 1: Enhance `ArcadedbRepository` with Complete Deletion Logic
 
 1.  **Task: Implement Cascading Delete for Entities.**
 
     - **Goal:** The `delete_entity_by_id` method must correctly delete an entity and any associated `Identifier` or `Fact` vertices that would otherwise become orphaned.
-    - **Action:** Modify `delete_entity_by_id` in `app/features/graph/repositories/graph_repository.py` to use a `sqlscript` transaction. This atomic operation will:
+    - **Action:** Modify `delete_entity_by_id` in `app/features/graph/repositories/arcadedb_repository.py` to use a `sqlscript` transaction. This atomic operation will:
       a. Find the `Entity` to be deleted.
       b. Find all `Identifier` vertices connected to it.
       c. For each `Identifier`, check if it's connected to any other `Entity`.
@@ -48,12 +48,12 @@ The new testing workflow will be cleaner and more straightforward:
 ```python
 # Example of future test
 import pytest
-from app.features.graph.repositories.graph_repository import GraphRepository
+from app.features.graph.repositories.arcadedb_repository import ArcadedbRepository
 from typing import Callable, Any
 
 @pytest.mark.asyncio
 async def test_create_entity_with_fact(
-    graph_repository: GraphRepository,
+    arcadedb_repository: ArcadedbRepository,
     resource_tracker: Callable[[Any], None],
 ):
     # Arrange

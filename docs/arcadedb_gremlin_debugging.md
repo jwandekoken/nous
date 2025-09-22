@@ -2,13 +2,13 @@
 
 ## Overview
 
-This document details the debugging process and key findings related to Gremlin query execution in ArcadeDB, specifically for the `find_entity_by_identifier` method in the GraphRepository.
+This document details the debugging process and key findings related to Gremlin query execution in ArcadeDB, specifically for the `find_entity_by_identifier` method in the ArcadedbRepository.
 
 ## Issue Discovered
 
 ### Problem
 
-The `find_entity_by_identifier` method in `GraphRepository` was failing with a **500 Internal Server Error** when executing parameterized Gremlin queries.
+The `find_entity_by_identifier` method in `ArcadedbRepository` was failing with a **500 Internal Server Error** when executing parameterized Gremlin queries.
 
 ### Root Cause
 
@@ -184,8 +184,8 @@ g.V().has('Identifier', 'value', 'test@example.com')
 
 ## Files Modified
 
-- `app/features/graph/repositories/graph_repository.py` - Fixed `find_entity_by_identifier` method
-- `tests/features/graph/repositories/test_graph_repository_integration.py` - Test now passes
+- `app/features/graph/repositories/arcadedb_repository.py` - Fixed `find_entity_by_identifier` method
+- `tests/features/graph/repositories/test_arcadedb_repository_integration.py` - Test now passes
 
 ## Related Files
 

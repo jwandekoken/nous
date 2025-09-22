@@ -1,6 +1,6 @@
 # Delete Entity with Cascading Cleanup Implementation Plan
 
-This document outlines the implementation plan for enhancing the `delete_entity_by_id` method in `GraphRepository` to perform proper cascading cleanup of orphan resources.
+This document outlines the implementation plan for enhancing the `delete_entity_by_id` method in `ArcadedbRepository` to perform proper cascading cleanup of orphan resources.
 
 ## Current State
 

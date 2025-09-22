@@ -54,7 +54,7 @@ class EntityWithRelations(TypedDict):
     facts_with_sources: list[FactWithSource]
 
 
-class GraphRepository:
+class ArcadedbRepository:
     """Handles all graph database operations."""
 
     def __init__(self, db: GraphDB):

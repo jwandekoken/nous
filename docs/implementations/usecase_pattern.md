@@ -6,7 +6,7 @@ Here is a comprehensive, step-by-step plan to transform your current router file
 
 ### **Phase 1: Create the Repository Layer**
 
-First, we will extract all database logic into a single `GraphRepository` class. This class will be the only part of your application that knows how to write and execute Cypher queries.
+First, we will extract all database logic into a single `ArcadedbRepository` class. This class will be the only part of your application that knows how to write and execute Cypher queries.
 
 **Action:** Create a new file: `app/features/graph/repository.py`.
 
@@ -18,7 +18,7 @@ from uuid import UUID
 from app.db.graph import GraphDB
 from app.features.graph.graph_models import Entity, Identifier, HasIdentifier, Fact, Source, HasFact
 
-class GraphRepository:
+class ArcadedbRepository:
     """Handles all direct database interactions for the graph."""
     def __init__(self, db: GraphDB):
         self.db = db
@@ -110,11 +110,11 @@ Now, create a dedicated class for each business operation. This makes your logic
 # app/features/graph/usecases/create_entity.py
 
 from typing import Any
-from app.features.graph.repository import GraphRepository
+from app.features.graph.repository import ArcadedbRepository
 from app.features.graph.graph_models import Entity, Identifier, create_entity_with_identifier
 
 class CreateEntityUsecase:
-    def __init__(self, repo: GraphRepository):
+    def __init__(self, repo: ArcadedbRepository):
         self.repo = repo
 
     async def execute(self, value: str, type: str, meta: dict | None) -> tuple[Entity, Identifier]:
@@ -129,11 +129,11 @@ class CreateEntityUsecase:
 
 from uuid import UUID
 from datetime import datetime
-from app.features.graph.repository import GraphRepository
+from app.features.graph.repository import ArcadedbRepository
 from app.features.graph.graph_models import Fact, Source, HasFact, create_fact_with_source
 
 class AddFactUsecase:
-    def __init__(self, repo: GraphRepository):
+    def __init__(self, repo: ArcadedbRepository):
         self.repo = repo
 
     async def execute(self, entity_id: UUID, name: str, type: str, verb: str, content: str, score: float, timestamp: datetime | None):
@@ -195,7 +195,7 @@ Finally, simplify your router file. Its only job is to handle HTTP concerns and 
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from app.db.graph import GraphDB, get_graph_db
-from app.features.graph.repository import GraphRepository
+from app.features.graph.repository import ArcadedbRepository
 from app.features.graph.usecases.create_entity import CreateEntityUsecase
 from app.features.graph.usecases.add_fact import AddFactUsecase
 # ... import other usecases as you create them
@@ -210,13 +210,13 @@ router = APIRouter(prefix="/api/v1/graph", tags=["graph"])
 async def get_graph() -> GraphDB:
     return await get_graph_db()
 
-def get_repository(graph: GraphDB = Depends(get_graph)) -> GraphRepository:
-    return GraphRepository(db=graph)
+def get_repository(graph: GraphDB = Depends(get_graph)) -> ArcadedbRepository:
+    return ArcadedbRepository(db=graph)
 
-def get_create_entity_usecase(repo: GraphRepository = Depends(get_repository)) -> CreateEntityUsecase:
+def get_create_entity_usecase(repo: ArcadedbRepository = Depends(get_repository)) -> CreateEntityUsecase:
     return CreateEntityUsecase(repo=repo)
 
-def get_add_fact_usecase(repo: GraphRepository = Depends(get_repository)) -> AddFactUsecase:
+def get_add_fact_usecase(repo: ArcadedbRepository = Depends(get_repository)) -> AddFactUsecase:
     return AddFactUsecase(repo=repo)
 # ... add dependency providers for other usecases
 
