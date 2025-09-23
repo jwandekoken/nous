@@ -7,6 +7,8 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI
 from pydantic import BaseModel, Field
 
+from app.features.graph.dtos.knowledge_dto import IdentifierPayload
+
 
 class ExtractedFact(BaseModel):
     """A single, discrete fact extracted from a text."""
@@ -80,13 +82,13 @@ If the entity is 'email:john.doe@example.com' and the text is 'John Doe lives in
         self.chain: Any = prompt | structured_llm
 
     async def extract_facts(
-        self, content: str, entity_identifier: dict[str, str]
-    ) -> list[dict[str, str]]:
+        self, content: str, entity_identifier: IdentifierPayload
+    ) -> list[dict[str, Any]]:
         """Extracts facts and converts them to the required dictionary format.
 
         Args:
             content: The text content to extract facts from
-            entity_identifier: A dictionary with 'type' and 'value' of the entity identifier
+            entity_identifier: The entity identifier payload
 
         Returns:
             List of dictionaries containing fact name, type, verb and confidence
@@ -96,7 +98,7 @@ If the entity is 'email:john.doe@example.com' and the text is 'John Doe lives in
             await self.chain.ainvoke(
                 {
                     "content": content,
-                    "entity_identifier": f"{entity_identifier['type']}:{entity_identifier['value']}",
+                    "entity_identifier": f"{entity_identifier.type}:{entity_identifier.value}",
                 }
             ),
         )
