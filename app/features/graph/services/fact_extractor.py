@@ -79,7 +79,7 @@ If the entity is 'email:john.doe@example.com' and the text is 'John Doe lives in
 
         # Create structured output chain
         structured_llm = llm.with_structured_output(FactList)
-        self.chain: Any = prompt | structured_llm
+        self.chain = prompt | structured_llm
 
     async def extract_facts(
         self, content: str, entity_identifier: IdentifierPayload
