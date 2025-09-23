@@ -1,0 +1,103 @@
+"""Fact extraction service using LangChain and Google's Gemini model."""
+
+import os
+from typing import Any, cast
+
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_google_genai import ChatGoogleGenerativeAI
+from pydantic import BaseModel, Field
+
+
+class ExtractedFact(BaseModel):
+    """A single, discrete fact extracted from a text."""
+
+    name: str = Field(
+        ...,
+        description="The name or value of the fact (e.g., 'Paris', 'Software Engineer')",
+    )
+    type: str = Field(
+        ...,
+        description="The category of the fact (e.g., 'Location', 'Profession', 'Hobby')",
+    )
+    verb: str = Field(
+        ...,
+        description="The semantic verb connecting the entity to the fact (e.g., 'lives_in', 'works_at', 'is_a')",
+    )
+    confidence_score: float = Field(
+        default=1.0,
+        ge=0.0,
+        le=1.0,
+        description="The confidence score of the extracted fact, from 0.0 to 1.0",
+    )
+
+
+class FactList(BaseModel):
+    """A list of facts extracted from a text."""
+
+    facts: list[ExtractedFact]
+
+
+class LangChainFactExtractor:
+    """Extracts facts from text content using LangChain and Gemini."""
+
+    def __init__(self):
+        """Initialize the fact extractor with LangChain and Gemini model."""
+        if not os.getenv("GOOGLE_API_KEY"):
+            raise ValueError("GOOGLE_API_KEY environment variable not set.")
+
+        # Create the prompt template for fact extraction
+        prompt = ChatPromptTemplate.from_messages(
+            [
+                (
+                    "system",
+                    """You are an expert at extracting key facts about a specific entity from text.
+Your task is to identify discrete, meaningful facts from the provided text that are relevant to the entity identified by: {entity_identifier}.
+
+Guidelines:
+- Extract facts that are specific and verifiable.
+- For each fact, provide a 'verb' that describes the relationship from the entity to the fact (e.g., 'lives_in', 'works_at', 'is_a').
+- Use clear, concise names and appropriate categories for each fact.
+- Provide a confidence score (0.0 to 1.0) indicating how certain you are about the extracted fact.
+- Focus on facts that would be useful for building a knowledge graph.
+- Avoid extracting subjective opinions or interpretations.
+
+Example:
+If the entity is 'email:john.doe@example.com' and the text is 'John Doe lives in Paris and works as a Software Engineer.', the output should be:
+[
+    {{ "name": "Paris", "type": "Location", "verb": "lives_in", "confidence_score": 1.0 }},
+    {{ "name": "Software Engineer", "type": "Profession", "verb": "is_a", "confidence_score": 1.0 }}
+]""",
+                ),
+                ("human", "Here is the text to analyze:\n\n{content}"),
+            ]
+        )
+
+        # Initialize the Gemini model
+        llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0)
+
+        # Create structured output chain
+        structured_llm = llm.with_structured_output(FactList)
+        self.chain: Any = prompt | structured_llm
+
+    async def extract_facts(
+        self, content: str, entity_identifier: dict[str, str]
+    ) -> list[dict[str, str]]:
+        """Extracts facts and converts them to the required dictionary format.
+
+        Args:
+            content: The text content to extract facts from
+            entity_identifier: A dictionary with 'type' and 'value' of the entity identifier
+
+        Returns:
+            List of dictionaries containing fact name, type, verb and confidence
+        """
+        response: FactList = cast(
+            FactList,
+            await self.chain.ainvoke(
+                {
+                    "content": content,
+                    "entity_identifier": f"{entity_identifier['type']}:{entity_identifier['value']}",
+                }
+            ),
+        )
+        return [fact.model_dump() for fact in response.facts]
