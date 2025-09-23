@@ -8,12 +8,15 @@ from app.features.graph.dtos.knowledge_dto import (
     AssimilateKnowledgeResponse,
 )
 from app.features.graph.repositories import ArcadedbRepository
-from app.features.graph.usecases import AssimilateKnowledgeUseCaseImpl
+from app.features.graph.usecases import (
+    AssimilateKnowledgeUseCase,
+    AssimilateKnowledgeUseCaseImpl,
+)
 
 router = APIRouter(prefix="/graph", tags=["graph"])
 
 
-async def get_assimilate_knowledge_use_case() -> AssimilateKnowledgeUseCaseImpl:
+async def get_assimilate_knowledge_use_case() -> AssimilateKnowledgeUseCase:
     """Dependency injection for the assimilate knowledge use case."""
 
     # TODO: Replace with actual fact extractor service
@@ -31,13 +34,13 @@ async def get_assimilate_knowledge_use_case() -> AssimilateKnowledgeUseCaseImpl:
 @router.post("/entities/assimilate", response_model=AssimilateKnowledgeResponse)
 async def assimilate_knowledge(
     request: AssimilateKnowledgeRequest,
-    use_case: AssimilateKnowledgeUseCaseImpl = Depends(
-        get_assimilate_knowledge_use_case
-    ),
+    use_case: AssimilateKnowledgeUseCase = Depends(get_assimilate_knowledge_use_case),
 ) -> AssimilateKnowledgeResponse:
     """Assimilate knowledge by processing content and associating facts with an entity.
 
     This endpoint processes textual content, extracts facts, and associates them
     with the specified entity in the knowledge graph.
     """
+    print(f"request: {request}")
+
     return await use_case.execute(request)
