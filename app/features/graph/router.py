@@ -8,6 +8,7 @@ from app.features.graph.dtos.knowledge_dto import (
     AssimilateKnowledgeResponse,
 )
 from app.features.graph.repositories import ArcadedbRepository
+from app.features.graph.services.fact_extractor import LangChainFactExtractor
 from app.features.graph.usecases import (
     AssimilateKnowledgeUseCase,
     AssimilateKnowledgeUseCaseImpl,
@@ -16,18 +17,16 @@ from app.features.graph.usecases import (
 router = APIRouter(prefix="/graph", tags=["graph"])
 
 
-async def get_assimilate_knowledge_use_case() -> AssimilateKnowledgeUseCase:
-    """Dependency injection for the assimilate knowledge use case."""
+# Create the fact extractor instance at module level to avoid instantiation issues
+_fact_extractor = LangChainFactExtractor()
 
-    # TODO: Replace with actual fact extractor service
-    class StubFactExtractor:
-        async def extract_facts(self, content: str) -> list[dict[str, str]]:
-            """Stub implementation - returns empty list for now."""
-            return []
+
+async def get_assimilate_knowledge_use_case() -> AssimilateKnowledgeUseCaseImpl:
+    """Dependency injection for the assimilate knowledge use case."""
 
     db = await get_graph_db()
     return AssimilateKnowledgeUseCaseImpl(
-        repository=ArcadedbRepository(db), fact_extractor=StubFactExtractor()
+        repository=ArcadedbRepository(db), fact_extractor=_fact_extractor
     )
 
 
