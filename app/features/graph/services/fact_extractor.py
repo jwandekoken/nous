@@ -53,24 +53,31 @@ class LangChainFactExtractor:
                 (
                     "system",
                     """You are an expert at extracting key facts about a specific entity from text.
-Your task is to identify discrete, meaningful facts from the provided text that are relevant to the entity identified by: {entity_identifier}.
+The text is a turn in a conversation. Your task is to identify discrete, meaningful facts from the provided text that are relevant to the entity identified by: {entity_identifier}.
+You may also be provided with the history of the conversation for context.
 
 Guidelines:
-- Extract facts that are specific and verifiable.
-- For each fact, provide a 'verb' that describes the relationship from the entity to the fact (e.g., 'lives_in', 'works_at', 'is_a').
+- Extract facts that are specific and verifiable, but also sentiments or opinions if they are stated as facts by the entity (e.g., 'likes chocolate', 'dislikes flying').
+- For each fact, provide a 'verb' that describes the relationship from the entity to the fact (e.g., 'lives_in', 'works_at', 'is_a', 'likes', 'dislikes').
 - Use clear, concise names and appropriate categories for each fact.
 - Provide a confidence score (0.0 to 1.0) indicating how certain you are about the extracted fact.
-- Focus on facts that would be useful for building a knowledge graph.
-- Avoid extracting subjective opinions or interpretations.
+- Focus on facts that would be useful for building a knowledge graph about the entity's preferences, statements, and characteristics.
+- If the text contains no new facts about the entity, return an empty list.
+- Avoid extracting subjective opinions or interpretations from *other* people in the conversation, focus on the identified entity.
 
-Example:
-If the entity is 'email:john.doe@example.com' and the text is 'John Doe lives in Paris and works as a Software Engineer.', the output should be:
+Example 1:
+If the entity is 'email:john.doe@example.com' and the text is 'I really enjoy hiking on weekends.', the output should be:
 [
-    {{ "name": "Paris", "type": "Location", "verb": "lives_in", "confidence_score": 1.0 }},
-    {{ "name": "Software Engineer", "type": "Profession", "verb": "is_a", "confidence_score": 1.0 }}
+    {{ "name": "Hiking", "type": "Hobby", "verb": "enjoys", "confidence_score": 1.0 }}
+]
+
+Example 2:
+If the entity is 'email:jane.doe@example.com' and the text is 'I think that new project is a bad idea.', the output could be:
+[
+    {{ "name": "new project", "type": "Opinion", "verb": "considers_bad_idea", "confidence_score": 0.9 }}
 ]""",
                 ),
-                ("human", "Here is the text to analyze:\n\n{content}"),
+                ("human", "{history_section}Here is the text to analyze:\n\n{content}"),
             ]
         )
 
@@ -82,23 +89,36 @@ If the entity is 'email:john.doe@example.com' and the text is 'John Doe lives in
         self.chain = prompt | structured_llm
 
     async def extract_facts(
-        self, content: str, entity_identifier: IdentifierPayload
+        self,
+        content: str,
+        entity_identifier: IdentifierPayload,
+        history: list[str] | None = None,
     ) -> list[dict[str, Any]]:
         """Extracts facts and converts them to the required dictionary format.
 
         Args:
             content: The text content to extract facts from
             entity_identifier: The entity identifier payload
+            history: Optional list of previous conversational turns for context.
 
         Returns:
             List of dictionaries containing fact name, type, verb and confidence
         """
+        history_section = ""
+        if history:
+            history_section = (
+                "For context, here is the preceding conversation:\n"
+                + "\n".join(history)
+                + "\n\n"
+            )
+
         response: FactList = cast(
             FactList,
             await self.chain.ainvoke(
                 {
                     "content": content,
                     "entity_identifier": f"{entity_identifier.type}:{entity_identifier.value}",
+                    "history_section": history_section,
                 }
             ),
         )

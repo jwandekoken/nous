@@ -32,7 +32,10 @@ class FactExtractor(Protocol):
     """Protocol for extracting facts from text content."""
 
     async def extract_facts(
-        self, content: str, entity_identifier: IdentifierPayload
+        self,
+        content: str,
+        entity_identifier: IdentifierPayload,
+        history: list[str] | None = None,
     ) -> list[dict[str, Any]]:
         """Extract facts from text content."""
         ...
@@ -111,7 +114,7 @@ class AssimilateKnowledgeUseCaseImpl:
 
         # 3. Extract facts using fact_extractor
         extracted_facts_data = await self.fact_extractor.extract_facts(
-            request.content, request.identifier
+            request.content, request.identifier, request.history
         )
         extracted_facts: list[FactDto] = []
 

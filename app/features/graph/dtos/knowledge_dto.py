@@ -53,6 +53,10 @@ class AssimilateKnowledgeRequest(BaseModel):
         default_factory=lambda: datetime.now(timezone.utc),
         description="The real-world timestamp of the content's creation.",
     )
+    history: list[str] | None = Field(
+        default=None,
+        description="Optional list of previous conversational turns for context.",
+    )
 
 
 class SourceDto(BaseModel):
