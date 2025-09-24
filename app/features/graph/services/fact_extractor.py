@@ -1,12 +1,12 @@
 """Fact extraction service using LangChain and Google's Gemini model."""
 
-import os
 from typing import Any, cast
 
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI
 from pydantic import BaseModel, Field
 
+from app.core.settings import Settings
 from app.features.graph.dtos.knowledge_dto import IdentifierPayload
 
 
@@ -44,7 +44,9 @@ class LangChainFactExtractor:
 
     def __init__(self):
         """Initialize the fact extractor with LangChain and Gemini model."""
-        if not os.getenv("GOOGLE_API_KEY"):
+        # Create settings that will read from current environment
+        settings = Settings()
+        if not settings.google_api_key:
             raise ValueError("GOOGLE_API_KEY environment variable not set.")
 
         # Create the prompt template for fact extraction
@@ -82,7 +84,11 @@ If the entity is 'email:jane.doe@example.com' and the text is 'I think that new 
         )
 
         # Initialize the Gemini model
-        llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0)
+        llm = ChatGoogleGenerativeAI(
+            model="gemini-2.5-flash",
+            temperature=0,
+            google_api_key=settings.google_api_key,
+        )
 
         # Create structured output chain
         structured_llm = llm.with_structured_output(FactList)

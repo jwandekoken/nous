@@ -51,6 +51,11 @@ class Settings(BaseSettings):
     )
     graph_database: str = Field(default="graphdb", description="ArcadeDB database name")
 
+    # Google AI
+    google_api_key: str | None = Field(
+        default=None, description="Google AI API key for Gemini model"
+    )
+
 
 @lru_cache
 def get_settings() -> Settings:

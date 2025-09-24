@@ -5,7 +5,7 @@ These tests actually call the Gemini LLM API, so they require:
 - Internet connection for API calls
 """
 
-import os
+from unittest.mock import patch
 
 import pytest
 
@@ -23,23 +23,21 @@ class TestLangChainFactExtractor:
 
     def test_initialization_without_api_key(self):
         """Test that initialization fails when GOOGLE_API_KEY is not set."""
-        # Backup current API key if it exists
-        original_key = os.environ.get("GOOGLE_API_KEY")
-        try:
-            # Remove the API key temporarily
-            if "GOOGLE_API_KEY" in os.environ:
-                del os.environ["GOOGLE_API_KEY"]
+        from app.core.settings import Settings
 
+        # Mock the Settings class to return a mock with no google_api_key
+        mock_settings = Settings()
+        mock_settings.google_api_key = None
+
+        with patch(
+            "app.features.graph.services.fact_extractor.Settings",
+            return_value=mock_settings,
+        ):
             # Should raise ValueError
             with pytest.raises(
                 ValueError, match="GOOGLE_API_KEY environment variable not set"
             ):
-                LangChainFactExtractor()
-
-        finally:
-            # Restore original API key
-            if original_key is not None:
-                os.environ["GOOGLE_API_KEY"] = original_key
+                LangChainFactExtractor()  # pyright: ignore[reportUnusedCallResult]
 
     @pytest.mark.asyncio
     async def test_extract_facts_basic_person_info(
@@ -52,6 +50,7 @@ class TestLangChainFactExtractor:
         )
 
         facts = await extractor.extract_facts(content, entity_identifier)
+        print(f"------> facts: {facts}")
 
         # Verify response structure
         assert isinstance(facts, list)
