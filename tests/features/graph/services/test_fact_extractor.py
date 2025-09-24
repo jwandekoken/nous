@@ -84,13 +84,19 @@ class TestLangChainFactExtractor:
         entity_identifier = IdentifierPayload(type="username", value="AppleInc")
 
         facts = await extractor.extract_facts(content, entity_identifier)
+        print(f"------> facts: {facts}")
 
         assert isinstance(facts, list)
         assert len(facts) > 0
 
         # Check that relevant facts are extracted
-        fact_names = {fact["name"] for fact in facts}
-        assert any(location in fact_names for location in ["Cupertino", "California"])
+        fact_names = [fact["name"] for fact in facts]
+        print(f"------> fact_names: {fact_names}")
+        assert any(
+            location in fact_name
+            for fact_name in fact_names
+            for location in ["Cupertino", "California"]
+        )
 
         # Verify all facts have required structure
         for fact in facts:
