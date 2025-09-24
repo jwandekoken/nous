@@ -66,6 +66,7 @@ Guidelines:
 - Focus on facts that would be useful for building a knowledge graph about the entity's preferences, statements, and characteristics.
 - If the text contains no new facts about the entity, return an empty list.
 - Avoid extracting subjective opinions or interpretations from *other* people in the conversation, focus on the identified entity.
+- Ignore generic statements, meta-comments, or information that isn't a specific characteristic, preference, or action of the entity. For example, from 'This is a test entity with minimal information.', no facts should be extracted.
 
 Example 1:
 If the entity is 'email:john.doe@example.com' and the text is 'I really enjoy hiking on weekends.', the output should be:
