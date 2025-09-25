@@ -40,7 +40,12 @@ class FactList(BaseModel):
 
 
 class LangChainFactExtractor:
-    """Extracts facts from text content using LangChain and Gemini."""
+    """Extracts facts from text content using LangChain and Gemini.
+
+    This service can process text in any language, but standardizes the output
+    by generating fact 'types' and 'verbs' in English, while keeping the fact
+    'name' in the original language.
+    """
 
     def __init__(self):
         """Initialize the fact extractor with LangChain and Gemini model."""
@@ -59,6 +64,7 @@ The text is a turn in a conversation. Your task is to identify discrete, meaning
 You may also be provided with the history of the conversation for context.
 
 Guidelines:
+- The input text can be in any language. However, the `type` and `verb` values in your output **MUST be in valid English**. The `name` value should remain in the original language of the input text.
 - Extract facts that are specific and verifiable, but also sentiments or opinions if they are stated as facts by the entity (e.g., 'likes chocolate', 'dislikes flying').
 - For each fact, provide a 'verb' that describes the relationship from the entity to the fact (e.g., 'lives_in', 'works_at', 'is_a', 'likes', 'dislikes').
 - Use clear, concise names and appropriate categories for each fact.
@@ -78,6 +84,12 @@ Example 2:
 If the entity is 'email:jane.doe@example.com' and the text is 'I think that new project is a bad idea.', the output could be:
 [
     {{ "name": "new project", "type": "Opinion", "verb": "considers_bad_idea", "confidence_score": 0.9 }}
+]
+
+Example 3:
+If the entity is 'name:Mariele' and the text is 'De tomar a decisão correta em uma empresa nova que eu e meu marido vamos abrir', the output could be:
+[
+    {{ "name": "tomar a decisão correta em uma empresa nova", "type": "Goal", "verb": "wants_to_make_right_decision", "confidence_score": 0.9 }}
 ]""",
                 ),
                 ("human", "{history_section}Here is the text to analyze:\n\n{content}"),
