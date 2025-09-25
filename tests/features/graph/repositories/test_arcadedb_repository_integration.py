@@ -5,15 +5,34 @@ using the actual production database connection.
 """
 
 import uuid
+from datetime import datetime
+from typing import TypedDict
 
 import pytest
 
 from app.db.arcadedb import GraphDB, get_database_name, get_graph_db, reset_graph_db
-from app.features.graph.models import Entity, HasIdentifier, Identifier
+from app.features.graph.models import (
+    DerivedFrom,
+    Entity,
+    Fact,
+    HasFact,
+    HasIdentifier,
+    Identifier,
+    Source,
+)
 from app.features.graph.repositories.arcadedb_repository import (
+    AddFactToEntityResult,
     ArcadedbRepository,
     CreateEntityResult,
 )
+
+
+class _TestFactItem(TypedDict):
+    """Test fact item structure."""
+
+    fact: Fact
+    source: Source
+    verb: str
 
 
 @pytest.fixture(autouse=True)
@@ -63,6 +82,24 @@ def test_relationship(
         from_entity_id=test_entity.id,
         to_identifier_value=test_identifier.value,
         is_primary=True,
+    )
+
+
+@pytest.fixture
+def test_fact() -> Fact:
+    """Test fact for integration testing."""
+    return Fact(
+        name="Paris",
+        type="Location",
+    )
+
+
+@pytest.fixture
+def test_source() -> Source:
+    """Test source for integration testing."""
+    return Source(
+        content="User mentioned they live in Paris during onboarding",
+        timestamp=datetime.now(),
     )
 
 
@@ -169,12 +206,9 @@ class TestCreateEntity:
         assert first_found is not None
         assert second_found is not None
 
-        # Both should have the same identifier in their identifiers list
-        assert len(first_found["identifiers"]) == 1
-        assert len(second_found["identifiers"]) == 1
-
-        first_identifier = first_found["identifiers"][0]
-        second_identifier = second_found["identifiers"][0]
+        # Both should have the same primary identifier
+        first_identifier = first_found["identifier"]["identifier"]
+        second_identifier = second_found["identifier"]["identifier"]
 
         # The identifiers should be identical (same value and type)
         assert first_identifier.value == test_identifier.value
@@ -582,3 +616,258 @@ class TestDeleteEntityById:
             str(entity_with_shared.id)
         )
         assert cleanup_result is True
+
+
+class TestAddFactToEntity:
+    """Integration tests for ArcadedbRepository.add_fact_to_entity method."""
+
+    @pytest.mark.asyncio
+    async def test_add_fact_to_entity_basic(
+        self,
+        arcadedb_repository: ArcadedbRepository,
+        test_entity: Entity,
+        test_identifier: Identifier,
+        test_relationship: HasIdentifier,
+        test_fact: Fact,
+        test_source: Source,
+    ) -> None:
+        """Test basic fact addition to an entity."""
+
+        # First create the entity
+        create_result = await arcadedb_repository.create_entity(
+            test_entity, test_identifier, test_relationship
+        )
+        assert create_result is not None
+
+        # Act - Add fact to entity
+        result: AddFactToEntityResult = await arcadedb_repository.add_fact_to_entity(
+            entity_id=str(test_entity.id),
+            fact=test_fact,
+            source=test_source,
+            verb="lives_in",
+            confidence_score=0.9,
+        )
+
+        # Assert
+        assert isinstance(result, dict)
+        assert "fact" in result
+        assert "source" in result
+        assert "has_fact_relationship" in result
+        assert "derived_from_relationship" in result
+
+        # Verify returned objects have correct properties
+        returned_fact = result["fact"]
+        returned_source = result["source"]
+        returned_has_fact = result["has_fact_relationship"]
+        returned_derived_from = result["derived_from_relationship"]
+
+        assert isinstance(returned_fact, Fact)
+        assert isinstance(returned_source, Source)
+        assert isinstance(returned_has_fact, HasFact)
+        assert isinstance(returned_derived_from, DerivedFrom)
+
+        # Check fact properties
+        assert returned_fact.name == test_fact.name
+        assert returned_fact.type == test_fact.type
+        assert returned_fact.fact_id == test_fact.fact_id
+
+        # Check source properties
+        assert returned_source.id == test_source.id
+        assert returned_source.content == test_source.content
+
+        # Check has_fact relationship
+        assert returned_has_fact.from_entity_id == test_entity.id
+        assert returned_has_fact.to_fact_id == test_fact.fact_id
+        assert returned_has_fact.verb == "lives_in"
+        assert returned_has_fact.confidence_score == 0.9
+
+        # Check derived_from relationship
+        assert returned_derived_from.from_fact_id == test_fact.fact_id
+        assert returned_derived_from.to_source_id == test_source.id
+
+    @pytest.mark.asyncio
+    async def test_add_fact_to_entity_with_facts_retrieved(
+        self,
+        arcadedb_repository: ArcadedbRepository,
+        test_entity: Entity,
+        test_identifier: Identifier,
+        test_relationship: HasIdentifier,
+        test_fact: Fact,
+        test_source: Source,
+    ) -> None:
+        """Test that added facts can be retrieved when finding the entity."""
+
+        # First create the entity
+        create_result = await arcadedb_repository.create_entity(
+            test_entity, test_identifier, test_relationship
+        )
+        assert create_result is not None
+
+        # Add fact to entity
+        add_result = await arcadedb_repository.add_fact_to_entity(
+            entity_id=str(test_entity.id),
+            fact=test_fact,
+            source=test_source,
+            verb="lives_in",
+        )
+        assert add_result is not None
+
+        # Find entity by ID to verify facts are retrievable
+        found_entity = await arcadedb_repository.find_entity_by_id(str(test_entity.id))
+        assert found_entity is not None
+
+        # Verify the fact was added
+        facts_with_sources = found_entity["facts_with_sources"]
+        assert len(facts_with_sources) == 1
+
+        fact_with_source = facts_with_sources[0]
+        assert fact_with_source["fact"].name == test_fact.name
+        assert fact_with_source["fact"].type == test_fact.type
+        assert fact_with_source["source"] is not None
+        assert fact_with_source["source"].content == test_source.content
+        assert fact_with_source["relationship"].verb == "lives_in"
+
+    @pytest.mark.asyncio
+    async def test_add_fact_to_entity_invalid_entity_id(
+        self,
+        arcadedb_repository: ArcadedbRepository,
+        test_fact: Fact,
+        test_source: Source,
+    ) -> None:
+        """Test adding fact to non-existent entity raises ValueError."""
+        # Act & Assert
+        with pytest.raises(ValueError, match="Entity ID cannot be empty"):
+            _ = await arcadedb_repository.add_fact_to_entity(
+                entity_id="",
+                fact=test_fact,
+                source=test_source,
+                verb="lives_in",
+            )
+
+    @pytest.mark.asyncio
+    async def test_add_fact_to_entity_invalid_fact(
+        self,
+        arcadedb_repository: ArcadedbRepository,
+        test_entity: Entity,
+        test_source: Source,
+    ) -> None:
+        """Test adding invalid fact raises ValueError."""
+        # Create fact without fact_id
+        invalid_fact = Fact(name="Test", type="Test")
+        invalid_fact.fact_id = None  # Manually set to None to test validation
+
+        # Act & Assert
+        with pytest.raises(ValueError, match="Fact must have a valid fact_id"):
+            _ = await arcadedb_repository.add_fact_to_entity(
+                entity_id=str(test_entity.id),
+                fact=invalid_fact,
+                source=test_source,
+                verb="lives_in",
+            )
+
+    @pytest.mark.asyncio
+    async def test_add_fact_to_entity_invalid_verb(
+        self,
+        arcadedb_repository: ArcadedbRepository,
+        test_entity: Entity,
+        test_fact: Fact,
+        test_source: Source,
+    ) -> None:
+        """Test adding fact with empty verb raises ValueError."""
+        # Act & Assert
+        with pytest.raises(ValueError, match="Verb cannot be empty"):
+            _ = await arcadedb_repository.add_fact_to_entity(
+                entity_id=str(test_entity.id),
+                fact=test_fact,
+                source=test_source,
+                verb="",
+            )
+
+    @pytest.mark.asyncio
+    async def test_add_fact_to_entity_invalid_confidence_score(
+        self,
+        arcadedb_repository: ArcadedbRepository,
+        test_entity: Entity,
+        test_fact: Fact,
+        test_source: Source,
+    ) -> None:
+        """Test adding fact with invalid confidence score raises ValueError."""
+        # Act & Assert
+        with pytest.raises(
+            ValueError, match="Confidence score must be between 0.0 and 1.0"
+        ):
+            _ = await arcadedb_repository.add_fact_to_entity(
+                entity_id=str(test_entity.id),
+                fact=test_fact,
+                source=test_source,
+                verb="lives_in",
+                confidence_score=1.5,  # Invalid: greater than 1.0
+            )
+
+        with pytest.raises(
+            ValueError, match="Confidence score must be between 0.0 and 1.0"
+        ):
+            _ = await arcadedb_repository.add_fact_to_entity(
+                entity_id=str(test_entity.id),
+                fact=test_fact,
+                source=test_source,
+                verb="lives_in",
+                confidence_score=-0.1,  # Invalid: less than 0.0
+            )
+
+    @pytest.mark.asyncio
+    async def test_add_fact_to_entity_multiple_facts(
+        self,
+        arcadedb_repository: ArcadedbRepository,
+        test_entity: Entity,
+        test_identifier: Identifier,
+        test_relationship: HasIdentifier,
+    ) -> None:
+        """Test adding multiple facts to the same entity."""
+
+        # First create the entity
+        create_result = await arcadedb_repository.create_entity(
+            test_entity, test_identifier, test_relationship
+        )
+        assert create_result is not None
+
+        # Create multiple facts with sources
+        facts_data: list[_TestFactItem] = [
+            {
+                "fact": Fact(name="Paris", type="Location"),
+                "source": Source(content="User profile", timestamp=datetime.now()),
+                "verb": "lives_in",
+            },
+            {
+                "fact": Fact(name="Engineer", type="Occupation"),
+                "source": Source(content="Job application", timestamp=datetime.now()),
+                "verb": "works_as",
+            },
+            {
+                "fact": Fact(name="Soccer", type="Interest"),
+                "source": Source(content="Survey response", timestamp=datetime.now()),
+                "verb": "interested_in",
+            },
+        ]
+
+        # Add each fact to the entity
+        for fact_item in facts_data:
+            result = await arcadedb_repository.add_fact_to_entity(
+                entity_id=str(test_entity.id),
+                fact=fact_item["fact"],
+                source=fact_item["source"],
+                verb=fact_item["verb"],
+            )
+            assert result is not None
+
+        # Verify all facts were added
+        found_entity = await arcadedb_repository.find_entity_by_id(str(test_entity.id))
+        assert found_entity is not None
+
+        facts_with_sources = found_entity["facts_with_sources"]
+        assert len(facts_with_sources) == 3
+
+        # Check that all facts are present
+        fact_names = {fws["fact"].name for fws in facts_with_sources}
+        expected_names = {"Paris", "Engineer", "Soccer"}
+        assert fact_names == expected_names

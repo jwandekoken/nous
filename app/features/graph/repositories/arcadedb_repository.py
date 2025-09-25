@@ -6,6 +6,7 @@ from uuid import UUID
 
 from app.db.arcadedb import GraphDB, get_database_name
 from app.features.graph.models import (
+    DerivedFrom,
     Entity,
     Fact,
     HasFact,
@@ -117,6 +118,15 @@ class EntityWithRelations(TypedDict):
     entity: Entity
     identifiers: list[Identifier]
     facts_with_sources: list[FactWithSource]
+
+
+class AddFactToEntityResult(TypedDict):
+    """Result of adding a fact with source to an entity."""
+
+    fact: Fact
+    source: Source
+    has_fact_relationship: HasFact
+    derived_from_relationship: DerivedFrom
 
 
 class ArcadedbRepository:
@@ -605,3 +615,122 @@ class ArcadedbRepository:
 
         except Exception as e:
             raise RuntimeError(f"Failed to delete entity: {e}")
+
+    async def add_fact_to_entity(
+        self,
+        entity_id: str,
+        fact: Fact,
+        source: Source,
+        verb: str,
+        confidence_score: float = 1.0,
+    ) -> AddFactToEntityResult:
+        """Add a fact with its source to an existing entity.
+
+        This method creates a fact vertex, a source vertex, and establishes
+        the relationships between them and the entity in a single transaction.
+
+        Args:
+            entity_id: The UUID string of the entity to add the fact to
+            fact: The Fact object to create
+            source: The Source object providing the origin of the fact
+            verb: The semantic relationship verb (e.g., 'lives_in', 'works_at')
+            confidence_score: Confidence level of this fact (0.0 to 1.0)
+
+        Returns:
+            AddFactToEntityResult containing the created fact, source, and relationships
+
+        Raises:
+            ValueError: If entity_id is empty or fact/source are invalid
+            RuntimeError: If the operation fails
+        """
+        if not entity_id:
+            raise ValueError("Entity ID cannot be empty")
+        if not fact.fact_id:
+            raise ValueError("Fact must have a valid fact_id")
+        if not verb or not verb.strip():
+            raise ValueError("Verb cannot be empty")
+
+        database_name = get_database_name()
+
+        # Validate confidence score
+        if not (0.0 <= confidence_score <= 1.0):
+            raise ValueError("Confidence score must be between 0.0 and 1.0")
+
+        try:
+            # Create fact, source, and relationships in a single transaction
+            transaction_script = """
+            BEGIN;
+            -- Create or update fact vertex
+            UPDATE Fact
+            SET name = :fact_name, type = :fact_type
+            UPSERT WHERE fact_id = :fact_id;
+            -- Create source vertex
+            CREATE VERTEX Source
+            SET id = :source_id,
+                content = :source_content,
+                timestamp = :source_timestamp;
+            -- Create HAS_FACT relationship from entity to fact
+            CREATE EDGE HAS_FACT
+            FROM (SELECT FROM Entity WHERE id = :entity_id)
+            TO (SELECT FROM Fact WHERE fact_id = :fact_id)
+            SET verb = :verb,
+                confidence_score = :confidence_score,
+                created_at = :created_at;
+            -- Create DERIVED_FROM relationship from fact to source
+            CREATE EDGE DERIVED_FROM
+            FROM (SELECT FROM Fact WHERE fact_id = :fact_id)
+            TO (SELECT FROM Source WHERE id = :source_id)
+            SET created_at = :created_at;
+            COMMIT;
+            """
+
+            params = {
+                "entity_id": entity_id,
+                "fact_id": fact.fact_id,
+                "fact_name": fact.name,
+                "fact_type": fact.type,
+                "source_id": str(source.id),
+                "source_content": source.content,
+                "source_timestamp": source.timestamp.isoformat(),
+                "verb": verb.strip().lower(),
+                "confidence_score": confidence_score,
+                "created_at": datetime.now().isoformat(),
+            }
+
+            created_result = cast(
+                _TransactionResult,
+                await self.db.execute_command(
+                    transaction_script,
+                    database_name,
+                    parameters=params,
+                    language="sqlscript",
+                ),
+            )
+
+            # Check if transaction was successful
+            if "result" not in created_result or not created_result["result"]:
+                raise RuntimeError("Failed to add fact to entity")
+
+            # Create the relationship objects to return
+            has_fact_relationship = HasFact(
+                from_entity_id=UUID(entity_id),
+                to_fact_id=fact.fact_id,
+                verb=verb.strip().lower(),
+                confidence_score=confidence_score,
+                created_at=datetime.now(),
+            )
+
+            derived_from_relationship = DerivedFrom(
+                from_fact_id=fact.fact_id,
+                to_source_id=source.id,
+            )
+
+            return {
+                "fact": fact,
+                "source": source,
+                "has_fact_relationship": has_fact_relationship,
+                "derived_from_relationship": derived_from_relationship,
+            }
+
+        except Exception as e:
+            raise RuntimeError(f"Failed to add fact to entity: {e}")
