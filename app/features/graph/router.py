@@ -1,5 +1,7 @@
 """Graph database API routes - main router that includes all entity-specific route modules."""
 
+from typing import Protocol
+
 from fastapi import APIRouter, Depends
 
 from app.db.arcadedb.connection import get_graph_db
@@ -10,9 +12,19 @@ from app.features.graph.dtos.knowledge_dto import (
 from app.features.graph.repositories import ArcadedbRepository
 from app.features.graph.services.fact_extractor import LangChainFactExtractor
 from app.features.graph.usecases import (
-    AssimilateKnowledgeUseCase,
     AssimilateKnowledgeUseCaseImpl,
 )
+
+
+class AssimilateKnowledgeUseCase(Protocol):
+    """Protocol for the assimilate knowledge use case."""
+
+    async def execute(
+        self, request: AssimilateKnowledgeRequest
+    ) -> AssimilateKnowledgeResponse:
+        """Process content and associate facts with an entity."""
+        ...
+
 
 router = APIRouter(prefix="/graph", tags=["graph"])
 
@@ -21,7 +33,7 @@ router = APIRouter(prefix="/graph", tags=["graph"])
 _fact_extractor = LangChainFactExtractor()
 
 
-async def get_assimilate_knowledge_use_case() -> AssimilateKnowledgeUseCaseImpl:
+async def get_assimilate_knowledge_use_case() -> AssimilateKnowledgeUseCase:
     """Dependency injection for the assimilate knowledge use case."""
 
     db = await get_graph_db()

@@ -1,6 +1,8 @@
 """Entity repository for database operations."""
 
+from datetime import datetime
 from typing import TypedDict, cast
+from uuid import UUID
 
 from app.db.arcadedb import GraphDB, get_database_name
 from app.features.graph.models import (
@@ -22,16 +24,64 @@ class _TransactionResult(TypedDict):
     result: list[_CommitInfo] | _CommitInfo
 
 
+# Internal types for Gremlin query results
+class _FactData(TypedDict):
+    fact_name: str
+    fact_type: str
+    fact_rel_verb: str
+    fact_rel_confidence_score: float
+    fact_rel_created_at: str
+    source_id: str | None
+    source_content: str | None
+    source_timestamp: str | None
+
+
+class _QueryResultRow(TypedDict):
+    entity_id: str
+    entity_created_at: str
+    entity_metadata: dict[str, str]
+    identifier_value: str
+    identifier_type: str
+    relationship_is_primary: bool
+    relationship_created_at: str
+    facts_with_sources: list[_FactData]
+
+
+class _IdentifierWithRelData(TypedDict):
+    value: str
+    type: str
+    is_primary: bool
+    created_at: str
+
+
+class _EntityByIdResultRow(TypedDict):
+    entity_id: str
+    entity_created_at: str
+    entity_metadata: dict[str, str]
+    identifiers_with_rel: list[_IdentifierWithRelData]
+    facts_with_sources: list[_FactData]
+
+
+class _GremlinResult(TypedDict):
+    result: list[_EntityByIdResultRow]
+
+
+class _SqlSelectResultRow(TypedDict):
+    id: str
+    created_at: str
+    metadata: dict[str, str]
+
+
+class _SqlResult(TypedDict):
+    result: list[_SqlSelectResultRow]
+
+
+class _SqlDeleteResult(TypedDict):
+    result: list[dict[str, int]]
+
+
 class CreateEntityResult(TypedDict):
     """Result of creating a new entity with its identifier and relationship."""
-
-    entity: Entity
-    identifier: Identifier
-    relationship: HasIdentifier
-
-
-class FindEntityByIdentifierResult(TypedDict):
-    """Result of finding an entity by its identifier value and type."""
 
     entity: Entity
     identifier: Identifier
@@ -44,6 +94,21 @@ class FactWithSource(TypedDict):
     fact: Fact
     source: Source | None
     relationship: HasFact
+
+
+class IdentifierWithRelationship(TypedDict):
+    """Groups the identifier used for the lookup with its relationship to the entity."""
+
+    identifier: Identifier
+    relationship: HasIdentifier
+
+
+class FindEntityResult(TypedDict):
+    """Result of finding an entity by its identifier, including facts and sources."""
+
+    entity: Entity
+    identifier: IdentifierWithRelationship
+    facts_with_sources: list[FactWithSource]
 
 
 class EntityWithRelations(TypedDict):
@@ -145,16 +210,14 @@ class ArcadedbRepository:
             # If any command fails, raise an error
             raise RuntimeError(f"Failed to create entity: {e}")
 
-    # @TODO: return facts with sources.
     async def find_entity_by_identifier(
         self, identifier_value: str, identifier_type: str
-    ) -> FindEntityByIdentifierResult | None:
+    ) -> FindEntityResult | None:
         """Find an entity by its identifier value and type using Gremlin query.
 
         Note: ArcadeDB doesn't support parameterized Gremlin queries, so we use
         string formatting with proper escaping for security.
         """
-
         # Input validation and escaping to prevent injection
         if not identifier_value or not identifier_type:
             raise ValueError("Identifier value and type cannot be empty")
@@ -165,7 +228,7 @@ class ArcadedbRepository:
 
         database_name = get_database_name()
 
-        # Use hardcoded Gremlin query since ArcadeDB doesn't support parameterized Gremlin
+        # Gremlin query to fetch the entity, its identifier, and all its facts with their sources
         query = f"""
         g.V().hasLabel('Identifier')
         .has('value', '{escaped_value}')
@@ -182,7 +245,8 @@ class ArcadedbRepository:
             'identifier_value',
             'identifier_type',
             'relationship_is_primary',
-            'relationship_created_at'
+            'relationship_created_at',
+            'facts_with_sources'
         )
         .by(select('entity').values('id'))
         .by(select('entity').values('created_at'))
@@ -191,13 +255,45 @@ class ArcadedbRepository:
         .by(select('identifier').values('type'))
         .by(select('rel').values('is_primary'))
         .by(select('rel').values('created_at'))
+        .by(
+            select('entity').outE('HAS_FACT').as('fact_rel')
+            .inV().as('fact')
+            .optional(outE('DERIVED_FROM').inV().as('source'))
+            .project(
+                'fact_name',
+                'fact_type',
+                'fact_rel_verb',
+                'fact_rel_confidence_score',
+                'fact_rel_created_at',
+                'source_id',
+                'source_content',
+                'source_timestamp'
+            )
+            .by(select('fact').values('name'))
+            .by(select('fact').values('type'))
+            .by(select('fact_rel').values('verb'))
+            .by(select('fact_rel').values('confidence_score'))
+            .by(select('fact_rel').values('created_at'))
+            .by(coalesce(select('source').values('id'), constant(null)))
+            .by(coalesce(select('source').values('content'), constant(null)))
+            .by(coalesce(select('source').values('timestamp'), constant(null)))
+            .fold()
+        )
         """
 
         try:
-            query_response = await self.db.execute_command(
-                query,
-                database_name,
-                language="gremlin",
+            # The result from a Gremlin query is a dictionary with a 'result' key
+            # containing a list of dictionaries.
+            GremlinResult = TypedDict(
+                "GremlinResult", {"result": list[_QueryResultRow]}
+            )
+            query_response = cast(
+                GremlinResult,
+                await self.db.execute_command(
+                    query,
+                    database_name,
+                    language="gremlin",
+                ),
             )
 
             # Check if we got any results
@@ -213,8 +309,8 @@ class ArcadedbRepository:
 
             # Parse the entity data
             entity = Entity(
-                id=row["entity_id"],
-                created_at=row["entity_created_at"],
+                id=UUID(row["entity_id"]),
+                created_at=datetime.fromisoformat(row["entity_created_at"]),
                 metadata=row["entity_metadata"] if row["entity_metadata"] else {},
             )
 
@@ -225,35 +321,81 @@ class ArcadedbRepository:
             )
 
             # Parse the relationship data
-            relationship = HasIdentifier(
+            has_identifier_rel = HasIdentifier(
                 from_entity_id=entity.id,
                 to_identifier_value=identifier.value,
                 is_primary=row["relationship_is_primary"],
-                created_at=row["relationship_created_at"],
+                created_at=datetime.fromisoformat(row["relationship_created_at"]),
             )
+
+            # Parse facts and sources
+            facts_with_sources: list[FactWithSource] = []
+            if row["facts_with_sources"]:
+                for fact_data in row["facts_with_sources"]:
+                    fact = Fact(
+                        name=fact_data["fact_name"],
+                        type=fact_data["fact_type"],
+                    )
+                    if not fact.fact_id:
+                        # This should not happen if the Fact model is correctly initialized
+                        raise ValueError("Fact ID was not created for a new fact")
+
+                    has_fact_rel = HasFact(
+                        from_entity_id=entity.id,
+                        to_fact_id=fact.fact_id,
+                        verb=fact_data["fact_rel_verb"],
+                        confidence_score=fact_data["fact_rel_confidence_score"],
+                        created_at=datetime.fromisoformat(
+                            fact_data["fact_rel_created_at"]
+                        ),
+                    )
+                    source = None
+                    if (
+                        fact_data["source_id"]
+                        and fact_data["source_content"]
+                        and fact_data["source_timestamp"]
+                    ):
+                        source = Source(
+                            id=UUID(fact_data["source_id"]),
+                            content=fact_data["source_content"],
+                            timestamp=datetime.fromisoformat(
+                                fact_data["source_timestamp"]
+                            ),
+                        )
+
+                    facts_with_sources.append(
+                        {
+                            "fact": fact,
+                            "relationship": has_fact_rel,
+                            "source": source,
+                        }
+                    )
 
             return {
                 "entity": entity,
-                "identifier": identifier,
-                "relationship": relationship,
+                "identifier": {
+                    "identifier": identifier,
+                    "relationship": has_identifier_rel,
+                },
+                "facts_with_sources": facts_with_sources,
             }
 
         except Exception as e:
             raise RuntimeError(f"Failed to find entity by identifier: {e}")
 
-    # @TODO: return facts with sources.
-    async def find_entity_by_id(self, entity_id: str) -> EntityWithRelations | None:
+    async def find_entity_by_id(self, entity_id: str) -> FindEntityResult | None:
         """Find an entity by its ID and return it with all its relations.
 
         This method retrieves the entity along with:
-        - All its identifiers (via HAS_IDENTIFIER edges)
+        - All its identifiers and their relationships (via HAS_IDENTIFIER edges)
+        - All its facts and their sources (via HAS_FACT and DERIVED_FROM edges)
 
         Args:
             entity_id: The UUID string of the entity to find
 
         Returns:
-            EntityWithRelations containing the entity and all its relations,
-            or None if the entity is not found.
+            FindEntityResult containing the entity, a primary or first identifier,
+            and all facts with their sources, or None if the entity is not found.
         """
         if not entity_id:
             raise ValueError("Entity ID cannot be empty")
@@ -267,29 +409,59 @@ class ArcadedbRepository:
             escaped_entity_id = entity_id.replace("'", "\\'")
 
             query = f"""
-            g.V().hasLabel('Entity').has('id', '{escaped_entity_id}')
+            g.V().hasLabel('Entity').has('id', '{escaped_entity_id}').as('entity')
             .project(
                 'entity_id',
                 'entity_created_at',
                 'entity_metadata',
-                'identifiers'
+                'identifiers_with_rel',
+                'facts_with_sources'
             )
-            .by(values('id'))
-            .by(values('created_at'))
-            .by(values('metadata'))
+            .by(select('entity').values('id'))
+            .by(select('entity').values('created_at'))
+            .by(select('entity').values('metadata'))
             .by(
-                outE('HAS_IDENTIFIER').inV()
-                .project('value', 'type')
-                .by(values('value'))
-                .by(values('type'))
+                select('entity').outE('HAS_IDENTIFIER').as('rel').inV().as('identifier')
+                .project('value', 'type', 'is_primary', 'created_at')
+                .by(select('identifier').values('value'))
+                .by(select('identifier').values('type'))
+                .by(select('rel').values('is_primary'))
+                .by(select('rel').values('created_at'))
+                .fold()
+            )
+            .by(
+                select('entity').outE('HAS_FACT').as('fact_rel')
+                .inV().as('fact')
+                .optional(outE('DERIVED_FROM').inV().as('source'))
+                .project(
+                    'fact_name',
+                    'fact_type',
+                    'fact_rel_verb',
+                    'fact_rel_confidence_score',
+                    'fact_rel_created_at',
+                    'source_id',
+                    'source_content',
+                    'source_timestamp'
+                )
+                .by(select('fact').values('name'))
+                .by(select('fact').values('type'))
+                .by(select('fact_rel').values('verb'))
+                .by(select('fact_rel').values('confidence_score'))
+                .by(select('fact_rel').values('created_at'))
+                .by(coalesce(select('source').values('id'), constant(null)))
+                .by(coalesce(select('source').values('content'), constant(null)))
+                .by(coalesce(select('source').values('timestamp'), constant(null)))
                 .fold()
             )
             """
 
-            query_response = await self.db.execute_command(
-                query,
-                database_name,
-                language="gremlin",
+            query_response = cast(
+                _GremlinResult,
+                await self.db.execute_command(
+                    query,
+                    database_name,
+                    language="gremlin",
+                ),
             )
 
             if (
@@ -304,25 +476,86 @@ class ArcadedbRepository:
 
             # Parse entity data
             entity = Entity(
-                id=row["entity_id"],
-                created_at=row["entity_created_at"],
+                id=UUID(row["entity_id"]),
+                created_at=datetime.fromisoformat(row["entity_created_at"]),
                 metadata=row["entity_metadata"] if row["entity_metadata"] else {},
             )
 
-            # Parse identifiers data
-            identifiers = []
-            if row["identifiers"]:
-                for identifier_data in row["identifiers"]:
-                    identifier = Identifier(
-                        value=identifier_data["value"],
-                        type=identifier_data["type"],
+            # Parse identifiers and find the primary or first one
+            identifiers_data = row["identifiers_with_rel"]
+            if not identifiers_data:
+                # This case should ideally not happen if entities are always created with an identifier
+                raise RuntimeError(f"Entity with ID {entity_id} has no identifiers.")
+
+            primary_identifier_data = next(
+                (id_data for id_data in identifiers_data if id_data["is_primary"]),
+                identifiers_data[0],
+            )
+
+            identifier = Identifier(
+                value=primary_identifier_data["value"],
+                type=primary_identifier_data["type"],
+            )
+
+            has_identifier_rel = HasIdentifier(
+                from_entity_id=entity.id,
+                to_identifier_value=identifier.value,
+                is_primary=primary_identifier_data["is_primary"],
+                created_at=datetime.fromisoformat(
+                    primary_identifier_data["created_at"]
+                ),
+            )
+
+            # Parse facts and sources
+            facts_with_sources: list[FactWithSource] = []
+            if row["facts_with_sources"]:
+                for fact_data in row["facts_with_sources"]:
+                    fact = Fact(
+                        name=fact_data["fact_name"],
+                        type=fact_data["fact_type"],
                     )
-                    identifiers.append(identifier)
+                    if not fact.fact_id:
+                        # This should not happen if the Fact model is correctly initialized
+                        raise ValueError("Fact ID was not created for a new fact")
+
+                    has_fact_rel = HasFact(
+                        from_entity_id=entity.id,
+                        to_fact_id=fact.fact_id,
+                        verb=fact_data["fact_rel_verb"],
+                        confidence_score=fact_data["fact_rel_confidence_score"],
+                        created_at=datetime.fromisoformat(
+                            fact_data["fact_rel_created_at"]
+                        ),
+                    )
+                    source = None
+                    if (
+                        fact_data["source_id"]
+                        and fact_data["source_content"]
+                        and fact_data["source_timestamp"]
+                    ):
+                        source = Source(
+                            id=UUID(fact_data["source_id"]),
+                            content=fact_data["source_content"],
+                            timestamp=datetime.fromisoformat(
+                                fact_data["source_timestamp"]
+                            ),
+                        )
+
+                    facts_with_sources.append(
+                        {
+                            "fact": fact,
+                            "relationship": has_fact_rel,
+                            "source": source,
+                        }
+                    )
 
             return {
                 "entity": entity,
-                "identifiers": identifiers,
-                "facts_with_sources": [],
+                "identifier": {
+                    "identifier": identifier,
+                    "relationship": has_identifier_rel,
+                },
+                "facts_with_sources": facts_with_sources,
             }
 
         except Exception as e:
@@ -345,8 +578,11 @@ class ArcadedbRepository:
         try:
             # Check if entity exists
             check_query = f"SELECT FROM Entity WHERE id = '{entity_id}'"
-            check_result = await self.db.execute_command(
-                check_query, database_name, language="sql"
+            check_result = cast(
+                _SqlResult,
+                await self.db.execute_command(
+                    check_query, database_name, language="sql"
+                ),
             )
 
             if not check_result or not check_result.get("result"):
@@ -354,8 +590,11 @@ class ArcadedbRepository:
 
             # Delete the entity (edges are automatically removed)
             delete_query = f"DELETE VERTEX FROM Entity WHERE id = '{entity_id}'"
-            delete_result = await self.db.execute_command(
-                delete_query, database_name, language="sql"
+            delete_result = cast(
+                _SqlDeleteResult,
+                await self.db.execute_command(
+                    delete_query, database_name, language="sql"
+                ),
             )
 
             return bool(

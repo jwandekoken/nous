@@ -41,16 +41,6 @@ class FactExtractor(Protocol):
         ...
 
 
-class AssimilateKnowledgeUseCase(Protocol):
-    """Protocol for the assimilate knowledge use case."""
-
-    async def execute(
-        self, request: AssimilateKnowledgeRequest
-    ) -> AssimilateKnowledgeResponse:
-        """Process content and associate facts with an entity."""
-        ...
-
-
 class AssimilateKnowledgeUseCaseImpl:
     """Implementation of the assimilate knowledge use case."""
 
