@@ -660,23 +660,19 @@ class ArcadedbRepository:
             # Create fact, source, and relationships in a single transaction
             transaction_script = """
             BEGIN;
-            -- Create or update fact vertex
             UPDATE Fact
             SET name = :fact_name, type = :fact_type
             UPSERT WHERE fact_id = :fact_id;
-            -- Create source vertex
             CREATE VERTEX Source
             SET id = :source_id,
                 content = :source_content,
                 timestamp = :source_timestamp;
-            -- Create HAS_FACT relationship from entity to fact
             CREATE EDGE HAS_FACT
             FROM (SELECT FROM Entity WHERE id = :entity_id)
             TO (SELECT FROM Fact WHERE fact_id = :fact_id)
             SET verb = :verb,
                 confidence_score = :confidence_score,
                 created_at = :created_at;
-            -- Create DERIVED_FROM relationship from fact to source
             CREATE EDGE DERIVED_FROM
             FROM (SELECT FROM Fact WHERE fact_id = :fact_id)
             TO (SELECT FROM Source WHERE id = :source_id)
@@ -706,6 +702,7 @@ class ArcadedbRepository:
                     language="sqlscript",
                 ),
             )
+            print(f"---> created_result: {created_result}")
 
             # Check if transaction was successful
             if "result" not in created_result or not created_result["result"]:

@@ -74,10 +74,10 @@ def test_identifier() -> Identifier:
 
 
 @pytest.fixture
-def test_relationship(
+def test_has_identifier_relationship(
     test_entity: Entity, test_identifier: Identifier
 ) -> HasIdentifier:
-    """Test relationship between entity and identifier."""
+    """Test HasIdentifier relationship between entity and identifier."""
     return HasIdentifier(
         from_entity_id=test_entity.id,
         to_identifier_value=test_identifier.value,
@@ -112,13 +112,13 @@ class TestCreateEntity:
         arcadedb_repository: ArcadedbRepository,
         test_entity: Entity,
         test_identifier: Identifier,
-        test_relationship: HasIdentifier,
+        test_has_identifier_relationship: HasIdentifier,
     ) -> None:
         """Test basic entity creation with minimal data."""
 
         # Act
         result: CreateEntityResult = await arcadedb_repository.create_entity(
-            test_entity, test_identifier, test_relationship
+            test_entity, test_identifier, test_has_identifier_relationship
         )
 
         print(f"DEBUG - Result: {result}")
@@ -145,7 +145,10 @@ class TestCreateEntity:
         # For now, just check that identifier and relationship are returned (they're not created in DB yet)
         assert returned_identifier.value == test_identifier.value
         assert returned_identifier.type == test_identifier.type
-        assert returned_relationship.is_primary == test_relationship.is_primary
+        assert (
+            returned_relationship.is_primary
+            == test_has_identifier_relationship.is_primary
+        )
 
     @pytest.mark.asyncio
     async def test_create_entity_reuses_existing_identifier(
@@ -153,7 +156,7 @@ class TestCreateEntity:
         arcadedb_repository: ArcadedbRepository,
         test_entity: Entity,
         test_identifier: Identifier,
-        test_relationship: HasIdentifier,
+        test_has_identifier_relationship: HasIdentifier,
     ) -> None:
         """Test that create_entity reuses existing identifiers instead of creating duplicates.
 
@@ -164,7 +167,7 @@ class TestCreateEntity:
 
         # First, create an entity with the test identifier
         first_entity = test_entity
-        first_relationship = test_relationship
+        first_relationship = test_has_identifier_relationship
 
         first_result = await arcadedb_repository.create_entity(
             first_entity, test_identifier, first_relationship
@@ -234,13 +237,13 @@ class TestFindEntityByIdentifier:
         arcadedb_repository: ArcadedbRepository,
         test_entity: Entity,
         test_identifier: Identifier,
-        test_relationship: HasIdentifier,
+        test_has_identifier_relationship: HasIdentifier,
     ) -> None:
         """Test finding an entity by its identifier value and type."""
 
         # First create the entity with identifier
         _ = await arcadedb_repository.create_entity(
-            test_entity, test_identifier, test_relationship
+            test_entity, test_identifier, test_has_identifier_relationship
         )
 
         # Act - Find the entity by identifier
@@ -269,7 +272,9 @@ class TestFindEntityByIdentifier:
         assert found_entity.metadata == test_entity.metadata
         assert found_identifier.value == test_identifier.value
         assert found_identifier.type == test_identifier.type
-        assert found_relationship.is_primary == test_relationship.is_primary
+        assert (
+            found_relationship.is_primary == test_has_identifier_relationship.is_primary
+        )
         assert found_relationship.from_entity_id == test_entity.id
         assert found_relationship.to_identifier_value == test_identifier.value
 
@@ -283,13 +288,13 @@ class TestFindEntityById:
         arcadedb_repository: ArcadedbRepository,
         test_entity: Entity,
         test_identifier: Identifier,
-        test_relationship: HasIdentifier,
+        test_has_identifier_relationship: HasIdentifier,
     ) -> None:
         """Test finding an entity by its ID."""
 
         # First create the entity with identifier
         _ = await arcadedb_repository.create_entity(
-            test_entity, test_identifier, test_relationship
+            test_entity, test_identifier, test_has_identifier_relationship
         )
 
         # Act - Find the entity by its ID
@@ -408,13 +413,13 @@ class TestDeleteEntityById:
         arcadedb_repository: ArcadedbRepository,
         test_entity: Entity,
         test_identifier: Identifier,
-        test_relationship: HasIdentifier,
+        test_has_identifier_relationship: HasIdentifier,
     ) -> None:
         """Test deleting an entity by its ID."""
 
         # First create the entity with identifier
         _ = await arcadedb_repository.create_entity(
-            test_entity, test_identifier, test_relationship
+            test_entity, test_identifier, test_has_identifier_relationship
         )
 
         # Verify the entity exists by finding it
@@ -455,13 +460,13 @@ class TestDeleteEntityById:
         arcadedb_repository: ArcadedbRepository,
         test_entity: Entity,
         test_identifier: Identifier,
-        test_relationship: HasIdentifier,
+        test_has_identifier_relationship: HasIdentifier,
     ) -> None:
         """Test that identifiers shared by multiple entities are not deleted."""
 
         # Create first entity with identifier
         _ = await arcadedb_repository.create_entity(
-            test_entity, test_identifier, test_relationship
+            test_entity, test_identifier, test_has_identifier_relationship
         )
 
         # Create second entity with the same identifier
@@ -627,7 +632,7 @@ class TestAddFactToEntity:
         arcadedb_repository: ArcadedbRepository,
         test_entity: Entity,
         test_identifier: Identifier,
-        test_relationship: HasIdentifier,
+        test_has_identifier_relationship: HasIdentifier,
         test_fact: Fact,
         test_source: Source,
     ) -> None:
@@ -635,7 +640,7 @@ class TestAddFactToEntity:
 
         # First create the entity
         create_result = await arcadedb_repository.create_entity(
-            test_entity, test_identifier, test_relationship
+            test_entity, test_identifier, test_has_identifier_relationship
         )
         assert create_result is not None
 
@@ -691,7 +696,7 @@ class TestAddFactToEntity:
         arcadedb_repository: ArcadedbRepository,
         test_entity: Entity,
         test_identifier: Identifier,
-        test_relationship: HasIdentifier,
+        test_has_identifier_relationship: HasIdentifier,
         test_fact: Fact,
         test_source: Source,
     ) -> None:
@@ -699,7 +704,7 @@ class TestAddFactToEntity:
 
         # First create the entity
         create_result = await arcadedb_repository.create_entity(
-            test_entity, test_identifier, test_relationship
+            test_entity, test_identifier, test_has_identifier_relationship
         )
         assert create_result is not None
 
@@ -821,13 +826,13 @@ class TestAddFactToEntity:
         arcadedb_repository: ArcadedbRepository,
         test_entity: Entity,
         test_identifier: Identifier,
-        test_relationship: HasIdentifier,
+        test_has_identifier_relationship: HasIdentifier,
     ) -> None:
         """Test adding multiple facts to the same entity."""
 
         # First create the entity
         create_result = await arcadedb_repository.create_entity(
-            test_entity, test_identifier, test_relationship
+            test_entity, test_identifier, test_has_identifier_relationship
         )
         assert create_result is not None
 
