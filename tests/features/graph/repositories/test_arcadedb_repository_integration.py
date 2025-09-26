@@ -238,6 +238,8 @@ class TestFindEntityByIdentifier:
         test_entity: Entity,
         test_identifier: Identifier,
         test_has_identifier_relationship: HasIdentifier,
+        test_fact: Fact,
+        test_source: Source,
     ) -> None:
         """Test finding an entity by its identifier value and type."""
 
@@ -246,24 +248,41 @@ class TestFindEntityByIdentifier:
             test_entity, test_identifier, test_has_identifier_relationship
         )
 
+        added_fact = await arcadedb_repository.add_fact_to_entity(
+            entity_id=str(test_entity.id),
+            fact=test_fact,
+            source=test_source,
+            verb="lives_in",
+            confidence_score=0.9,
+        )
+        print(f"DEBUG - Added fact: {added_fact}")
+
         # Act - Find the entity by identifier
         find_result = await arcadedb_repository.find_entity_by_identifier(
             test_identifier.value, test_identifier.type
         )
+        print(f"DEBUG - Find result: {find_result}")
 
         # Assert
         assert find_result is not None
         assert isinstance(find_result, dict)
         assert "entity" in find_result
         assert "identifier" in find_result
-        assert "relationship" in find_result
+        assert "facts_with_sources" in find_result
 
         # Verify returned objects have correct properties
         found_entity = find_result["entity"]
-        found_identifier = find_result["identifier"]
-        found_relationship = find_result["relationship"]
+        found_identifier_with_relationship = find_result["identifier"]
+        found_facts_with_sources = find_result["facts_with_sources"]
 
         assert isinstance(found_entity, Entity)
+        assert isinstance(found_identifier_with_relationship, dict)
+        assert isinstance(found_facts_with_sources, list)
+
+        # Extract the identifier and relationship from the nested structure
+        found_identifier = found_identifier_with_relationship["identifier"]
+        found_relationship = found_identifier_with_relationship["relationship"]
+
         assert isinstance(found_identifier, Identifier)
         assert isinstance(found_relationship, HasIdentifier)
 
@@ -277,6 +296,41 @@ class TestFindEntityByIdentifier:
         )
         assert found_relationship.from_entity_id == test_entity.id
         assert found_relationship.to_identifier_value == test_identifier.value
+
+        # Check that facts with sources are returned correctly
+        assert len(found_facts_with_sources) >= 1
+
+        # Find the fact we just added among the returned facts
+        added_fact_found = False
+        for fact_with_source in found_facts_with_sources:
+            assert isinstance(fact_with_source, dict)
+            assert "fact" in fact_with_source
+            assert "relationship" in fact_with_source
+            assert "source" in fact_with_source
+
+            # Check the fact details
+            found_fact = fact_with_source["fact"]
+            found_fact_relationship = fact_with_source["relationship"]
+            found_source = fact_with_source["source"]
+
+            assert isinstance(found_fact, Fact)
+            assert isinstance(found_fact_relationship, HasFact)
+            assert isinstance(found_source, Source)
+
+            # Check if this is the fact we just added
+            if (
+                found_fact.name == test_fact.name
+                and found_fact.type == test_fact.type
+                and found_fact_relationship.verb == "lives_in"
+                and found_fact_relationship.confidence_score == 0.9
+                and found_source.content == test_source.content
+            ):
+                added_fact_found = True
+                break
+
+        assert added_fact_found, (
+            f"Added fact {test_fact.name} with source '{test_source.content}' not found in results"
+        )
 
 
 class TestFindEntityById:
