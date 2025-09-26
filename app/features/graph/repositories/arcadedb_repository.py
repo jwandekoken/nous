@@ -112,6 +112,14 @@ class FindEntityResult(TypedDict):
     facts_with_sources: list[FactWithSource]
 
 
+class FindEntityByIdResult(TypedDict):
+    """Result of finding an entity by its ID, including facts and sources."""
+
+    entity: Entity
+    identifier: IdentifierWithRelationship | None
+    facts_with_sources: list[FactWithSource]
+
+
 class EntityWithRelations(TypedDict):
     """Complete entity data with all its relationships and associated objects."""
 
@@ -393,7 +401,7 @@ class ArcadedbRepository:
         except Exception as e:
             raise RuntimeError(f"Failed to find entity by identifier: {e}")
 
-    async def find_entity_by_id(self, entity_id: str) -> FindEntityResult | None:
+    async def find_entity_by_id(self, entity_id: str) -> FindEntityByIdResult | None:
         """Find an entity by its ID and return it with all its relations.
 
         This method retrieves the entity along with:
@@ -404,7 +412,7 @@ class ArcadedbRepository:
             entity_id: The UUID string of the entity to find
 
         Returns:
-            FindEntityResult containing the entity, a primary or first identifier,
+            FindEntityByIdResult containing the entity, its primary identifier (or None if no identifiers),
             and all facts with their sources, or None if the entity is not found.
         """
         if not entity_id:
@@ -491,30 +499,33 @@ class ArcadedbRepository:
                 metadata=row["entity_metadata"] if row["entity_metadata"] else {},
             )
 
-            # Parse identifiers and find the primary or first one
+            # Parse identifiers - find primary or first one, or None if no identifiers
             identifiers_data = row["identifiers_with_rel"]
-            if not identifiers_data:
-                # This case should ideally not happen if entities are always created with an identifier
-                raise RuntimeError(f"Entity with ID {entity_id} has no identifiers.")
+            identifier_with_relationship: IdentifierWithRelationship | None = None
+            if identifiers_data:
+                primary_identifier_data = next(
+                    (id_data for id_data in identifiers_data if id_data["is_primary"]),
+                    identifiers_data[0],
+                )
 
-            primary_identifier_data = next(
-                (id_data for id_data in identifiers_data if id_data["is_primary"]),
-                identifiers_data[0],
-            )
+                identifier = Identifier(
+                    value=primary_identifier_data["value"],
+                    type=primary_identifier_data["type"],
+                )
 
-            identifier = Identifier(
-                value=primary_identifier_data["value"],
-                type=primary_identifier_data["type"],
-            )
+                has_identifier_rel = HasIdentifier(
+                    from_entity_id=entity.id,
+                    to_identifier_value=identifier.value,
+                    is_primary=primary_identifier_data["is_primary"],
+                    created_at=datetime.fromisoformat(
+                        primary_identifier_data["created_at"]
+                    ),
+                )
 
-            has_identifier_rel = HasIdentifier(
-                from_entity_id=entity.id,
-                to_identifier_value=identifier.value,
-                is_primary=primary_identifier_data["is_primary"],
-                created_at=datetime.fromisoformat(
-                    primary_identifier_data["created_at"]
-                ),
-            )
+                identifier_with_relationship = {
+                    "identifier": identifier,
+                    "relationship": has_identifier_rel,
+                }
 
             # Parse facts and sources
             facts_with_sources: list[FactWithSource] = []
@@ -559,14 +570,12 @@ class ArcadedbRepository:
                         }
                     )
 
-            return {
+            result: FindEntityByIdResult = {
                 "entity": entity,
-                "identifier": {
-                    "identifier": identifier,
-                    "relationship": has_identifier_rel,
-                },
+                "identifier": identifier_with_relationship,
                 "facts_with_sources": facts_with_sources,
             }
+            return result
 
         except Exception as e:
             raise RuntimeError(f"Failed to find entity by id: {e}")

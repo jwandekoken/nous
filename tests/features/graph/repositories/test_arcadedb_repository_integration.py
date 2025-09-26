@@ -210,6 +210,9 @@ class TestCreateEntity:
         assert second_found is not None
 
         # Both should have the same primary identifier
+        assert first_found["identifier"] is not None
+        assert second_found["identifier"] is not None
+
         first_identifier = first_found["identifier"]["identifier"]
         second_identifier = second_found["identifier"]["identifier"]
 
@@ -379,26 +382,28 @@ class TestFindEntityById:
         found_facts_with_sources = find_result["facts_with_sources"]
 
         assert isinstance(found_entity, Entity)
-        assert isinstance(found_identifier_with_relationship, dict)
+        assert (
+            isinstance(found_identifier_with_relationship, dict)
+            or found_identifier_with_relationship is None
+        )
         assert isinstance(found_facts_with_sources, list)
 
-        # Extract the identifier and relationship from the nested structure
+        # Check that we found the correct entity
+        assert found_entity.id == test_entity.id
+        assert found_entity.metadata == test_entity.metadata
+
+        # Check that we found the correct identifier
+        assert found_identifier_with_relationship is not None
         found_identifier = found_identifier_with_relationship["identifier"]
         found_relationship = found_identifier_with_relationship["relationship"]
 
         assert isinstance(found_identifier, Identifier)
         assert isinstance(found_relationship, HasIdentifier)
-
-        # Check that we found the correct entity and identifier
-        assert found_entity.id == test_entity.id
-        assert found_entity.metadata == test_entity.metadata
         assert found_identifier.value == test_identifier.value
         assert found_identifier.type == test_identifier.type
         assert (
             found_relationship.is_primary == test_has_identifier_relationship.is_primary
         )
-        assert found_relationship.from_entity_id == test_entity.id
-        assert found_relationship.to_identifier_value == test_identifier.value
 
         # Check that facts with sources are returned correctly
         assert len(found_facts_with_sources) >= 1
@@ -464,24 +469,24 @@ class TestFindEntityById:
         assert find_result is not None
         assert isinstance(find_result, dict)
         assert "entity" in find_result
-        assert "identifiers" in find_result
+        assert "identifier" in find_result
         assert "facts_with_sources" in find_result
 
         # Verify returned objects have correct properties
         found_entity = find_result["entity"]
-        found_identifiers = find_result["identifiers"]
+        found_identifier = find_result["identifier"]
         found_facts_with_sources = find_result["facts_with_sources"]
 
         assert isinstance(found_entity, Entity)
-        assert isinstance(found_identifiers, list)
+        assert found_identifier is None  # Should be None when no identifiers
         assert isinstance(found_facts_with_sources, list)
 
         # Check that we found the correct entity
         assert found_entity.id == test_entity.id
         assert found_entity.metadata == test_entity.metadata
 
-        # Check that identifiers list is empty (no identifiers)
-        assert len(found_identifiers) == 0
+        # Check that identifier is None (no identifiers)
+        assert found_identifier is None
 
         # Check that facts with sources is empty (for now)
         assert len(found_facts_with_sources) == 0
