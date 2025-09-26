@@ -652,10 +652,11 @@ class ArcadedbRepository:
         source: Source,
         verb: str,
         confidence_score: float = 1.0,
+        create_source: bool = True,
     ) -> AddFactToEntityResult:
         """Add a fact with its source to an existing entity.
 
-        This method creates a fact vertex, a source vertex, and establishes
+        This method creates a fact vertex, optionally creates a source vertex, and establishes
         the relationships between them and the entity in a single transaction.
 
         Args:
@@ -664,6 +665,7 @@ class ArcadedbRepository:
             source: The Source object providing the origin of the fact
             verb: The semantic relationship verb (e.g., 'lives_in', 'works_at')
             confidence_score: Confidence level of this fact (0.0 to 1.0)
+            create_source: If True, creates the source vertex. If False, assumes source already exists.
 
         Returns:
             AddFactToEntityResult containing the created fact, source, and relationships
@@ -686,16 +688,23 @@ class ArcadedbRepository:
             raise ValueError("Confidence score must be between 0.0 and 1.0")
 
         try:
-            # Create fact, source, and relationships in a single transaction
-            transaction_script = """
+            # Create fact, optionally source, and relationships in a single transaction
+            if create_source:
+                source_creation = """
+                CREATE VERTEX Source
+                SET id = :source_id,
+                    content = :source_content,
+                    timestamp = :source_timestamp;
+                """
+            else:
+                source_creation = ""
+
+            transaction_script = f"""
             BEGIN;
             UPDATE Fact
             SET name = :fact_name, type = :fact_type
             UPSERT WHERE fact_id = :fact_id;
-            CREATE VERTEX Source
-            SET id = :source_id,
-                content = :source_content,
-                timestamp = :source_timestamp;
+            {source_creation}
             CREATE EDGE HAS_FACT
             FROM (SELECT FROM Entity WHERE id = :entity_id)
             TO (SELECT FROM Fact WHERE fact_id = :fact_id)

@@ -69,6 +69,31 @@ class SourceDto(BaseModel):
     )
 
 
+class HasFactDto(BaseModel):
+    """DTO for the relationship between an Entity and a Fact."""
+
+    verb: str = Field(
+        ..., description="Semantic relationship (e.g., 'lives_in', 'works_at')"
+    )
+    confidence_score: float = Field(
+        ge=0.0,
+        le=1.0,
+        description="Confidence level of this fact (0.0 to 1.0)",
+    )
+    created_at: datetime = Field(
+        ..., description="When this relationship was established"
+    )
+
+
+class AssimilatedFactDto(BaseModel):
+    """DTO grouping a fact with its relationship to the entity."""
+
+    fact: FactDto = Field(..., description="The extracted fact")
+    relationship: HasFactDto = Field(
+        ..., description="The relationship between the entity and the fact"
+    )
+
+
 class AssimilateKnowledgeResponse(BaseModel):
     """Response after successfully assimilating knowledge."""
 
@@ -76,6 +101,7 @@ class AssimilateKnowledgeResponse(BaseModel):
         ..., description="The entity the knowledge was assimilated for."
     )
     source: SourceDto = Field(..., description="The source created from the content.")
-    extracted_facts: list[FactDto] = Field(
-        ..., description="A list of facts extracted and stored."
+    assimilated_facts: list[AssimilatedFactDto] = Field(
+        ...,
+        description="A list of facts extracted with their relationships to the entity.",
     )

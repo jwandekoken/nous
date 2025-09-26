@@ -9,18 +9,18 @@ from typing import Any, Protocol, cast
 from uuid import uuid4
 
 from app.features.graph.dtos.knowledge_dto import (
+    AssimilatedFactDto,
     AssimilateKnowledgeRequest,
     AssimilateKnowledgeResponse,
     EntityDto,
     FactDto,
+    HasFactDto,
     IdentifierPayload,
     SourceDto,
 )
 from app.features.graph.models import (
-    DerivedFrom,
     Entity,
     Fact,
-    HasFact,
     HasIdentifier,
     Identifier,
     Source,
@@ -100,16 +100,15 @@ class AssimilateKnowledgeUseCaseImpl:
             content=request.content,
             timestamp=request.timestamp or datetime.now(timezone.utc),
         )
-        created_source = await self.repository.create_source(source)
 
         # 3. Extract facts using fact_extractor
         extracted_facts_data = await self.fact_extractor.extract_facts(
             request.content, request.identifier, request.history
         )
-        extracted_facts: list[FactDto] = []
+        assimilated_facts: list[AssimilatedFactDto] = []
 
         # 4. Create and link facts to entity
-        for fact_data in extracted_facts_data:
+        for i, fact_data in enumerate(extracted_facts_data):
             # Create fact model
             fact = Fact(name=fact_data["name"], type=fact_data["type"])
 
@@ -117,33 +116,36 @@ class AssimilateKnowledgeUseCaseImpl:
             if not fact.fact_id:
                 raise ValueError(f"Fact ID cannot be None for fact: {fact.name}")
 
-            # Create relationships
-            has_fact = HasFact(
-                from_entity_id=entity.id,
-                to_fact_id=fact.fact_id,
+            # Add fact to entity using repository method
+            # Create source only for the first fact
+            create_source = i == 0
+            result = await self.repository.add_fact_to_entity(
+                entity_id=str(entity.id),
+                fact=fact,
+                source=source,
                 verb=fact_data.get("verb", "has"),
                 confidence_score=fact_data.get("confidence_score", 1.0),
-                created_at=datetime.now(timezone.utc),
-            )
-
-            derived_from = DerivedFrom(
-                from_fact_id=fact.fact_id, to_source_id=created_source.id
-            )
-
-            # Link fact to entity with source in single transaction
-            created_fact, _, _ = await self.repository.link_fact_to_entity_with_source(
-                entity, fact, created_source, has_fact, derived_from
+                create_source=create_source,
             )
 
             # Add to response
             fact_dto = FactDto(
-                name=created_fact.name,
-                type=created_fact.type,
-                fact_id=created_fact.fact_id,
+                name=result["fact"].name,
+                type=result["fact"].type,
+                fact_id=result["fact"].fact_id,
             )
-            extracted_facts.append(fact_dto)
+            has_fact_dto = HasFactDto(
+                verb=result["has_fact_relationship"].verb,
+                confidence_score=result["has_fact_relationship"].confidence_score,
+                created_at=result["has_fact_relationship"].created_at,
+            )
+            assimilated_fact_dto = AssimilatedFactDto(
+                fact=fact_dto,
+                relationship=has_fact_dto,
+            )
+            assimilated_facts.append(assimilated_fact_dto)
 
-        # 5. Return response with entity, source, and extracted facts
+        # 4. Return response with entity, source, and assimilated facts
         return AssimilateKnowledgeResponse(
             entity=EntityDto(
                 id=entity.id,
@@ -151,9 +153,9 @@ class AssimilateKnowledgeUseCaseImpl:
                 metadata=entity.metadata or {},
             ),
             source=SourceDto(
-                id=created_source.id,
-                content=created_source.content,
-                timestamp=created_source.timestamp,
+                id=source.id,
+                content=source.content,
+                timestamp=source.timestamp,
             ),
-            extracted_facts=extracted_facts,
+            assimilated_facts=assimilated_facts,
         )

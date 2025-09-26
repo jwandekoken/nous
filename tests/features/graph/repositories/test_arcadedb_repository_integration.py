@@ -37,8 +37,29 @@ class _TestFactItem(TypedDict):
 
 @pytest.fixture(autouse=True)
 async def reset_db_connection():
-    """Reset database connection before each test."""
+    """Reset database connection and clear data before each test."""
     await reset_graph_db()
+
+    # Clear all data from the database to ensure clean state
+    db = await get_graph_db()
+    database_name = get_database_name()
+
+    # Delete all vertices and edges in reverse dependency order
+    clear_commands = [
+        "DELETE FROM DERIVED_FROM",
+        "DELETE FROM HAS_FACT",
+        "DELETE FROM HAS_IDENTIFIER",
+        "DELETE FROM Fact",
+        "DELETE FROM Source",
+        "DELETE FROM Identifier",
+        "DELETE FROM Entity",
+    ]
+
+    for command in clear_commands:
+        try:
+            await db.execute_command(command, database_name, language="sql")
+        except Exception:
+            pass  # Ignore errors if tables don't exist or are already empty
 
 
 @pytest.fixture
