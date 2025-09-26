@@ -924,3 +924,81 @@ class TestAddFactToEntity:
         fact_names = {fws["fact"].name for fws in facts_with_sources}
         expected_names = {"Paris", "Engineer", "Soccer"}
         assert fact_names == expected_names
+
+
+class TestFindFactById:
+    """Integration tests for ArcadedbRepository.find_fact_by_id method."""
+
+    @pytest.mark.asyncio
+    async def test_find_fact_by_id(
+        self,
+        arcadedb_repository: ArcadedbRepository,
+        test_entity: Entity,
+        test_identifier: Identifier,
+        test_has_identifier_relationship: HasIdentifier,
+        test_fact: Fact,
+        test_source: Source,
+    ) -> None:
+        """Test finding a fact by its fact_id."""
+
+        # First create an entity and add the fact to it
+        create_result = await arcadedb_repository.create_entity(
+            test_entity, test_identifier, test_has_identifier_relationship
+        )
+        assert create_result is not None
+
+        add_fact_result = await arcadedb_repository.add_fact_to_entity(
+            entity_id=str(test_entity.id),
+            fact=test_fact,
+            source=test_source,
+            verb="lives_in",
+            confidence_score=0.9,
+        )
+        assert add_fact_result is not None
+        assert test_fact.fact_id is not None  # fact_id should be set after creation
+
+        # Act - Find the fact by its fact_id
+        result = await arcadedb_repository.find_fact_by_id(test_fact.fact_id)
+
+        # Assert
+        assert result is not None
+        assert isinstance(result, dict)
+        assert "fact" in result
+        assert "source" in result
+
+        found_fact = result["fact"]
+        found_source = result["source"]
+
+        assert isinstance(found_fact, Fact)
+        assert found_fact.name == test_fact.name
+        assert found_fact.type == test_fact.type
+        assert found_fact.fact_id == test_fact.fact_id
+
+        # Check that the source is correctly returned
+        assert isinstance(found_source, Source)
+        assert found_source.id == test_source.id
+        assert found_source.content == test_source.content
+
+    @pytest.mark.asyncio
+    async def test_find_fact_by_id_not_found(
+        self,
+        arcadedb_repository: ArcadedbRepository,
+    ) -> None:
+        """Test finding a fact that doesn't exist."""
+        # Act - Try to find a non-existent fact
+        found_fact = await arcadedb_repository.find_fact_by_id(
+            "NonExistentType:NonExistentName"
+        )
+
+        # Assert
+        assert found_fact is None
+
+    @pytest.mark.asyncio
+    async def test_find_fact_by_id_empty_id(
+        self,
+        arcadedb_repository: ArcadedbRepository,
+    ) -> None:
+        """Test finding a fact with empty ID raises ValueError."""
+        # Act & Assert
+        with pytest.raises(ValueError, match="Fact ID cannot be empty"):
+            _ = await arcadedb_repository.find_fact_by_id("")

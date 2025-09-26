@@ -67,6 +67,19 @@ class _GremlinResult(TypedDict):
     result: list[_EntityByIdResultRow]
 
 
+class _FactByIdResultRow(TypedDict):
+    fact_name: str
+    fact_type: str
+    fact_id: str
+    source_id: str | None
+    source_content: str | None
+    source_timestamp: str | None
+
+
+class _FactGremlinResult(TypedDict):
+    result: list[_FactByIdResultRow]
+
+
 class _SqlSelectResultRow(TypedDict):
     id: str
     created_at: str
@@ -95,6 +108,13 @@ class FactWithSource(TypedDict):
     fact: Fact
     source: Source | None
     relationship: HasFact
+
+
+class FactWithOptionalSource(TypedDict):
+    """A fact with its optionally associated source information."""
+
+    fact: Fact
+    source: Source | None
 
 
 class IdentifierWithRelationship(TypedDict):
@@ -740,3 +760,82 @@ class ArcadedbRepository:
 
         except Exception as e:
             raise RuntimeError(f"Failed to add fact to entity: {e}")
+
+    async def find_fact_by_id(self, fact_id: str) -> FactWithOptionalSource | None:
+        """Find a fact by its fact_id.
+
+        Args:
+            fact_id: The synthetic fact_id (e.g., 'Location:Paris')
+
+        Returns:
+            FactWithOptionalSource containing the fact and its linked source if found, None if not found.
+        """
+        if not fact_id or not fact_id.strip():
+            raise ValueError("Fact ID cannot be empty")
+
+        database_name = get_database_name()
+
+        try:
+            # Use Gremlin to find fact by fact_id
+            escaped_fact_id = fact_id.replace("'", "\\'")
+
+            query = f"""
+            g.V().hasLabel('Fact').has('fact_id', '{escaped_fact_id}').as('fact')
+            .project(
+                'fact_name',
+                'fact_type',
+                'fact_id',
+                'source_id',
+                'source_content',
+                'source_timestamp'
+            )
+            .by(select('fact').values('name'))
+            .by(select('fact').values('type'))
+            .by(select('fact').values('fact_id'))
+            .by(coalesce(select('fact').outE('DERIVED_FROM').inV().values('id'), constant(null)))
+            .by(coalesce(select('fact').outE('DERIVED_FROM').inV().values('content'), constant(null)))
+            .by(coalesce(select('fact').outE('DERIVED_FROM').inV().values('timestamp'), constant(null)))
+            """
+
+            query_response = cast(
+                _FactGremlinResult,
+                await self.db.execute_command(
+                    query,
+                    database_name,
+                    language="gremlin",
+                ),
+            )
+
+            if (
+                not query_response
+                or "result" not in query_response
+                or not query_response["result"]
+            ):
+                return None
+
+            # Parse the result
+            row = query_response["result"][0]
+
+            # Parse fact data
+            fact = Fact(
+                name=row["fact_name"],
+                type=row["fact_type"],
+            )
+            # The fact_id should be automatically set by the model validator
+
+            # Parse source data
+            source = None
+            if row["source_id"] and row["source_content"] and row["source_timestamp"]:
+                source = Source(
+                    id=UUID(row["source_id"]),
+                    content=row["source_content"],
+                    timestamp=datetime.fromisoformat(row["source_timestamp"]),
+                )
+
+            return {
+                "fact": fact,
+                "source": source,
+            }
+
+        except Exception as e:
+            raise RuntimeError(f"Failed to find fact by id: {e}")
