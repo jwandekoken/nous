@@ -42,6 +42,24 @@ class IdentifierPayload(BaseModel):
     )
 
 
+class ExtractedFactDto(BaseModel):
+    """DTO for facts extracted from text content."""
+
+    name: str = Field(..., description="The name or value of the extracted fact")
+    type: str = Field(
+        ..., description="The category of the fact (e.g., 'Location', 'Profession')"
+    )
+    verb: str = Field(
+        ..., description="The semantic verb connecting the entity to the fact"
+    )
+    confidence_score: float = Field(
+        default=1.0,
+        ge=0.0,
+        le=1.0,
+        description="Confidence level of the extracted fact (0.0 to 1.0)",
+    )
+
+
 class AssimilateKnowledgeRequest(BaseModel):
     """Request to process content and associate facts with an entity."""
 

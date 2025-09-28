@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 import pytest
 
-from app.features.graph.dtos.knowledge_dto import IdentifierPayload
+from app.features.graph.dtos.knowledge_dto import ExtractedFactDto, IdentifierPayload
 from app.features.graph.services.fact_extractor import LangChainFactExtractor
 
 
@@ -56,25 +56,21 @@ class TestLangChainFactExtractor:
         assert len(facts) > 0  # Should extract at least some facts
 
         for fact in facts:
-            assert isinstance(fact, dict)
-            assert "name" in fact
-            assert "type" in fact
-            assert "verb" in fact
-            assert "confidence_score" in fact
+            assert isinstance(fact, ExtractedFactDto)
 
             # Verify data types
-            assert isinstance(fact["name"], str)
-            assert isinstance(fact["type"], str)
-            assert isinstance(fact["verb"], str)
-            assert isinstance(fact["confidence_score"], (int, float))
+            assert isinstance(fact.name, str)
+            assert isinstance(fact.type, str)
+            assert isinstance(fact.verb, str)
+            assert isinstance(fact.confidence_score, (int, float))
 
             # Verify confidence score range
-            assert 0.0 <= fact["confidence_score"] <= 1.0
+            assert 0.0 <= fact.confidence_score <= 1.0
 
             # Verify non-empty strings
-            assert fact["name"].strip()
-            assert fact["type"].strip()
-            assert fact["verb"].strip()
+            assert fact.name.strip()
+            assert fact.type.strip()
+            assert fact.verb.strip()
 
     @pytest.mark.asyncio
     async def test_extract_facts_company_info(self, extractor: LangChainFactExtractor):
@@ -88,7 +84,7 @@ class TestLangChainFactExtractor:
         assert len(facts) > 0
 
         # Check that relevant facts are extracted
-        fact_names = [fact["name"] for fact in facts]
+        fact_names = [fact.name for fact in facts]
         assert any(
             location in fact_name
             for fact_name in fact_names
@@ -97,9 +93,11 @@ class TestLangChainFactExtractor:
 
         # Verify all facts have required structure
         for fact in facts:
-            assert all(
-                key in fact for key in ["name", "type", "verb", "confidence_score"]
-            )
+            assert isinstance(fact, ExtractedFactDto)
+            assert fact.name
+            assert fact.type
+            assert fact.verb
+            assert 0.0 <= fact.confidence_score <= 1.0
 
     @pytest.mark.asyncio
     async def test_extract_facts_empty_content(self, extractor: LangChainFactExtractor):
@@ -129,15 +127,15 @@ class TestLangChainFactExtractor:
         assert isinstance(facts, list)
         assert len(facts) > 0
 
-        fact_names = {str(fact["name"]).lower() for fact in facts}
+        fact_names = {str(fact.name).lower() for fact in facts}
         assert "hiking" in fact_names
 
         # Check for a hobby-related fact
         hobby_fact_found = False
         for fact in facts:
-            if str(fact["name"]).lower() == "hiking":
-                assert str(fact["type"]).lower() in ["hobby", "activity"]
-                assert str(fact["verb"]).lower() in ["enjoys", "likes"]
+            if str(fact.name).lower() == "hiking":
+                assert str(fact.type).lower() in ["hobby", "activity"]
+                assert str(fact.verb).lower() in ["enjoys", "likes"]
                 hobby_fact_found = True
         assert hobby_fact_found, "Hobby fact about hiking not found"
 
@@ -154,14 +152,14 @@ class TestLangChainFactExtractor:
         assert isinstance(facts, list)
         assert len(facts) > 0
 
-        fact_names = {str(fact["name"]).lower() for fact in facts}
+        fact_names = {str(fact.name).lower() for fact in facts}
         assert "mondays" in fact_names
 
         # Check for a sentiment-related fact
         sentiment_fact_found = False
         for fact in facts:
-            if str(fact["name"]).lower() == "mondays":
-                assert str(fact["verb"]).lower() in ["dislikes", "does_not_like"]
+            if str(fact.name).lower() == "mondays":
+                assert str(fact.verb).lower() in ["dislikes", "does_not_like"]
                 sentiment_fact_found = True
         assert sentiment_fact_found, "Sentiment fact about Mondays not found"
 
@@ -186,18 +184,20 @@ class TestLangChainFactExtractor:
         # Check that the standardization is working
         for fact in facts:
             # 'name' can be in Portuguese
-            assert isinstance(fact["name"], str)
+            assert isinstance(fact.name, str)
 
             # 'type' and 'verb' must be in English. A simple check is to see if they are ASCII.
-            assert str(fact["type"]).isascii()
-            assert str(fact["verb"]).isascii()
+            assert str(fact.type).isascii()
+            assert str(fact.verb).isascii()
 
             # Check for core concepts in name
-            name_lower = str(fact["name"]).lower()
+            name_lower = str(fact.name).lower()
             assert "empresa" in name_lower or "negócio" in name_lower
 
         # Verify all facts have required structure
         for fact in facts:
-            assert all(
-                key in fact for key in ["name", "type", "verb", "confidence_score"]
-            )
+            assert isinstance(fact, ExtractedFactDto)
+            assert fact.name
+            assert fact.type
+            assert fact.verb
+            assert 0.0 <= fact.confidence_score <= 1.0

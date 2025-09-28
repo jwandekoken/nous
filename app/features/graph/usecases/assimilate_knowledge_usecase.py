@@ -5,7 +5,7 @@ extracting facts, and associating them with entities.
 """
 
 from datetime import datetime, timezone
-from typing import Any, Protocol, cast
+from typing import Protocol, cast
 from uuid import uuid4
 
 from app.features.graph.dtos.knowledge_dto import (
@@ -13,6 +13,7 @@ from app.features.graph.dtos.knowledge_dto import (
     AssimilateKnowledgeRequest,
     AssimilateKnowledgeResponse,
     EntityDto,
+    ExtractedFactDto,
     FactDto,
     HasFactDto,
     IdentifierPayload,
@@ -36,7 +37,7 @@ class FactExtractor(Protocol):
         content: str,
         entity_identifier: IdentifierPayload,
         history: list[str] | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> list[ExtractedFactDto]:
         """Extract facts from text content."""
         ...
 
@@ -110,7 +111,7 @@ class AssimilateKnowledgeUseCaseImpl:
         # 4. Create and link facts to entity
         for i, fact_data in enumerate(extracted_facts_data):
             # Create fact model
-            fact = Fact(name=fact_data["name"], type=fact_data["type"])
+            fact = Fact(name=fact_data.name, type=fact_data.type)
 
             # Ensure fact_id is not None (this should be set by the model validator)
             if not fact.fact_id:
@@ -123,8 +124,8 @@ class AssimilateKnowledgeUseCaseImpl:
                 entity_id=str(entity.id),
                 fact=fact,
                 source=source,
-                verb=fact_data.get("verb", "has"),
-                confidence_score=fact_data.get("confidence_score", 1.0),
+                verb=fact_data.verb,
+                confidence_score=fact_data.confidence_score,
                 create_source=create_source,
             )
 

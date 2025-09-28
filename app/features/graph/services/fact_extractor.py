@@ -1,13 +1,13 @@
 """Fact extraction service using LangChain and Google's Gemini model."""
 
-from typing import Any, cast
+from typing import cast
 
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI
 from pydantic import BaseModel, Field
 
 from app.core.settings import Settings
-from app.features.graph.dtos.knowledge_dto import IdentifierPayload
+from app.features.graph.dtos.knowledge_dto import ExtractedFactDto, IdentifierPayload
 
 
 class ExtractedFact(BaseModel):
@@ -112,7 +112,7 @@ If the entity is 'name:Mariele' and the text is 'De tomar a decisão correta em 
         content: str,
         entity_identifier: IdentifierPayload,
         history: list[str] | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> list[ExtractedFactDto]:
         """Extracts facts and converts them to the required dictionary format.
 
         Args:
@@ -141,4 +141,12 @@ If the entity is 'name:Mariele' and the text is 'De tomar a decisão correta em 
                 }
             ),
         )
-        return [fact.model_dump() for fact in response.facts]
+        return [
+            ExtractedFactDto(
+                name=fact.name,
+                type=fact.type,
+                verb=fact.verb,
+                confidence_score=fact.confidence_score,
+            )
+            for fact in response.facts
+        ]
