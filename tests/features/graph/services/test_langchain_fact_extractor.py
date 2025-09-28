@@ -10,7 +10,7 @@ from unittest.mock import patch
 import pytest
 
 from app.features.graph.dtos.knowledge_dto import ExtractedFactDto, IdentifierPayload
-from app.features.graph.services.fact_extractor import LangChainFactExtractor
+from app.features.graph.services.langchain_fact_extractor import LangChainFactExtractor
 
 
 class TestLangChainFactExtractor:
@@ -30,7 +30,7 @@ class TestLangChainFactExtractor:
         mock_settings.google_api_key = None
 
         with patch(
-            "app.features.graph.services.fact_extractor.Settings",
+            "app.features.graph.services.langchain_fact_extractor.Settings",
             return_value=mock_settings,
         ):
             # Should raise ValueError
