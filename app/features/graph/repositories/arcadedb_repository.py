@@ -97,6 +97,10 @@ class _ExistingFactRelationshipGremlinResult(TypedDict):
     result: list[_ExistingFactRelationshipResultRow]
 
 
+class _GremlinCountResult(TypedDict):
+    result: list[dict[str, int] | int]
+
+
 class _SqlSelectResultRow(TypedDict):
     id: str
     created_at: str
@@ -921,10 +925,13 @@ class ArcadedbRepository:
               .count()
             """
 
-            result = await self.db.execute_command(
-                check_query,
-                database_name,
-                language="gremlin",
+            result = cast(
+                _GremlinCountResult,
+                await self.db.execute_command(
+                    check_query,
+                    database_name,
+                    language="gremlin",
+                ),
             )
 
             # Gremlin count returns nested result structure
@@ -934,7 +941,7 @@ class ArcadedbRepository:
             else:
                 count = result_list[0] if result_list else 0
 
-            return int(count) > 0
+            return cast(int, count) > 0
 
         except Exception as e:
             raise RuntimeError(f"Failed to check if HAS_FACT edge exists: {e}")
