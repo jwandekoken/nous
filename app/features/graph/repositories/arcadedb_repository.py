@@ -740,7 +740,6 @@ class ArcadedbRepository:
                     language="sqlscript",
                 ),
             )
-            print(f"---> created_result: {created_result}")
 
             # Check if transaction was successful
             if "result" not in created_result or not created_result["result"]:
