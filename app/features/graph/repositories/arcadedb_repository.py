@@ -37,7 +37,7 @@ class _FactData(TypedDict):
     source_timestamp: str | None
 
 
-class _QueryResultRow(TypedDict):
+class _FindEntityByIdentifierResultRow(TypedDict):
     entity_id: str
     entity_created_at: str
     entity_metadata: dict[str, str]
@@ -55,7 +55,7 @@ class _IdentifierWithRelData(TypedDict):
     created_at: str
 
 
-class _EntityByIdResultRow(TypedDict):
+class _FindEntityByIdResultRow(TypedDict):
     entity_id: str
     entity_created_at: str
     entity_metadata: dict[str, str]
@@ -63,11 +63,11 @@ class _EntityByIdResultRow(TypedDict):
     facts_with_sources: list[_FactData]
 
 
-class _GremlinResult(TypedDict):
-    result: list[_EntityByIdResultRow]
+class _FindEntityByIdGremlinResult(TypedDict):
+    result: list[_FindEntityByIdResultRow]
 
 
-class _FactByIdResultRow(TypedDict):
+class _FindFactByIdResultRow(TypedDict):
     fact_name: str
     fact_type: str
     fact_id: str
@@ -76,11 +76,11 @@ class _FactByIdResultRow(TypedDict):
     source_timestamp: str | None
 
 
-class _FactGremlinResult(TypedDict):
-    result: list[_FactByIdResultRow]
+class _FindFactByIdGremlinResult(TypedDict):
+    result: list[_FindFactByIdResultRow]
 
 
-class _ExistingFactRelationshipResultRow(TypedDict):
+class _GetExistingFactRelationshipsResultRow(TypedDict):
     fact_name: str
     fact_type: str
     fact_id: str
@@ -93,22 +93,22 @@ class _ExistingFactRelationshipResultRow(TypedDict):
     derived_created_at: str
 
 
-class _ExistingFactRelationshipGremlinResult(TypedDict):
-    result: list[_ExistingFactRelationshipResultRow]
+class _GetExistingFactRelationshipsGremlinResult(TypedDict):
+    result: list[_GetExistingFactRelationshipsResultRow]
 
 
-class _GremlinCountResult(TypedDict):
+class _HasFactEdgeCountGremlinResult(TypedDict):
     result: list[dict[str, int] | int]
 
 
-class _SqlSelectResultRow(TypedDict):
+class _EntityExistsCheckSqlResultRow(TypedDict):
     id: str
     created_at: str
     metadata: dict[str, str]
 
 
-class _SqlResult(TypedDict):
-    result: list[_SqlSelectResultRow]
+class _EntityExistsCheckSqlResult(TypedDict):
+    result: list[_EntityExistsCheckSqlResultRow]
 
 
 class _SqlDeleteResult(TypedDict):
@@ -369,7 +369,7 @@ class ArcadedbRepository:
             # The result from a Gremlin query is a dictionary with a 'result' key
             # containing a list of dictionaries.
             GremlinResult = TypedDict(
-                "GremlinResult", {"result": list[_QueryResultRow]}
+                "GremlinResult", {"result": list[_FindEntityByIdentifierResultRow]}
             )
             query_response = cast(
                 GremlinResult,
@@ -540,7 +540,7 @@ class ArcadedbRepository:
             """
 
             query_response = cast(
-                _GremlinResult,
+                _FindEntityByIdGremlinResult,
                 await self.db.execute_command(
                     query,
                     database_name,
@@ -664,7 +664,7 @@ class ArcadedbRepository:
             # Check if entity exists
             check_query = f"SELECT FROM Entity WHERE id = '{entity_id}'"
             check_result = cast(
-                _SqlResult,
+                _EntityExistsCheckSqlResult,
                 await self.db.execute_command(
                     check_query, database_name, language="sql"
                 ),
@@ -859,7 +859,7 @@ class ArcadedbRepository:
             """
 
             query_response = cast(
-                _FactGremlinResult,
+                _FindFactByIdGremlinResult,
                 await self.db.execute_command(
                     query,
                     database_name,
@@ -926,7 +926,7 @@ class ArcadedbRepository:
             """
 
             result = cast(
-                _GremlinCountResult,
+                _HasFactEdgeCountGremlinResult,
                 await self.db.execute_command(
                     check_query,
                     database_name,
@@ -993,7 +993,7 @@ class ArcadedbRepository:
             """
 
             query_response = cast(
-                _ExistingFactRelationshipGremlinResult,
+                _GetExistingFactRelationshipsGremlinResult,
                 await self.db.execute_command(
                     query,
                     database_name,
