@@ -80,6 +80,23 @@ class _FactGremlinResult(TypedDict):
     result: list[_FactByIdResultRow]
 
 
+class _ExistingFactRelationshipResultRow(TypedDict):
+    fact_name: str
+    fact_type: str
+    fact_id: str
+    source_id: str
+    source_content: str
+    source_timestamp: str
+    verb: str
+    confidence_score: float
+    has_fact_created_at: str
+    derived_created_at: str
+
+
+class _ExistingFactRelationshipGremlinResult(TypedDict):
+    result: list[_ExistingFactRelationshipResultRow]
+
+
 class _SqlSelectResultRow(TypedDict):
     id: str
     created_at: str
@@ -163,11 +180,36 @@ class ArcadedbRepository:
     def __init__(self, db: GraphDB):
         self.db: GraphDB = db
 
-    # @TODO: verify if this method is idempotent (add test for this)
     async def create_entity(
         self, entity: Entity, identifier: Identifier, relationship: HasIdentifier
     ) -> CreateEntityResult:
-        """Create a new entity with identifier in the database using ArcadeDB SQL."""
+        """Create a new entity with identifier in the database using ArcadeDB SQL.
+
+        This method is idempotent: if an entity with the given identifier already exists,
+        it returns the existing entity instead of creating a duplicate.
+
+        Args:
+            entity: The Entity object to create
+            identifier: The Identifier to associate with the entity
+            relationship: The HasIdentifier relationship between entity and identifier
+
+        Returns:
+            CreateEntityResult containing the entity (existing or newly created),
+            identifier, and relationship
+        """
+
+        # Check if entity with this identifier already exists
+        existing_entity = await self.find_entity_by_identifier(
+            identifier.value, identifier.type
+        )
+
+        if existing_entity is not None:
+            # Entity already exists, return it
+            return {
+                "entity": existing_entity["entity"],
+                "identifier": existing_entity["identifier"]["identifier"],
+                "relationship": existing_entity["identifier"]["relationship"],
+            }
 
         # Pass metadata as dictionary for MAP type in ArcadeDB
         metadata_dict = entity.metadata if entity.metadata else {}
@@ -656,8 +698,8 @@ class ArcadedbRepository:
     ) -> AddFactToEntityResult:
         """Add a fact with its source to an existing entity.
 
-        This method creates a fact vertex, optionally creates a source vertex, and establishes
-        the relationships between them and the entity in a single transaction.
+        This method is fully idempotent: if the same fact is added multiple times
+        to the same entity, it returns the existing relationships without creating duplicates.
 
         Args:
             entity_id: The UUID string of the entity to add the fact to
@@ -687,14 +729,21 @@ class ArcadedbRepository:
         if not (0.0 <= confidence_score <= 1.0):
             raise ValueError("Confidence score must be between 0.0 and 1.0")
 
+        # Check if HAS_FACT edge already exists (for idempotency)
+        if await self._check_has_fact_edge_exists(entity_id, fact.fact_id):
+            # Edge exists - return existing relationships
+            return await self._get_existing_fact_relationships(entity_id, fact.fact_id)
+
         try:
-            # Create fact, optionally source, and relationships in a single transaction
+            # Create fact, source, and relationships in a single transaction
+            # This code only runs if the HAS_FACT edge doesn't already exist
             if create_source:
                 source_creation = """
-                CREATE VERTEX Source
+                UPDATE Source
                 SET id = :source_id,
                     content = :source_content,
-                    timestamp = :source_timestamp;
+                    timestamp = :source_timestamp
+                UPSERT WHERE id = :source_id;
                 """
             else:
                 source_creation = ""
@@ -847,3 +896,147 @@ class ArcadedbRepository:
 
         except Exception as e:
             raise RuntimeError(f"Failed to find fact by id: {e}")
+
+    async def _check_has_fact_edge_exists(self, entity_id: str, fact_id: str) -> bool:
+        """Check if HAS_FACT edge exists between entity and fact.
+
+        Args:
+            entity_id: The UUID string of the entity
+            fact_id: The fact_id of the fact
+
+        Returns:
+            True if the HAS_FACT edge exists, False otherwise
+        """
+        database_name = get_database_name()
+
+        try:
+            # Use Gremlin to check if edge exists - more reliable than SQL for edges
+            escaped_entity_id = entity_id.replace("'", "\\'")
+            escaped_fact_id = fact_id.replace("'", "\\'")
+
+            check_query = f"""
+            g.V().hasLabel('Entity').has('id', '{escaped_entity_id}')
+              .outE('HAS_FACT')
+              .where(inV().has('fact_id', '{escaped_fact_id}'))
+              .count()
+            """
+
+            result = await self.db.execute_command(
+                check_query,
+                database_name,
+                language="gremlin",
+            )
+
+            # Gremlin count returns nested result structure
+            result_list = result.get("result", [])
+            if result_list and isinstance(result_list[0], dict):
+                count = result_list[0].get("result", 0)
+            else:
+                count = result_list[0] if result_list else 0
+
+            return int(count) > 0
+
+        except Exception as e:
+            raise RuntimeError(f"Failed to check if HAS_FACT edge exists: {e}")
+
+    async def _get_existing_fact_relationships(
+        self, entity_id: str, fact_id: str
+    ) -> AddFactToEntityResult:
+        """Retrieve existing fact and its relationships.
+
+        Args:
+            entity_id: The UUID string of the entity
+            fact_id: The fact_id of the fact
+            source_id: The UUID string of the source
+
+        Returns:
+            AddFactToEntityResult containing the existing fact, source, and relationships
+        """
+        database_name = get_database_name()
+
+        try:
+            # Use Gremlin to get the fact, source, and relationships
+            escaped_entity_id = entity_id.replace("'", "\\'")
+            escaped_fact_id = fact_id.replace("'", "\\'")
+
+            query = f"""
+            g.V().hasLabel('Entity').has('id', '{escaped_entity_id}')
+              .outE('HAS_FACT')
+              .where(inV().has('fact_id', '{escaped_fact_id}'))
+              .as('has_fact_edge')
+              .inV().as('fact')
+              .outE('DERIVED_FROM').as('derived_edge')
+              .inV().as('source')
+              .project(
+                  'fact_name', 'fact_type', 'fact_id',
+                  'source_id', 'source_content', 'source_timestamp',
+                  'verb', 'confidence_score', 'has_fact_created_at',
+                  'derived_created_at'
+              )
+              .by(select('fact').values('name'))
+              .by(select('fact').values('type'))
+              .by(select('fact').values('fact_id'))
+              .by(select('source').values('id'))
+              .by(select('source').values('content'))
+              .by(select('source').values('timestamp'))
+              .by(select('has_fact_edge').values('verb'))
+              .by(select('has_fact_edge').values('confidence_score'))
+              .by(select('has_fact_edge').values('created_at'))
+              .by(select('derived_edge').values('created_at'))
+            """
+
+            query_response = cast(
+                _ExistingFactRelationshipGremlinResult,
+                await self.db.execute_command(
+                    query,
+                    database_name,
+                    language="gremlin",
+                ),
+            )
+
+            if (
+                not query_response
+                or "result" not in query_response
+                or not query_response["result"]
+            ):
+                raise RuntimeError("Failed to retrieve existing fact relationships")
+
+            # Parse the result
+            row = query_response["result"][0]
+
+            # Parse fact data
+            fact = Fact(
+                name=row["fact_name"],
+                type=row["fact_type"],
+            )
+
+            # Parse source data
+            source = Source(
+                id=UUID(row["source_id"]),
+                content=row["source_content"],
+                timestamp=datetime.fromisoformat(row["source_timestamp"]),
+            )
+
+            # Parse relationships
+            has_fact_relationship = HasFact(
+                from_entity_id=UUID(entity_id),
+                to_fact_id=row["fact_id"],
+                verb=row["verb"],
+                confidence_score=row["confidence_score"],
+                created_at=datetime.fromisoformat(row["has_fact_created_at"]),
+            )
+
+            derived_from_relationship = DerivedFrom(
+                from_fact_id=row["fact_id"],
+                to_source_id=source.id,
+            )
+
+            return {
+                "fact": fact,
+                "source": source,
+                "has_fact_relationship": has_fact_relationship,
+                "derived_from_relationship": derived_from_relationship,
+            }
+
+        except Exception as e:
+            raise RuntimeError(f"Failed to get existing fact relationships: {e}")

@@ -172,84 +172,68 @@ class TestCreateEntity:
         )
 
     @pytest.mark.asyncio
-    async def test_create_entity_reuses_existing_identifier(
+    async def test_create_entity_is_idempotent(
         self,
         arcadedb_repository: ArcadedbRepository,
         test_entity: Entity,
         test_identifier: Identifier,
         test_has_identifier_relationship: HasIdentifier,
     ) -> None:
-        """Test that create_entity reuses existing identifiers instead of creating duplicates.
+        """Test that create_entity is idempotent - calling it twice with the same identifier returns the same entity.
 
-        This tests the idempotent behavior for identifiers: when creating entities with
-        identifiers that have the same value and type, the existing identifier should
-        be reused rather than creating a new duplicate identifier.
+        When create_entity is called with an identifier that already exists in the database,
+        it should return the existing entity rather than creating a duplicate.
         """
 
         # First, create an entity with the test identifier
-        first_entity = test_entity
-        first_relationship = test_has_identifier_relationship
-
         first_result = await arcadedb_repository.create_entity(
-            first_entity, test_identifier, first_relationship
+            test_entity, test_identifier, test_has_identifier_relationship
         )
 
         # Verify first entity was created
         assert first_result is not None
-        assert first_result["entity"].id == first_entity.id
+        assert first_result["entity"].id == test_entity.id
 
-        # Create a second entity with the SAME identifier (same value and type)
+        # Try to create another entity with the SAME identifier
+        # (create_entity should return the existing entity instead)
         second_entity = Entity(
             metadata={
-                "test_type": "reuse_identifier_test",
+                "test_type": "idempotent_test",
                 "test_run_id": str(uuid.uuid4()),
-                "created_by": "test_entity_reuse_identifier.py",
+                "created_by": "test_idempotent.py",
             }
         )
         second_relationship = HasIdentifier(
-            from_entity_id=second_entity.id,
-            to_identifier_value=test_identifier.value,  # Same identifier value
+            from_entity_id=second_entity.id,  # Different entity ID
+            to_identifier_value=test_identifier.value,  # Same identifier
             is_primary=True,
         )
 
-        # Act - Create second entity with same identifier
+        # Act - Try to create second entity with same identifier (should return first entity)
         second_result = await arcadedb_repository.create_entity(
             second_entity, test_identifier, second_relationship
         )
 
-        # Assert
+        # Assert - Should return the FIRST entity, not create a second one
         assert second_result is not None
-        assert second_result["entity"].id == second_entity.id
+        assert second_result["entity"].id == first_result["entity"].id  # Same entity!
+        assert second_result["entity"].id == test_entity.id
+        assert (
+            second_result["entity"].id != second_entity.id
+        )  # NOT the second entity ID
 
-        # Both entities should exist and be findable
-        first_found = await arcadedb_repository.find_entity_by_id(str(first_entity.id))
-        second_found = await arcadedb_repository.find_entity_by_id(
-            str(second_entity.id)
-        )
-
-        assert first_found is not None
-        assert second_found is not None
-
-        # Both should have the same primary identifier
-        assert first_found["identifier"] is not None
-        assert second_found["identifier"] is not None
-
-        first_identifier = first_found["identifier"]["identifier"]
-        second_identifier = second_found["identifier"]["identifier"]
-
-        # The identifiers should be identical (same value and type)
-        assert first_identifier.value == test_identifier.value
-        assert first_identifier.type == test_identifier.type
-        assert second_identifier.value == test_identifier.value
-        assert second_identifier.type == test_identifier.type
-
-        # Verify we can find both entities by the same identifier
-        # (Note: find_entity_by_identifier might return either entity since both are connected)
+        # Verify only ONE entity exists in the database with this identifier
         found_by_identifier = await arcadedb_repository.find_entity_by_identifier(
             test_identifier.value, test_identifier.type
         )
         assert found_by_identifier is not None
-        # It should find one of the entities (which one depends on database ordering)
+        assert found_by_identifier["entity"].id == test_entity.id
+
+        # Verify the second entity was never created
+        second_found = await arcadedb_repository.find_entity_by_id(
+            str(second_entity.id)
+        )
+        assert second_found is None  # Should not exist
 
 
 class TestFindEntityByIdentifier:
@@ -888,7 +872,6 @@ class TestAddFactToEntity:
                 confidence_score=-0.1,  # Invalid: less than 0.0
             )
 
-    # @TODO: verify this test
     @pytest.mark.asyncio
     async def test_add_fact_to_entity_multiple_facts(
         self,
@@ -945,6 +928,60 @@ class TestAddFactToEntity:
         fact_names = {fws["fact"].name for fws in facts_with_sources}
         expected_names = {"Paris", "Engineer", "Soccer"}
         assert fact_names == expected_names
+
+    @pytest.mark.asyncio
+    async def test_add_fact_to_entity_is_idempotent(
+        self,
+        arcadedb_repository: ArcadedbRepository,
+        test_entity: Entity,
+        test_identifier: Identifier,
+        test_has_identifier_relationship: HasIdentifier,
+        test_fact: Fact,
+        test_source: Source,
+    ) -> None:
+        """Test that add_fact_to_entity is idempotent - calling it twice with the same fact doesn't create duplicates."""
+
+        # First create the entity
+        create_result = await arcadedb_repository.create_entity(
+            test_entity, test_identifier, test_has_identifier_relationship
+        )
+        assert create_result is not None
+
+        # Add the fact once
+        first_result = await arcadedb_repository.add_fact_to_entity(
+            entity_id=str(test_entity.id),
+            fact=test_fact,
+            source=test_source,
+            verb="lives_in",
+            confidence_score=0.9,
+        )
+        assert first_result is not None
+
+        # Add the same fact again (should be idempotent)
+        second_result = await arcadedb_repository.add_fact_to_entity(
+            entity_id=str(test_entity.id),
+            fact=test_fact,  # Same fact
+            source=test_source,  # Same source
+            verb="lives_in",  # Same verb
+            confidence_score=0.9,  # Same confidence
+        )
+        assert second_result is not None
+
+        # Verify that only ONE fact exists (not duplicated)
+        found_entity = await arcadedb_repository.find_entity_by_id(str(test_entity.id))
+        assert found_entity is not None
+
+        facts_with_sources = found_entity["facts_with_sources"]
+
+        # Should only have 1 fact, not 2 (idempotent behavior)
+        assert len(facts_with_sources) == 1
+
+        # Verify it's the correct fact
+        fact_with_source = facts_with_sources[0]
+        assert fact_with_source["fact"].name == test_fact.name
+        assert fact_with_source["fact"].type == test_fact.type
+        assert fact_with_source["relationship"].verb == "lives_in"
+        assert fact_with_source["relationship"].confidence_score == 0.9
 
 
 class TestFindFactById:
