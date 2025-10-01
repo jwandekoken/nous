@@ -52,6 +52,5 @@ async def assimilate_knowledge(
     This endpoint processes textual content, extracts facts, and associates them
     with the specified entity in the knowledge graph.
     """
-    print(f"request: {request}")
 
     return await use_case.execute(request)
