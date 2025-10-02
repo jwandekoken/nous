@@ -12,7 +12,7 @@ from app.db.arcadedb import GraphDB, get_database_name, get_graph_db, reset_grap
 from app.features.graph.dtos.knowledge_dto import (
     AssimilateKnowledgeRequest,
     AssimilateKnowledgeResponse,
-    IdentifierPayload,
+    IdentifierDto,
 )
 from app.features.graph.repositories.arcadedb_repository import ArcadedbRepository
 from app.features.graph.services.langchain_fact_extractor import LangChainFactExtractor
@@ -78,9 +78,9 @@ async def assimilate_knowledge_usecase(
 
 
 @pytest.fixture
-def test_identifier() -> IdentifierPayload:
+def test_identifier() -> IdentifierDto:
     """Test identifier payload for integration testing."""
-    return IdentifierPayload(
+    return IdentifierDto(
         value=f"test.integration.{uuid.uuid4()}@example.com", type="email"
     )
 
@@ -98,7 +98,7 @@ class TestAssimilateKnowledgeUseCaseIntegration:
     async def test_assimilate_knowledge_basic(
         self,
         assimilate_knowledge_usecase: AssimilateKnowledgeUseCaseImpl,
-        test_identifier: IdentifierPayload,
+        test_identifier: IdentifierDto,
         test_content: str,
     ) -> None:
         """Test basic knowledge assimilation flow with fact extraction."""
@@ -147,7 +147,7 @@ class TestAssimilateKnowledgeUseCaseIntegration:
     async def test_assimilate_knowledge_creates_new_entity(
         self,
         assimilate_knowledge_usecase: AssimilateKnowledgeUseCaseImpl,
-        test_identifier: IdentifierPayload,
+        test_identifier: IdentifierDto,
         test_content: str,
     ) -> None:
         """Test that assimilate knowledge creates a new entity when identifier doesn't exist."""
@@ -177,7 +177,7 @@ class TestAssimilateKnowledgeUseCaseIntegration:
     async def test_assimilate_knowledge_reuses_existing_entity(
         self,
         assimilate_knowledge_usecase: AssimilateKnowledgeUseCaseImpl,
-        test_identifier: IdentifierPayload,
+        test_identifier: IdentifierDto,
         test_content: str,
     ) -> None:
         """Test that assimilate knowledge reuses existing entity when identifier already exists."""
@@ -216,7 +216,7 @@ class TestAssimilateKnowledgeUseCaseIntegration:
     async def test_assimilate_knowledge_with_history(
         self,
         assimilate_knowledge_usecase: AssimilateKnowledgeUseCaseImpl,
-        test_identifier: IdentifierPayload,
+        test_identifier: IdentifierDto,
     ) -> None:
         """Test knowledge assimilation with conversation history for context."""
 
@@ -248,7 +248,7 @@ class TestAssimilateKnowledgeUseCaseIntegration:
     async def test_assimilate_knowledge_no_facts_extracted(
         self,
         assimilate_knowledge_usecase: AssimilateKnowledgeUseCaseImpl,
-        test_identifier: IdentifierPayload,
+        test_identifier: IdentifierDto,
     ) -> None:
         """Test knowledge assimilation when no facts can be extracted from content."""
 
@@ -276,7 +276,7 @@ class TestAssimilateKnowledgeUseCaseIntegration:
     async def test_assimilate_knowledge_multiple_facts(
         self,
         assimilate_knowledge_usecase: AssimilateKnowledgeUseCaseImpl,
-        test_identifier: IdentifierPayload,
+        test_identifier: IdentifierDto,
     ) -> None:
         """Test assimilation of content that should yield multiple facts."""
 
@@ -319,7 +319,7 @@ class TestAssimilateKnowledgeUseCaseIntegration:
     async def test_assimilate_knowledge_different_languages(
         self,
         assimilate_knowledge_usecase: AssimilateKnowledgeUseCaseImpl,
-        test_identifier: IdentifierPayload,
+        test_identifier: IdentifierDto,
     ) -> None:
         """Test knowledge assimilation with content in different languages."""
 

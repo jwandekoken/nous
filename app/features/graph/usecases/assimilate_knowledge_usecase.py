@@ -16,7 +16,7 @@ from app.features.graph.dtos.knowledge_dto import (
     ExtractedFactDto,
     FactDto,
     HasFactDto,
-    IdentifierPayload,
+    IdentifierDto,
     SourceDto,
 )
 from app.features.graph.models import (
@@ -35,7 +35,7 @@ class FactExtractor(Protocol):
     async def extract_facts(
         self,
         content: str,
-        entity_identifier: IdentifierPayload,
+        entity_identifier: IdentifierDto,
         history: list[str] | None = None,
     ) -> list[ExtractedFactDto]:
         """Extract facts from text content."""

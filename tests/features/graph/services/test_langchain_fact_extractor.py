@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 import pytest
 
-from app.features.graph.dtos.knowledge_dto import ExtractedFactDto, IdentifierPayload
+from app.features.graph.dtos.knowledge_dto import ExtractedFactDto, IdentifierDto
 from app.features.graph.services.langchain_fact_extractor import LangChainFactExtractor
 
 
@@ -45,9 +45,7 @@ class TestLangChainFactExtractor:
     ):
         """Test fact extraction with basic person information."""
         content = "John Doe lives in Paris and works as a Software Engineer at Google."
-        entity_identifier = IdentifierPayload(
-            type="email", value="john.doe@example.com"
-        )
+        entity_identifier = IdentifierDto(type="email", value="john.doe@example.com")
 
         facts = await extractor.extract_facts(content, entity_identifier)
 
@@ -76,7 +74,7 @@ class TestLangChainFactExtractor:
     async def test_extract_facts_company_info(self, extractor: LangChainFactExtractor):
         """Test fact extraction with company information."""
         content = "Apple Inc. is headquartered in Cupertino, California and was founded in 1976."
-        entity_identifier = IdentifierPayload(type="username", value="AppleInc")
+        entity_identifier = IdentifierDto(type="username", value="AppleInc")
 
         facts = await extractor.extract_facts(content, entity_identifier)
 
@@ -103,7 +101,7 @@ class TestLangChainFactExtractor:
     async def test_extract_facts_empty_content(self, extractor: LangChainFactExtractor):
         """Test fact extraction with minimal/empty content."""
         content = "This is a test entity with minimal information."
-        entity_identifier = IdentifierPayload(type="username", value="test-entity-123")
+        entity_identifier = IdentifierDto(type="username", value="test-entity-123")
 
         facts = await extractor.extract_facts(content, entity_identifier)
 
@@ -118,9 +116,7 @@ class TestLangChainFactExtractor:
     ):
         """Test fact extraction from a conversational turn about a hobby."""
         content = "I really enjoy hiking on weekends."
-        entity_identifier = IdentifierPayload(
-            type="email", value="john.doe@example.com"
-        )
+        entity_identifier = IdentifierDto(type="email", value="john.doe@example.com")
 
         facts = await extractor.extract_facts(content, entity_identifier)
 
@@ -145,7 +141,7 @@ class TestLangChainFactExtractor:
     ):
         """Test extracting sentiment as a fact."""
         content = "I don't like Mondays."
-        entity_identifier = IdentifierPayload(type="username", value="user123")
+        entity_identifier = IdentifierDto(type="username", value="user123")
 
         facts = await extractor.extract_facts(content, entity_identifier)
 
@@ -172,7 +168,7 @@ class TestLangChainFactExtractor:
             "ai: Entendido, Mariele. Focar no trabalho para destravar as outras áreas é uma visão estratégica.\n\nQuem vai conduzir esse pilar é o Flávio Augusto, que tem uma experiência gigante em construir negócios e gerar riqueza.\n\nMe diga, o que exatamente no seu trabalho você sente que precisa de mais clareza ou direção nesse momento?"
         ]
         content = "De tomar a decisão correta em uma empresa nova que eu e meu marido vamos abrir. A forma certa de iniciar este novo negócio"
-        entity_identifier = IdentifierPayload(type="email", value="mariele@example.com")
+        entity_identifier = IdentifierDto(type="email", value="mariele@example.com")
 
         facts = await extractor.extract_facts(
             content, entity_identifier, history=history

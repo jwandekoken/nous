@@ -8,11 +8,13 @@ from app.db.arcadedb.connection import get_graph_db
 from app.features.graph.dtos.knowledge_dto import (
     AssimilateKnowledgeRequest,
     AssimilateKnowledgeResponse,
+    GetEntityResponse,
 )
 from app.features.graph.repositories import ArcadedbRepository
 from app.features.graph.services.langchain_fact_extractor import LangChainFactExtractor
 from app.features.graph.usecases import (
     AssimilateKnowledgeUseCaseImpl,
+    GetEntityUseCaseImpl,
 )
 
 
@@ -23,6 +25,16 @@ class AssimilateKnowledgeUseCase(Protocol):
         self, request: AssimilateKnowledgeRequest
     ) -> AssimilateKnowledgeResponse:
         """Process content and associate facts with an entity."""
+        ...
+
+
+class GetEntityUseCase(Protocol):
+    """Protocol for the get entity use case."""
+
+    async def execute(
+        self, identifier_value: str, identifier_type: str
+    ) -> GetEntityResponse:
+        """Retrieve entity information by identifier."""
         ...
 
 
@@ -42,6 +54,13 @@ async def get_assimilate_knowledge_use_case() -> AssimilateKnowledgeUseCase:
     )
 
 
+async def get_get_entity_use_case() -> GetEntityUseCase:
+    """Dependency injection for the get entity use case."""
+
+    db = await get_graph_db()
+    return GetEntityUseCaseImpl(repository=ArcadedbRepository(db))
+
+
 @router.post("/entities/assimilate", response_model=AssimilateKnowledgeResponse)
 async def assimilate_knowledge(
     request: AssimilateKnowledgeRequest,
@@ -54,3 +73,18 @@ async def assimilate_knowledge(
     """
 
     return await use_case.execute(request)
+
+
+@router.get("/entities/lookup", response_model=GetEntityResponse)
+async def get_entity(
+    type: str,
+    value: str,
+    use_case: GetEntityUseCase = Depends(get_get_entity_use_case),
+) -> GetEntityResponse:
+    """Retrieve entity information by identifier.
+
+    This endpoint looks up an entity using an external identifier (e.g., email, phone)
+    and returns the entity details along with all associated facts and their sources.
+    """
+
+    return await use_case.execute(identifier_value=value, identifier_type=type)

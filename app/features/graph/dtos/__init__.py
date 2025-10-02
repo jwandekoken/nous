@@ -9,14 +9,14 @@ from .knowledge_dto import (
     AssimilateKnowledgeResponse,
     EntityDto,
     FactDto,
-    IdentifierPayload,
+    IdentifierDto,
     SourceDto,
 )
 
 __all__ = [
     "EntityDto",
     "FactDto",
-    "IdentifierPayload",
+    "IdentifierDto",
     "AssimilateKnowledgeRequest",
     "AssimilateKnowledgeResponse",
     "SourceDto",

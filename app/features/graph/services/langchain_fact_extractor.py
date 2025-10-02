@@ -7,7 +7,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from pydantic import BaseModel, Field
 
 from app.core.settings import Settings
-from app.features.graph.dtos.knowledge_dto import ExtractedFactDto, IdentifierPayload
+from app.features.graph.dtos.knowledge_dto import ExtractedFactDto, IdentifierDto
 
 
 class ExtractedFact(BaseModel):
@@ -110,7 +110,7 @@ If the entity is 'name:Mariele' and the text is 'De tomar a decisão correta em 
     async def extract_facts(
         self,
         content: str,
-        entity_identifier: IdentifierPayload,
+        entity_identifier: IdentifierDto,
         history: list[str] | None = None,
     ) -> list[ExtractedFactDto]:
         """Extracts facts and converts them to the required dictionary format.

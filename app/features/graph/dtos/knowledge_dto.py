@@ -33,15 +33,6 @@ class FactDto(BaseModel):
     )
 
 
-class IdentifierPayload(BaseModel):
-    """Payload for identifying an entity via an external identifier."""
-
-    type: str = Field(..., description="Type of identifier (e.g., 'email', 'phone')")
-    value: str = Field(
-        ..., description="The identifier value (e.g., 'user@example.com')"
-    )
-
-
 class ExtractedFactDto(BaseModel):
     """DTO for facts extracted from text content."""
 
@@ -60,10 +51,21 @@ class ExtractedFactDto(BaseModel):
     )
 
 
+class IdentifierDto(BaseModel):
+    """DTO for an Identifier."""
+
+    value: str = Field(
+        ..., description="The identifier value (e.g., 'user@example.com')"
+    )
+    type: str = Field(
+        ..., description="Type of identifier (e.g., 'email', 'phone', 'username')"
+    )
+
+
 class AssimilateKnowledgeRequest(BaseModel):
     """Request to process content and associate facts with an entity."""
 
-    identifier: IdentifierPayload = Field(
+    identifier: IdentifierDto = Field(
         ..., description="The entity's external identifier."
     )
     content: str = Field(..., description="The textual content to process.")
@@ -123,3 +125,39 @@ class AssimilateKnowledgeResponse(BaseModel):
         ...,
         description="A list of facts extracted with their relationships to the entity.",
     )
+
+
+class HasIdentifierDto(BaseModel):
+    """DTO for the relationship between an Entity and an Identifier."""
+
+    is_primary: bool = Field(
+        ..., description="Whether this is the primary identifier for the entity"
+    )
+    created_at: datetime = Field(
+        ..., description="When this relationship was established"
+    )
+
+
+class IdentifierWithRelationshipDto(BaseModel):
+    """DTO grouping an identifier with its relationship to the entity."""
+
+    identifier: IdentifierDto
+    relationship: HasIdentifierDto
+
+
+class FactWithSourceDto(BaseModel):
+    """DTO grouping a fact with its relationship and source."""
+
+    fact: FactDto
+    relationship: HasFactDto
+    source: SourceDto | None = Field(
+        None, description="The source of the fact, if available."
+    )
+
+
+class GetEntityResponse(BaseModel):
+    """Response for getting an entity by identifier."""
+
+    entity: EntityDto
+    identifier: IdentifierWithRelationshipDto
+    facts: list[FactWithSourceDto]
