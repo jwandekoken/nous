@@ -741,12 +741,18 @@ class ArcadedbRepository:
         try:
             # Create fact, source, and relationships in a single transaction
             # This code only runs if the HAS_FACT edge doesn't already exist
+
+            # Format timestamps for ArcadeDB (ArcadeDB doesn't handle parameterized DATETIME well)
+            # Use format: 'YYYY-MM-DD HH:MM:SS'
+            source_timestamp_str = source.timestamp.strftime("%Y-%m-%d %H:%M:%S")
+            created_at_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
             if create_source:
-                source_creation = """
+                source_creation = f"""
                 UPDATE Source
                 SET id = :source_id,
                     content = :source_content,
-                    timestamp = :source_timestamp
+                    timestamp = '{source_timestamp_str}'
                 UPSERT WHERE id = :source_id;
                 """
             else:
@@ -763,11 +769,11 @@ class ArcadedbRepository:
             TO (SELECT FROM Fact WHERE fact_id = :fact_id)
             SET verb = :verb,
                 confidence_score = :confidence_score,
-                created_at = :created_at;
+                created_at = '{created_at_str}';
             CREATE EDGE DERIVED_FROM
             FROM (SELECT FROM Fact WHERE fact_id = :fact_id)
             TO (SELECT FROM Source WHERE id = :source_id)
-            SET created_at = :created_at;
+            SET created_at = '{created_at_str}';
             COMMIT;
             """
 
@@ -778,10 +784,8 @@ class ArcadedbRepository:
                 "fact_type": fact.type,
                 "source_id": str(source.id),
                 "source_content": source.content,
-                "source_timestamp": source.timestamp.isoformat(),
                 "verb": verb.strip().lower(),
                 "confidence_score": confidence_score,
-                "created_at": datetime.now().isoformat(),
             }
 
             created_result = cast(

@@ -324,6 +324,9 @@ class TestFindEntityByIdentifier:
             assert isinstance(found_fact, Fact)
             assert isinstance(found_fact_relationship, HasFact)
             assert isinstance(found_source, Source)
+            # Source should have timestamp
+            assert found_source.timestamp is not None
+            assert isinstance(found_source.timestamp, datetime)
 
             # Check if this is the fact we just added
             if (
@@ -429,6 +432,9 @@ class TestFindEntityById:
             assert isinstance(found_fact, Fact)
             assert isinstance(found_fact_relationship, HasFact)
             assert isinstance(found_source, Source)
+            # Source should have timestamp
+            assert found_source.timestamp is not None
+            assert isinstance(found_source.timestamp, datetime)
 
             # Check if this is the fact we just added
             if (
@@ -982,6 +988,158 @@ class TestAddFactToEntity:
         assert fact_with_source["fact"].type == test_fact.type
         assert fact_with_source["relationship"].verb == "lives_in"
         assert fact_with_source["relationship"].confidence_score == 0.9
+
+    @pytest.mark.asyncio
+    async def test_add_fact_to_entity_creates_source_with_timestamp(
+        self,
+        arcadedb_repository: ArcadedbRepository,
+        test_entity: Entity,
+        test_identifier: Identifier,
+        test_has_identifier_relationship: HasIdentifier,
+        test_fact: Fact,
+        test_source: Source,
+    ) -> None:
+        """Test that add_fact_to_entity creates Source vertices with timestamp properties."""
+
+        # First create the entity
+        create_result = await arcadedb_repository.create_entity(
+            test_entity, test_identifier, test_has_identifier_relationship
+        )
+        assert create_result is not None
+
+        # Add fact to entity
+        result = await arcadedb_repository.add_fact_to_entity(
+            entity_id=str(test_entity.id),
+            fact=test_fact,
+            source=test_source,
+            verb="lives_in",
+            confidence_score=0.9,
+        )
+        assert result is not None
+
+        # Directly query the database to verify Source vertex has timestamp
+        database_name = get_database_name()
+        db = await get_graph_db()
+
+        # Query to check that the Source vertex has a timestamp property
+        source_query = f"""
+        g.V().hasLabel('Source').has('id', '{test_source.id}')
+        .project('id', 'content', 'timestamp', 'has_timestamp')
+        .by(values('id'))
+        .by(values('content'))
+        .by(values('timestamp'))
+        .by(has('timestamp').count())
+        """
+
+        source_result = await db.execute_command(
+            source_query, database_name, language="gremlin"
+        )
+
+        # Verify the query returned results
+        assert source_result["result"]
+        source_data = source_result["result"][0]
+
+        # Verify Source has all expected properties
+        assert source_data["id"] == str(test_source.id)
+        assert source_data["content"] == test_source.content
+        assert source_data["timestamp"] is not None  # Timestamp should exist
+        assert (
+            source_data["has_timestamp"] == 1
+        )  # Should have exactly 1 timestamp property
+
+        # Verify timestamp is a reasonable datetime (not too old, not in future)
+        source_timestamp = datetime.fromisoformat(source_data["timestamp"])
+        now = datetime.now()
+        time_diff = abs((now - source_timestamp).total_seconds())
+
+        # Timestamp should be recent (within last minute) since we just created it
+        assert time_diff < 60, f"Source timestamp {source_timestamp} is not recent"
+
+    @pytest.mark.asyncio
+    async def test_all_source_vertices_have_timestamps(
+        self,
+        arcadedb_repository: ArcadedbRepository,
+        test_entity: Entity,
+        test_identifier: Identifier,
+        test_has_identifier_relationship: HasIdentifier,
+    ) -> None:
+        """Test that all Source vertices created by the system have timestamp properties."""
+
+        # Create some facts to ensure we have Source vertices
+        facts_data = [
+            {"name": "Location1", "type": "Location"},
+            {"name": "Profession1", "type": "Profession"},
+            {"name": "Hobby1", "type": "Hobby"},
+        ]
+
+        # First create the entity
+        create_result = await arcadedb_repository.create_entity(
+            test_entity, test_identifier, test_has_identifier_relationship
+        )
+        assert create_result is not None
+
+        # Add multiple facts to create multiple Source vertices
+        for _, fact_data in enumerate(facts_data):
+            fact = Fact(name=fact_data["name"], type=fact_data["type"])
+            source = Source(
+                content=f"Test content for {fact_data['name']}",
+                timestamp=datetime.now(),
+            )
+
+            result = await arcadedb_repository.add_fact_to_entity(
+                entity_id=str(test_entity.id),
+                fact=fact,
+                source=source,
+                verb="test_verb",
+                confidence_score=0.8,
+            )
+            assert result is not None
+
+        # Query database to check that all Source vertices have timestamps
+        database_name = get_database_name()
+        db = await get_graph_db()
+
+        # Count total Source vertices
+        total_sources_query = "g.V().hasLabel('Source').count()"
+        total_result = await db.execute_command(
+            total_sources_query, database_name, language="gremlin"
+        )
+        total_sources = total_result["result"][0]["result"]
+
+        # Count Source vertices that have timestamp property
+        sources_with_timestamp_query = (
+            "g.V().hasLabel('Source').has('timestamp').count()"
+        )
+        timestamp_result = await db.execute_command(
+            sources_with_timestamp_query, database_name, language="gremlin"
+        )
+        sources_with_timestamp = timestamp_result["result"][0]["result"]
+
+        # Count Source vertices missing timestamp property
+        sources_without_timestamp_query = (
+            "g.V().hasLabel('Source').hasNot('timestamp').count()"
+        )
+        no_timestamp_result = await db.execute_command(
+            sources_without_timestamp_query, database_name, language="gremlin"
+        )
+        sources_without_timestamp = no_timestamp_result["result"][0]["result"]
+
+        # Verify that we have some Source vertices
+        assert total_sources >= 3, (
+            f"Expected at least 3 Source vertices, got {total_sources}"
+        )
+
+        # Verify that all Source vertices have timestamps
+        assert sources_with_timestamp == total_sources, (
+            f"All {total_sources} Source vertices should have timestamps, "
+            f"but only {sources_with_timestamp} do. "
+            f"{sources_without_timestamp} are missing timestamps."
+        )
+
+        # Verify no Source vertices are missing timestamps
+        assert sources_without_timestamp == 0, (
+            f"Found {sources_without_timestamp} Source vertices without timestamps"
+        )
 
 
 class TestFindFactById:

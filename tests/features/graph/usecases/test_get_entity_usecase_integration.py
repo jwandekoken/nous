@@ -5,6 +5,7 @@ using the actual production implementation of ArcadedbRepository.
 """
 
 import uuid
+from datetime import datetime
 
 import pytest
 
@@ -118,12 +119,13 @@ class TestGetEntityUseCaseIntegration:
             identifier=test_identifier,
             content=test_content,
         )
-        await assimilate_knowledge_usecase.execute(assimilate_request)
+        _ = await assimilate_knowledge_usecase.execute(assimilate_request)
 
         # Now retrieve the entity using get entity use case
         result: GetEntityResponse = await get_entity_usecase.execute(
             identifier_value=test_identifier.value, identifier_type=test_identifier.type
         )
+        print(f"{result=}")
 
         # Assert
         assert isinstance(result, GetEntityResponse)
@@ -154,11 +156,12 @@ class TestGetEntityUseCaseIntegration:
             assert fact_with_source.relationship.verb is not None
             assert 0.0 <= fact_with_source.relationship.confidence_score <= 1.0
             assert fact_with_source.relationship.created_at is not None
-            # Source might be None for some facts
-            if fact_with_source.source is not None:
-                assert fact_with_source.source.id is not None
-                assert fact_with_source.source.content is not None
-                assert fact_with_source.source.timestamp is not None
+            # Source should always be present for facts created through assimilation
+            assert fact_with_source.source is not None
+            assert fact_with_source.source.id is not None
+            assert fact_with_source.source.content is not None
+            assert fact_with_source.source.timestamp is not None
+            assert isinstance(fact_with_source.source.timestamp, datetime)
 
     @pytest.mark.asyncio
     async def test_get_entity_with_multiple_facts(
@@ -201,6 +204,12 @@ class TestGetEntityUseCaseIntegration:
             assert fact_with_source.fact.type
             assert fact_with_source.fact.fact_id
             assert fact_with_source.relationship.verb
+            # Source should always be present for facts created through assimilation
+            assert fact_with_source.source is not None
+            assert fact_with_source.source.id is not None
+            assert fact_with_source.source.content is not None
+            assert fact_with_source.source.timestamp is not None
+            assert isinstance(fact_with_source.source.timestamp, datetime)
             fact_names.add(fact_with_source.fact.name)
 
         # Should have multiple distinct facts

@@ -112,6 +112,7 @@ class TestAssimilateKnowledgeUseCaseIntegration:
         result: AssimilateKnowledgeResponse = (
             await assimilate_knowledge_usecase.execute(request)
         )
+        print(f"{result=}")
 
         # Assert
         assert isinstance(result, AssimilateKnowledgeResponse)
