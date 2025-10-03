@@ -86,7 +86,7 @@ class GetEntityUseCaseImpl:
         # Map facts with sources to DTOs
         facts_with_sources_dto: list[FactWithSourceDto] = []
         for fact_with_source in entity_result["facts_with_sources"]:
-            fact_dto: Fact = fact_with_source["fact"]
+            fact: Fact = fact_with_source["fact"]
             relationship_dto = HasFactDto(
                 verb=fact_with_source["relationship"].verb,
                 confidence_score=fact_with_source["relationship"].confidence_score,
@@ -101,9 +101,9 @@ class GetEntityUseCaseImpl:
                 )
             fact_with_source_dto = FactWithSourceDto(
                 fact=FactDto(
-                    name=fact_dto.name,
-                    type=fact_dto.type,
-                    fact_id=fact_dto.fact_id,
+                    name=fact.name,
+                    type=fact.type,
+                    fact_id=fact.fact_id,
                 ),
                 relationship=relationship_dto,
                 source=source_dto,
