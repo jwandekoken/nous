@@ -178,7 +178,7 @@ class TestGetEntityUseCaseIntegration:
             identifier=test_identifier,
             content=first_content,
         )
-        await assimilate_knowledge_usecase.execute(first_request)
+        _ = await assimilate_knowledge_usecase.execute(first_request)
 
         # Second assimilation with same entity
         second_content = "I enjoy hiking and photography as hobbies."
@@ -186,7 +186,7 @@ class TestGetEntityUseCaseIntegration:
             identifier=test_identifier,
             content=second_content,
         )
-        await assimilate_knowledge_usecase.execute(second_request)
+        _ = await assimilate_knowledge_usecase.execute(second_request)
 
         # Retrieve the entity
         result: GetEntityResponse = await get_entity_usecase.execute(
@@ -198,7 +198,7 @@ class TestGetEntityUseCaseIntegration:
         assert len(result.facts) > 1  # Should have facts from both assimilations
 
         # Verify all facts have proper structure
-        fact_names = set()
+        fact_names: set[str] = set()
         for fact_with_source in result.facts:
             assert fact_with_source.fact.name
             assert fact_with_source.fact.type
@@ -226,7 +226,7 @@ class TestGetEntityUseCaseIntegration:
 
         # Try to get an entity that doesn't exist
         with pytest.raises(HTTPException) as exc_info:
-            await get_entity_usecase.execute(
+            _ = await get_entity_usecase.execute(
                 identifier_value="nonexistent@example.com", identifier_type="email"
             )
 
@@ -251,7 +251,7 @@ class TestGetEntityUseCaseIntegration:
             identifier=phone_identifier,
             content=test_content,
         )
-        await assimilate_knowledge_usecase.execute(phone_request)
+        _ = await assimilate_knowledge_usecase.execute(phone_request)
 
         # Retrieve by phone identifier
         result: GetEntityResponse = await get_entity_usecase.execute(
@@ -285,7 +285,7 @@ class TestGetEntityUseCaseIntegration:
             is_primary=True,
         )  # Will use default timestamp
 
-        await arcadedb_repository.create_entity(entity, identifier, relationship)
+        _ = await arcadedb_repository.create_entity(entity, identifier, relationship)
 
         # Retrieve the entity
         result: GetEntityResponse = await get_entity_usecase.execute(
@@ -320,7 +320,7 @@ class TestGetEntityUseCaseIntegration:
         )
 
         # Create the entity with primary identifier
-        await arcadedb_repository.create_entity(
+        _ = await arcadedb_repository.create_entity(
             entity, primary_identifier, primary_relationship
         )
 
