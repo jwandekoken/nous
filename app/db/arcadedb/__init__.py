@@ -1,14 +1,11 @@
-"""ArcadeDB connection and utilities.
-This implementation uses ArcadeDB through the ArcadeDB HTTP API.
-"""
+"""Module for ArcadeDB database connection and client."""
 
-from .client import GraphDB
-from .connection import close_graph_db, get_database_name, get_graph_db, reset_graph_db
+from .client import ArcadeDB
+from .connection import get_database_name, get_graph_db, reset_graph_db
 
 __all__ = [
-    "GraphDB",
+    "ArcadeDB",
     "get_graph_db",
-    "close_graph_db",
     "reset_graph_db",
     "get_database_name",
 ]

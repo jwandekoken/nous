@@ -26,7 +26,7 @@ from app.features.graph.models import (
     Identifier,
     Source,
 )
-from app.features.graph.repositories.arcadedb_repository import ArcadedbRepository
+from app.features.graph.repositories.base import GraphRepository
 
 
 class FactExtractor(Protocol):
@@ -45,14 +45,14 @@ class FactExtractor(Protocol):
 class AssimilateKnowledgeUseCaseImpl:
     """Implementation of the assimilate knowledge use case."""
 
-    def __init__(self, repository: ArcadedbRepository, fact_extractor: FactExtractor):
+    def __init__(self, repository: GraphRepository, fact_extractor: FactExtractor):
         """Initialize the use case with dependencies.
 
         Args:
             repository: Repository for graph database operations
             fact_extractor: Service for extracting facts from text
         """
-        self.repository: ArcadedbRepository = repository
+        self.repository: GraphRepository = repository
         self.fact_extractor: FactExtractor = fact_extractor
 
     async def execute(

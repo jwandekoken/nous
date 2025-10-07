@@ -8,7 +8,7 @@ import uuid
 
 import pytest
 
-from app.db.arcadedb import GraphDB, get_database_name, get_graph_db, reset_graph_db
+from app.db.arcadedb import ArcadeDB, get_database_name, get_graph_db, reset_graph_db
 from app.features.graph.dtos.knowledge_dto import (
     AssimilateKnowledgeRequest,
     AssimilateKnowledgeResponse,
@@ -18,6 +18,10 @@ from app.features.graph.repositories.arcadedb_repository import ArcadedbReposito
 from app.features.graph.services.langchain_fact_extractor import LangChainFactExtractor
 from app.features.graph.usecases.assimilate_knowledge_usecase import (
     AssimilateKnowledgeUseCaseImpl,
+)
+from tests.features.graph.repositories.arcadedb_integration_tests_utils import (
+    drop_arcadedb_schema,
+    setup_arcadedb_schema,
 )
 
 
@@ -48,15 +52,20 @@ async def reset_db_connection():
             pass  # Ignore errors if tables don't exist or are already empty
 
 
-@pytest.fixture
-async def graph_db() -> GraphDB:
-    """Real database connection for integration tests."""
-    return await get_graph_db()
+@pytest.fixture(scope="module")
+async def graph_db() -> ArcadeDB:
+    """Fixture to get a connected graph_db and clean up after tests."""
+    db = await get_graph_db()
+    await setup_arcadedb_schema()
+    yield db
+    # Teardown: drop schema and close connection
+    await drop_arcadedb_schema()
+    await reset_graph_db()
 
 
 @pytest.fixture
-async def arcadedb_repository(graph_db: GraphDB) -> ArcadedbRepository:
-    """ArcadedbRepository instance for testing."""
+async def arcadedb_repository(graph_db: ArcadeDB) -> ArcadedbRepository:
+    """Fixture to get an ArcadedbRepository instance."""
     return ArcadedbRepository(graph_db)
 
 

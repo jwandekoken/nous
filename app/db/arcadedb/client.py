@@ -14,7 +14,7 @@ class ServerInfo(TypedDict):
     serverName: str
 
 
-class GraphDB:
+class ArcadeDB:
     """Graph database connection manager.
     This implementation connects to ArcadeDB through the ArcadeDB HTTP API.
     """
