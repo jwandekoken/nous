@@ -19,8 +19,10 @@ from .types import (
     AddFactToEntityResult,
     CreateEntityResult,
     FactWithOptionalSource,
+    FactWithSource,
     FindEntityByIdResult,
     FindEntityResult,
+    IdentifierWithRelationship,
 )
 
 
