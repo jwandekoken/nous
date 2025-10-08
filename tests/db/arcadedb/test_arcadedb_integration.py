@@ -15,7 +15,7 @@ async def arcadedb_client() -> AsyncGenerator[ArcadeDB, None]:
     client = ArcadeDB(
         base_url=settings.arcadedb_url,
         username=settings.arcadedb_user,
-        password=settings.arcadedb_pass,
+        password=settings.arcadedb_password,
     )
 
     try:
@@ -167,6 +167,6 @@ class TestArcadeDBIntegration:
         assert isinstance(settings.arcadedb_url, str)
         assert len(settings.arcadedb_url.strip()) > 0
 
-        assert hasattr(settings, "graph_database")
-        assert isinstance(settings.graph_database, str)
-        assert len(settings.graph_database.strip()) > 0
+        assert hasattr(settings, "arcadedb_database")
+        assert isinstance(settings.arcadedb_database, str)
+        assert len(settings.arcadedb_database.strip()) > 0
