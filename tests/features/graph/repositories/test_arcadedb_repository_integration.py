@@ -21,8 +21,10 @@ from app.features.graph.models import (
     Source,
 )
 from app.features.graph.repositories.arcadedb_repository import (
-    AddFactToEntityResult,
     ArcadedbRepository,
+)
+from app.features.graph.repositories.types import (
+    AddFactToEntityResult,
     CreateEntityResult,
 )
 
