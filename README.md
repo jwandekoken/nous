@@ -193,10 +193,10 @@ uv run basedpyright app/ tests/
 
 2. **Update connection settings in `.env`**:
    ```env
-   GRAPH_API_URL=http://localhost:2480
-   GRAPH_API_USERNAME=root
-   GRAPH_API_PASSWORD=your_password
-   GRAPH_DATABASE=your_database_name
+   ARCADEDB_URL=http://localhost:2480
+   ARCADEDB_USER=root
+   ARCADEDB_PASSWORD=your_password
+   ARCADEDB_DATABASE=your_database_name
    ```
 
 ## Development

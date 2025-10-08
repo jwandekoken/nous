@@ -46,10 +46,12 @@ class Settings(BaseSettings):
     arcadedb_user: str | None = Field(
         default=None, description="ArcadeDB API server username for basic auth"
     )
-    arcadedb_pass: str | None = Field(
+    arcadedb_password: str | None = Field(
         default=None, description="ArcadeDB API server password for basic auth"
     )
-    graph_database: str = Field(default="graphdb", description="ArcadeDB database name")
+    arcadedb_database: str = Field(
+        default="graphdb", description="ArcadeDB database name"
+    )
 
     # Google AI
     google_api_key: str | None = Field(

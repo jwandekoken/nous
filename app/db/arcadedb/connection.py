@@ -16,7 +16,7 @@ async def get_graph_db() -> ArcadeDB:
         _arcadedb = ArcadeDB(
             base_url=settings.arcadedb_url,
             username=settings.arcadedb_user,
-            password=settings.arcadedb_pass,
+            password=settings.arcadedb_password,
         )
         await _arcadedb.connect()
     elif not _arcadedb.is_connected:
@@ -29,7 +29,7 @@ async def get_graph_db() -> ArcadeDB:
 def get_database_name() -> str:
     """Get the configured ArcadeDB database name."""
     settings = get_settings()
-    return settings.graph_database
+    return settings.arcadedb_database
 
 
 async def close_graph_db() -> None:
