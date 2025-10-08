@@ -21,10 +21,6 @@ from app.features.graph.usecases.assimilate_knowledge_usecase import (
     AssimilateKnowledgeUseCaseImpl,
 )
 from app.features.graph.usecases.get_entity_usecase import GetEntityUseCaseImpl
-from tests.features.graph.repositories.arcadedb_integration_tests_utils import (
-    drop_arcadedb_schema,
-    setup_arcadedb_schema,
-)
 
 
 @pytest.fixture(autouse=True)
@@ -54,15 +50,10 @@ async def reset_db_connection():
             pass  # Ignore errors if tables don't exist or are already empty
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 async def graph_db() -> ArcadeDB:
-    """Fixture to get a connected graph_db and clean up after tests."""
-    db = await get_graph_db()
-    await setup_arcadedb_schema()
-    yield db
-    # Teardown: drop schema and close connection
-    await drop_arcadedb_schema()
-    await reset_graph_db()
+    """Real database connection for integration tests."""
+    return await get_graph_db()
 
 
 @pytest.fixture
