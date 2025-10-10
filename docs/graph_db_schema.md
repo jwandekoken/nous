@@ -1,136 +1,84 @@
-# ArcadeDB Graph Schema for a Knowledge Graph
+# Conceptual Graph Schema for a Knowledge Graph
 
-This document outlines a graph schema for ArcadeDB, designed to function as a flexible and scalable knowledge graph. It captures facts about specific entities derived from textual sources.
+This document outlines the conceptual data model for a flexible and scalable knowledge graph. It is designed to be implementation-agnostic and can be adapted to various graph database technologies. The schema's purpose is to capture facts about specific entities derived from textual sources.
 
-## Schema Definition (ArcadeDB SQL)
+## Core Components
 
-The following Data Definition Language (DDL) commands are written in ArcadeDB's SQL dialect.
+The schema consists of four primary node (vertex) types and three primary relationship (edge) types.
 
-```sql
--- The canonical Entity vertex, identified by an application-managed UUID
-CREATE VERTEX TYPE Entity IF NOT EXISTS;
-CREATE PROPERTY Entity.id IF NOT EXISTS STRING (mandatory true);
-CREATE PROPERTY Entity.created_at IF NOT EXISTS DATETIME (mandatory true, default sysdate('YYYY-MM-DD HH:MM:SS'));
-CREATE PROPERTY Entity.metadata IF NOT EXISTS MAP;
-CREATE INDEX IF NOT EXISTS ON Entity (id) UNIQUE;
+### Node Types
 
--- A dedicated vertex for external identifiers like emails or phone numbers
-CREATE VERTEX TYPE Identifier IF NOT EXISTS;
-CREATE PROPERTY Identifier.value IF NOT EXISTS STRING (mandatory true);
-CREATE PROPERTY Identifier.type IF NOT EXISTS STRING;
-CREATE INDEX IF NOT EXISTS ON Identifier (value) UNIQUE;
+#### 1. Entity
 
--- A Fact vertex, representing a piece of knowledge.
-CREATE VERTEX TYPE Fact IF NOT EXISTS;
-CREATE PROPERTY Fact.fact_id IF NOT EXISTS STRING (mandatory true);
-CREATE PROPERTY Fact.name IF NOT EXISTS STRING;
-CREATE PROPERTY Fact.type IF NOT EXISTS STRING;
-CREATE INDEX IF NOT EXISTS ON Fact (fact_id) UNIQUE;
+- **Purpose**: Represents the abstract, central subject of the graph (e.g., a person, an organization, a concept). It serves as the canonical anchor for all related information.
+- **Key Properties**:
+  - `id`: A unique, application-managed identifier (e.g., a UUID) that is stable and portable.
+  - `created_at`: A timestamp indicating when the entity was created in the system.
+  - `metadata`: A flexible container for additional, semi-structured properties related to the entity.
 
--- The Source vertex, representing the origin of the information
-CREATE VERTEX TYPE Source IF NOT EXISTS;
-CREATE PROPERTY Source.id IF NOT EXISTS STRING (mandatory true);
-CREATE PROPERTY Source.content IF NOT EXISTS STRING;
-CREATE PROPERTY Source.timestamp IF NOT EXISTS DATETIME;
-CREATE INDEX IF NOT EXISTS ON Source (id) UNIQUE;
+#### 2. Identifier
 
--- Connects an Entity to its various external Identifiers
-CREATE EDGE TYPE HAS_IDENTIFIER IF NOT EXISTS;
-CREATE PROPERTY HAS_IDENTIFIER.is_primary IF NOT EXISTS BOOLEAN;
-CREATE PROPERTY HAS_IDENTIFIER.created_at IF NOT EXISTS DATETIME (default sysdate('YYYY-MM-DD HH:M:SS'));
+- **Purpose**: Represents an external, real-world identifier for an `Entity`.
+- **Key Properties**:
+  - `value`: The value of the identifier (e.g., "user@example.com", "+15551234567"). This should be unique across all identifiers.
+  - `type`: The type of the identifier (e.g., "email", "phone_number").
 
--- Connects an Entity to a Fact it possesses
-CREATE EDGE TYPE HAS_FACT IF NOT EXISTS;
-CREATE PROPERTY HAS_FACT.verb IF NOT EXISTS STRING;
-CREATE PROPERTY HAS_FACT.confidence_score IF NOT EXISTS DOUBLE;
-CREATE PROPERTY HAS_FACT.created_at IF NOT EXISTS DATETIME (default sysdate('YYYY-MM-DD HH:M:SS'));
+#### 3. Fact
 
--- Connects a Fact to the Source it was derived from
-CREATE EDGE TYPE DERIVED_FROM IF NOT EXISTS;
-```
+- **Purpose**: Represents a discrete piece of knowledge or a named entity (e.g., a location, a company, a hobby).
+- **Key Properties**:
+  - `fact_id`: A unique, application-generated identifier for the fact (e.g., a composite key of its type and name).
+  - `name`: The name or value of the fact (e.g., "Paris", "Acme Corp").
+  - `type`: The category of the fact (e.g., "Location", "Company").
 
-## Schema Rationale
+#### 4. Source
 
-The schema is designed around principles of robust identity management, clarity, traceability, and query performance, tailored to ArcadeDB's capabilities.
+- **Purpose**: Represents the origin of the information (e.g., a chat message, an email, a document).
+- **Key Properties**:
+  - `id`: A unique, application-managed identifier for the source.
+  - `content`: The original content from which facts were derived.
+  - `timestamp`: The real-world timestamp of when the source was created (e.g., when an email was sent).
 
-### Core Design Principle: Record ID (RID) vs. Application-Managed UUID
+### Relationship Types
 
-A foundational decision in this schema is to use an application-managed `id` property (typically a UUID) for `Entity` and `Source` vertices, even though ArcadeDB provides a native `Record ID` (RID) for every record. While the RID offers the fastest possible direct record access (O(1)), it serves as a _physical address_ within the database and is not suitable as a long-term, logical entity identifier for several critical reasons:
+#### 1. `HAS_IDENTIFIER`
 
-- **Non-Portability**: RIDs are specific to a database instance and will change if the data is ever exported and imported.
-- **Internal-Facing**: RIDs should not be exposed to external systems, used in URLs, or sent between services.
-- **Potential for Recycling**: Newer versions of ArcadeDB may recycle RIDs from deleted records to optimize storage, which could lead to catastrophic data integrity issues if an old RID is used to reference a new, unrelated record.
+- **Purpose**: A directed relationship connecting an `Entity` to its `Identifier`.
+- **Direction**: `(Entity) -[HAS_IDENTIFIER]-> (Identifier)`
+- **Key Properties**:
+  - `is_primary`: A boolean flag to indicate if this is the primary identifier for the entity.
+  - `created_at`: A timestamp for when the relationship was established.
 
-Therefore, this schema uses the application-managed `id` property as the stable, portable, and externally-safe **business identifier**, while leveraging the internal RID for the performance benefits it provides during graph traversals.
+#### 2. `HAS_FACT`
 
-### Core Design Principle: Identity Management
+- **Purpose**: A directed relationship connecting an `Entity` to a `Fact` it possesses.
+- **Direction**: `(Entity) -[HAS_FACT]-> (Fact)`
+- **Key Properties**:
+  - `verb`: Describes the relationship between the entity and the fact (e.g., "lives in", "works at").
+  - `confidence_score`: A numerical value indicating the confidence in the validity of the fact.
+  - `created_at`: A timestamp for when the relationship was established.
 
-A key feature of this schema is the separation of the canonical `Entity` from its external `Identifier`(s). Instead of using a user-provided email or phone number as the primary identifier for an `Entity`, we use a stable, internal UUID stored in a dedicated property. External identifiers are stored as separate `Identifier` vertices and linked to the `Entity` via edges.[1]
+#### 3. `DERIVED_FROM`
 
-- **Benefit**: This approach solves the "split brain" problem by allowing a single, canonical `Entity` to be associated with multiple identifiers (e.g., an email _and_ a phone number). This prevents duplicate entity profiles and provides a flexible foundation for identity resolution.
+- **Purpose**: A directed relationship linking a `Fact` back to the `Source` from which it was extracted.
+- **Direction**: `(Fact) -[DERIVED_FROM]-> (Source)`
+- **Rationale**: This relationship is the cornerstone of data traceability and provenance, answering the question: "How do we know this fact?"
 
-### Core Design Principle: Natural vs. System Keys
+## Schema Rationale and Design Principles
 
-This schema deliberately uses two different approaches for unique identification, depending on the vertex's purpose. In ArcadeDB, uniqueness is enforced by creating a `UNIQUE` index on a `mandatory` property.[1]
+### Identity Management
 
-- **Natural & Synthetic Keys**: For vertices like `Identifier` and `Fact`, the unique index is based on their real-world properties.
-  - `Identifier` uses a **natural key** (`value`), as the identifier itself is unique.
-  - `Fact` uses a **synthetic key** (`fact_id`), which is constructed by the application (e.g., by concatenating `type` and `name`). This ensures that each fact vertex is unique.
-- **System Keys**: For vertices like `Entity` and `Source` that lack a stable, natural identifier, we use an application-generated `UUID` stored in a `STRING` property as the unique identifier. This provides a reliable, unchanging internal anchor for lookups.
+The separation of the canonical `Entity` from its external `Identifier`(s) is a core design principle. This allows a single `Entity` to be associated with multiple identifiers, preventing duplicate profiles and providing a flexible foundation for identity resolution.
 
-### Vertex Types
+### Traceability
 
-#### `Entity`
+Every `Fact` should be traceable to a `Source`. The `DERIVED_FROM` relationship ensures that the provenance of all information in the graph is maintained.
 
-- **Purpose**: The abstract, central subject of the graph (e.g., a user). It acts as the canonical anchor for all related facts and identifiers.
-- **Rationale**:
-  - The `id` property, combined with a `UNIQUE` index, ensures the entity's reference is stable and lookups are fast.[1]
-  - `metadata MAP` provides a flexible "catch-all" for semi-structured data without needing to pre-define every possible property.[1]
+### Timestamps
 
-#### `Identifier`
+A clear distinction is made between two types of timestamps:
 
-- **Purpose**: Represents an external, real-world identifier for an entity.
-- **Rationale**:
-  - Modeling identifiers as distinct vertices allows a one-to-many relationship with an `Entity`.
-  - The `value` (e.g., "user@example.com") is a natural unique key, enabling extremely fast lookups via its index.
+- **Event Time (`Source.timestamp`)**: The real-world time an event occurred.
+- **System Time (`created_at`)**: The internal audit time when a record or relationship was created in our system.
 
-#### `Fact`
-
-- **Purpose**: A discrete piece of knowledge or a named entity (e.g., a location, company, or hobby).
-- **Rationale**:
-  - The `fact_id` is a synthetic unique key (e.g., "Location:Paris") created by the application to enforce uniqueness.
-
-#### `Source`
-
-- **Purpose**: The origin of the information (e.g., a chat message, email, or document).
-- **Rationale**:
-  - **Traceability**: Modeled as a vertex to be a "first-class citizen," enabling queries about data provenance.
-  - **Efficiency**: Avoids data duplication by allowing multiple `Fact` vertices to link to a single `Source` via an edge.
-
-### Edge Types
-
-#### `HAS_IDENTIFIER`
-
-- **Purpose**: A directed edge connecting an `Entity` to its `Identifier`.
-- **Rationale**: This link formally associates the abstract `Entity` with its real-world identifier(s). In ArcadeDB, edges are first-class citizens and can hold properties like `is_primary`.[1]
-
-#### `HAS_FACT`
-
-- **Purpose**: A directed edge connecting an `Entity` to a `Fact` it possesses.
-- **Rationale**:
-  - Properties like `verb` add rich semantic context to the connection, a core feature of property graphs.[1]
-
-#### `DERIVED_FROM`
-
-- **Purpose**: A directed edge linking a `Fact` back to the `Source` where it was found.
-- **Rationale**:
-  - This relationship is the cornerstone of traceability, answering the question: **"How do we know this fact?"**
-
-### Core Design Principle: Timestamps
-
-A crucial design choice is the deliberate distinction between timestamp fields, using ArcadeDB's `DATETIME` type [1]:
-
-- **`Source.timestamp`**: This is the **real-world event time**.
-- **`created_at`**: This is the **system's internal audit time**, automatically populated using `default sysdate('YYYY-MM-DD HH:MM:SS')` when a record is created.
-
-This separation allows for accurate contextual queries ("What did the user say on Monday?") while also enabling system-level auditing ("What new facts did the system learn today?").
+This separation allows for accurate contextual queries alongside system-level auditing.
