@@ -5,17 +5,17 @@ from collections.abc import AsyncGenerator
 import pytest
 
 from app.core.settings import get_settings
-from app.db.arcadedb import GraphDB, get_database_name, get_graph_db
+from app.db.arcadedb import ArcadeDB, get_database_name, get_graph_db
 
 
 @pytest.fixture
-async def arcadedb_client() -> AsyncGenerator[GraphDB, None]:
+async def arcadedb_client() -> AsyncGenerator[ArcadeDB, None]:
     """Get a real ArcadeDB client instance."""
     settings = get_settings()
-    client = GraphDB(
-        base_url=settings.graph_api_url,
-        username=settings.graph_api_username,
-        password=settings.graph_api_password,
+    client = ArcadeDB(
+        base_url=settings.arcadedb_url,
+        username=settings.arcadedb_user,
+        password=settings.arcadedb_password,
     )
 
     try:
@@ -35,7 +35,7 @@ class TestArcadeDBIntegration:
     """Integration tests for ArcadeDB using real database connection."""
 
     @pytest.mark.asyncio
-    async def test_is_server_ready_endpoint(self, arcadedb_client: GraphDB):
+    async def test_is_server_ready_endpoint(self, arcadedb_client: ArcadeDB):
         """Test GET /api/v1/ready endpoint."""
         try:
             is_ready = await arcadedb_client.is_server_ready()
@@ -47,7 +47,7 @@ class TestArcadeDBIntegration:
             pytest.skip(f"ArcadeDB server not available: {e}")
 
     @pytest.mark.asyncio
-    async def test_server_info_endpoint(self, arcadedb_client: GraphDB):
+    async def test_server_info_endpoint(self, arcadedb_client: ArcadeDB):
         """Test GET /api/v1/server endpoint."""
         try:
             info = await arcadedb_client.get_server_info()
@@ -69,7 +69,7 @@ class TestArcadeDBIntegration:
 
     @pytest.mark.asyncio
     async def test_query_endpoint_simple(
-        self, arcadedb_client: GraphDB, database_name: str
+        self, arcadedb_client: ArcadeDB, database_name: str
     ):
         """Test POST /api/v1/query/{database} with a simple query."""
         try:
@@ -85,7 +85,7 @@ class TestArcadeDBIntegration:
 
     @pytest.mark.asyncio
     async def test_command_endpoint_create_and_drop(
-        self, arcadedb_client: GraphDB, database_name: str
+        self, arcadedb_client: ArcadeDB, database_name: str
     ):
         """Test POST /api/v1/command/{database} with CREATE and DROP commands."""
         test_vertex_type = "TestIntegrationVertex"
@@ -136,7 +136,7 @@ class TestArcadeDBIntegration:
         try:
             # Get first instance
             db1 = await get_graph_db()
-            assert isinstance(db1, GraphDB)
+            assert isinstance(db1, ArcadeDB)
 
             # Get second instance (should be the same)
             db2 = await get_graph_db()
@@ -163,10 +163,10 @@ class TestArcadeDBIntegration:
         settings = get_settings()
 
         # Check that required settings exist
-        assert hasattr(settings, "graph_api_url")
-        assert isinstance(settings.graph_api_url, str)
-        assert len(settings.graph_api_url.strip()) > 0
+        assert hasattr(settings, "arcadedb_url")
+        assert isinstance(settings.arcadedb_url, str)
+        assert len(settings.arcadedb_url.strip()) > 0
 
-        assert hasattr(settings, "graph_database")
-        assert isinstance(settings.graph_database, str)
-        assert len(settings.graph_database.strip()) > 0
+        assert hasattr(settings, "arcadedb_database")
+        assert isinstance(settings.arcadedb_database, str)
+        assert len(settings.arcadedb_database.strip()) > 0

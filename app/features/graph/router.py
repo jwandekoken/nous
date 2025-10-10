@@ -10,7 +10,7 @@ from app.features.graph.dtos.knowledge_dto import (
     AssimilateKnowledgeResponse,
     GetEntityResponse,
 )
-from app.features.graph.repositories import ArcadedbRepository
+from app.features.graph.repositories.arcadedb_repository import ArcadedbRepository
 from app.features.graph.services.langchain_fact_extractor import LangChainFactExtractor
 from app.features.graph.usecases import (
     AssimilateKnowledgeUseCaseImpl,

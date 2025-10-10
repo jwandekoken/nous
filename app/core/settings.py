@@ -40,16 +40,18 @@ class Settings(BaseSettings):
     )
 
     # Graph Database (ArcadeDB HTTP API)
-    graph_api_url: str = Field(
+    arcadedb_url: str = Field(
         default="http://localhost:2480", description="ArcadeDB HTTP API server URL"
     )
-    graph_api_username: str | None = Field(
+    arcadedb_user: str | None = Field(
         default=None, description="ArcadeDB API server username for basic auth"
     )
-    graph_api_password: str | None = Field(
+    arcadedb_password: str | None = Field(
         default=None, description="ArcadeDB API server password for basic auth"
     )
-    graph_database: str = Field(default="graphdb", description="ArcadeDB database name")
+    arcadedb_database: str = Field(
+        default="graphdb", description="ArcadeDB database name"
+    )
 
     # Google AI
     google_api_key: str | None = Field(

@@ -18,22 +18,20 @@ from app.features.graph.dtos.knowledge_dto import (
     SourceDto,
 )
 from app.features.graph.models.fact_model import Fact
-from app.features.graph.repositories.arcadedb_repository import (
-    ArcadedbRepository,
-    FindEntityResult,
-)
+from app.features.graph.repositories.base import GraphRepository
+from app.features.graph.repositories.types import FindEntityResult
 
 
 class GetEntityUseCaseImpl:
     """Implementation of the get entity use case."""
 
-    def __init__(self, repository: ArcadedbRepository):
+    def __init__(self, repository: GraphRepository):
         """Initialize the use case with dependencies.
 
         Args:
             repository: Repository for graph database operations
         """
-        self.repository: ArcadedbRepository = repository
+        self.repository: GraphRepository = repository
 
     async def execute(
         self, identifier_value: str, identifier_type: str

@@ -2,21 +2,21 @@
 
 from app.core.settings import get_settings
 
-from .client import GraphDB
+from .client import ArcadeDB
 
 # Global ArcadeDB instance
-_arcadedb: GraphDB | None = None
+_arcadedb: ArcadeDB | None = None
 
 
-async def get_graph_db() -> GraphDB:
-    """Get the ArcadeDB instance."""
+async def get_graph_db() -> ArcadeDB:
+    """Get the graph database client as a dependency."""
     global _arcadedb
     if _arcadedb is None:
         settings = get_settings()
-        _arcadedb = GraphDB(
-            base_url=settings.graph_api_url,
-            username=settings.graph_api_username,
-            password=settings.graph_api_password,
+        _arcadedb = ArcadeDB(
+            base_url=settings.arcadedb_url,
+            username=settings.arcadedb_user,
+            password=settings.arcadedb_password,
         )
         await _arcadedb.connect()
     elif not _arcadedb.is_connected:
@@ -29,7 +29,7 @@ async def get_graph_db() -> GraphDB:
 def get_database_name() -> str:
     """Get the configured ArcadeDB database name."""
     settings = get_settings()
-    return settings.graph_database
+    return settings.arcadedb_database
 
 
 async def close_graph_db() -> None:

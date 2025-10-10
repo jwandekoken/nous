@@ -10,7 +10,7 @@ from typing import TypedDict
 
 import pytest
 
-from app.db.arcadedb import GraphDB, get_database_name, get_graph_db, reset_graph_db
+from app.db.arcadedb import ArcadeDB, get_database_name, get_graph_db, reset_graph_db
 from app.features.graph.models import (
     DerivedFrom,
     Entity,
@@ -21,8 +21,10 @@ from app.features.graph.models import (
     Source,
 )
 from app.features.graph.repositories.arcadedb_repository import (
-    AddFactToEntityResult,
     ArcadedbRepository,
+)
+from app.features.graph.repositories.types import (
+    AddFactToEntityResult,
     CreateEntityResult,
 )
 
@@ -63,14 +65,14 @@ async def reset_db_connection():
 
 
 @pytest.fixture
-async def graph_db() -> GraphDB:
+async def graph_db() -> ArcadeDB:
     """Real database connection for integration tests."""
     return await get_graph_db()
 
 
 @pytest.fixture
-async def arcadedb_repository(graph_db: GraphDB) -> ArcadedbRepository:
-    """ArcadedbRepository instance for testing."""
+async def arcadedb_repository(graph_db: ArcadeDB) -> ArcadedbRepository:
+    """Fixture to get an ArcadedbRepository instance."""
     return ArcadedbRepository(graph_db)
 
 
