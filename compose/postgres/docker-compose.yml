@@ -1,0 +1,37 @@
+services:
+  db:
+    build:
+      context: .
+    container_name: postgres_age_pgvector
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=supersecretpassword
+      - POSTGRES_DB=multimodel_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - monitoring-net
+
+  # postgres-exporter:
+  #   image: quay.io/prometheuscommunity/postgres-exporter:latest
+  #   container_name: postgres_exporter
+  #   restart: unless-stopped
+  #   environment:
+  #     - DATA_SOURCE_NAME=postgresql://admin:supersecretpassword@db:5432/multimodel_db?sslmode=disable
+  #   ports:
+  #     - "9187:9187"
+  #   networks:
+  #     - monitoring-net
+  #   depends_on:
+  #     - db
+
+volumes:
+  postgres-data:
+    driver: local
+
+networks:
+  monitoring-net:
+    driver: bridge
