@@ -22,6 +22,7 @@ dependencies = [
     "langchain>=0.3.27",
     "langchain-core>=0.3.76",
     "langchain-google-genai>=2.1.12",
+    "asyncpg>=0.30.0",
 ]
 
 [dependency-groups]

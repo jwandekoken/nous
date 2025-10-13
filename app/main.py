@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.settings import get_settings
+from app.db.postgres.connection import close_db_pool, get_db_pool
 from app.features.graph.router import router as graph_router
 
 
@@ -18,11 +19,15 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
     # Startup
     settings = get_settings()
     print(f"Starting {settings.app_name} v{settings.app_version}")
+    await get_db_pool()
+    print("Database connection pool created.")
 
     yield
 
     # Shutdown
     print("Shutting down application")
+    await close_db_pool()
+    print("Database connection pool closed.")
 
 
 def create_app() -> FastAPI:

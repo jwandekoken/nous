@@ -53,6 +53,18 @@ class Settings(BaseSettings):
         default="graphdb", description="ArcadeDB database name"
     )
 
+    # PostgreSQL Database
+    postgres_user: str = Field(default="admin", description="PostgreSQL user")
+    postgres_password: str = Field(
+        default="supersecretpassword", description="PostgreSQL password"
+    )
+    postgres_host: str = Field(default="localhost", description="PostgreSQL host")
+    postgres_port: int = Field(default=5432, description="PostgreSQL port")
+    postgres_db: str = Field(
+        default="multimodel_db", description="PostgreSQL database name"
+    )
+    age_graph_name: str = Field(default="nous", description="AGE graph name")
+
     # Google AI
     google_api_key: str | None = Field(
         default=None, description="Google AI API key for Gemini model"
