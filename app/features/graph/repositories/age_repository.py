@@ -25,6 +25,7 @@ from app.features.graph.repositories.types import (
     FactWithSource,
     FindEntityByIdResult,
     FindEntityResult,
+    IdentifierWithRelationship,
 )
 
 
@@ -256,7 +257,7 @@ class AgeRepository(GraphRepository):
         entity_data = data["entity"]
         entity = Entity(**_parse_vertex_properties(entity_data["properties"]))
 
-        primary_identifier_with_rel = None
+        primary_identifier_with_rel: IdentifierWithRelationship | None = None
         if data["identifiers_with_rels"] and data["identifiers_with_rels"][0].get(
             "identifier"
         ):
