@@ -1,6 +1,9 @@
 """PostgreSQL AGE implementation of the graph repository protocol."""
 
-from typing import override
+import json
+from datetime import datetime
+from typing import cast, override
+from uuid import UUID
 
 import asyncpg
 
@@ -31,8 +34,96 @@ class AgeRepository(GraphRepository):
     async def create_entity(
         self, entity: Entity, identifier: Identifier, relationship: HasIdentifier
     ) -> CreateEntityResult:
-        """Create a new entity with an identifier."""
-        raise NotImplementedError()
+        """
+        Creates a new entity with an identifier using an idempotent Cypher query.
+
+        This method uses MERGE to find or create an Identifier node and then
+        finds or creates the associated Entity and the HAS_IDENTIFIER relationship.
+        Since AGE doesn't support ON CREATE SET, the MERGE includes all properties.
+        """
+
+        # Escape single quotes in string values to prevent Cypher syntax errors
+        def escape_cypher_string(value: str) -> str:
+            """Escape single quotes for use in Cypher string literals."""
+            return value.replace("'", "\\'")
+
+        # Convert Python boolean to Cypher boolean (lowercase)
+        is_primary_str = str(relationship.is_primary).lower()
+
+        # Prepare metadata JSON - use it directly as agtype without extra escaping
+        metadata_json = json.dumps(entity.metadata or {}).replace(
+            "'", "''"
+        )  # Double single quotes for SQL
+
+        # Build the Cypher query with embedded parameters
+        # AGE cypher function expects the query as a dollar-quoted string
+        # We use MERGE for idempotency - it will find or create
+        # Note: AGE doesn't support ON CREATE SET, so we include all properties in MERGE
+        cypher_query = f"""
+        MERGE (i:Identifier {{value: '{escape_cypher_string(identifier.value)}', type: '{escape_cypher_string(identifier.type)}'}})
+        MERGE (e:Entity {{id: '{entity.id}', created_at: '{entity.created_at.isoformat()}', metadata: '{metadata_json}'::agtype}})
+        MERGE (e)-[r:HAS_IDENTIFIER {{is_primary: {is_primary_str}, created_at: '{relationship.created_at.isoformat()}'}}]->(i)
+        RETURN
+            e.id AS entity_id,
+            e.created_at AS entity_created_at,
+            e.metadata AS entity_metadata,
+            i.value AS identifier_value,
+            i.type AS identifier_type,
+            r.is_primary AS is_primary,
+            r.created_at AS rel_created_at
+        """
+
+        async with self.pool.acquire() as conn:
+            # Cast the connection for type hinting
+            conn = cast(asyncpg.Connection, conn)
+
+            # AGE requires setup within the transaction
+            async with conn.transaction():
+                await conn.execute("LOAD 'age';")
+                await conn.execute("SET search_path = ag_catalog, '$user', public;")
+
+                # Execute the Cypher query using AGE's cypher function
+                # We use fetchrow because we expect exactly one result (either found or created)
+                record = await conn.fetchrow(
+                    f"SELECT * FROM ag_catalog.cypher('{self.graph_name}', $${cypher_query}$$) as (entity_id agtype, entity_created_at agtype, entity_metadata agtype, identifier_value agtype, identifier_type agtype, is_primary agtype, rel_created_at agtype);"
+                )
+
+        if not record:
+            raise RuntimeError(
+                "Failed to create or find entity, the query returned no results."
+            )
+
+        # Map the record back to your Pydantic models
+        # agtype returns values as strings with quotes, so we need to strip and parse them
+        # AGE escapes the JSON when storing, so we need to decode the escape sequences
+        metadata_str = record["entity_metadata"].strip('"')
+        # Replace escaped quotes with regular quotes
+        metadata_str = metadata_str.replace('\\"', '"')
+
+        created_entity = Entity(
+            id=UUID(record["entity_id"].strip('"')),
+            created_at=datetime.fromisoformat(record["entity_created_at"].strip('"')),
+            # Parse the unescaped JSON
+            metadata=json.loads(metadata_str) if metadata_str else {},
+        )
+
+        created_identifier = Identifier(
+            value=record["identifier_value"].strip('"'),
+            type=record["identifier_type"].strip('"'),
+        )
+
+        created_relationship = HasIdentifier(
+            from_entity_id=created_entity.id,
+            to_identifier_value=created_identifier.value,
+            is_primary=record["is_primary"],
+            created_at=datetime.fromisoformat(record["rel_created_at"].strip('"')),
+        )
+
+        return {
+            "entity": created_entity,
+            "identifier": created_identifier,
+            "relationship": created_relationship,
+        }
 
     @override
     async def find_entity_by_identifier(
