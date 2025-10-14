@@ -30,6 +30,11 @@ class AgeRepository(GraphRepository):
         self.pool = pool
         self.graph_name = get_settings().age_graph_name
 
+    async def _setup_age_connection(self, conn: asyncpg.Connection) -> None:
+        """Setup AGE extension and search path for a connection."""
+        await conn.execute("LOAD 'age';")
+        await conn.execute("SET search_path = ag_catalog, '$user', public;")
+
     @override
     async def create_entity(
         self, entity: Entity, identifier: Identifier, relationship: HasIdentifier
@@ -79,14 +84,15 @@ class AgeRepository(GraphRepository):
 
             # AGE requires setup within the transaction
             async with conn.transaction():
-                await conn.execute("LOAD 'age';")
-                await conn.execute("SET search_path = ag_catalog, '$user', public;")
+                await self._setup_age_connection(conn)
 
                 # Execute the Cypher query using AGE's cypher function
                 # We use fetchrow because we expect exactly one result (either found or created)
                 record = await conn.fetchrow(
                     f"SELECT * FROM ag_catalog.cypher('{self.graph_name}', $${cypher_query}$$) as (entity_id agtype, entity_created_at agtype, entity_metadata agtype, identifier_value agtype, identifier_type agtype, is_primary agtype, rel_created_at agtype);"
                 )
+
+                print(f"----------> Record: {record}")
 
         if not record:
             raise RuntimeError(
