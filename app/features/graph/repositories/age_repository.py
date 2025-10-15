@@ -50,22 +50,30 @@ class AgeRepository(GraphRepository):
 
     async def _execute_cypher(
         self,
-        query: str,
+        cypher_query: str,
+        as_clause: str,
         fetch_mode: str = "row",
     ) -> asyncpg.Record | list[asyncpg.Record] | str | None:
         """
-        Execute a Cypher query through AGE with proper connection setup.
+        Execute a Cypher query by wrapping it in the necessary SQL.
 
         Args:
-            query: The complete SQL query to execute (already formatted for AGE)
-            fetch_mode: "row" for fetchrow, "all" for fetch, "none" for execute
+            cypher_query: The raw Cypher query string.
+            as_clause: The complete AS clause string, e.g., "as (result agtype)".
+            fetch_mode: "row" for fetchrow, "all" for fetch, "none" for execute.
 
         Returns:
-            Query result based on fetch_mode:
-            - "row": Single record or None
-            - "all": List of records
-            - "none": Execution status string
+            Query result based on fetch_mode.
         """
+        if not as_clause.strip().lower().startswith("as"):
+            raise ValueError("The 'as_clause' must start with 'AS'.")
+
+        # Build the complete AGE SQL query using the provided as_clause
+        query = f"""
+            SELECT * FROM cypher('{self.graph_name}', $${cypher_query}$$)
+            {as_clause};
+        """
+
         async with self.pool.acquire() as conn:
             conn = cast(asyncpg.Connection, conn)
 
@@ -114,14 +122,12 @@ class AgeRepository(GraphRepository):
         }} AS result
         """
 
-        # Build the complete AGE SQL query
-        query = f"""
-        SELECT * FROM cypher('{self.graph_name}', $${cypher_query}$$)
-        as (result agtype);
-        """
-
-        # Execute the query using our helper method
-        record = await self._execute_cypher(query)
+        # Execute the query using the new helper method
+        record = await self._execute_cypher(
+            cypher_query=cypher_query,
+            as_clause="as (result agtype)",
+            fetch_mode="row",
+        )
 
         print(f"----------> Record: {record}")
 
