@@ -8,14 +8,23 @@ from uuid import UUID
 import asyncpg
 
 from app.core.settings import get_settings
-from app.features.graph.models import Entity, Fact, HasIdentifier, Identifier, Source
+from app.features.graph.models import (
+    Entity,
+    Fact,
+    HasFact,
+    HasIdentifier,
+    Identifier,
+    Source,
+)
 from app.features.graph.repositories.base import GraphRepository
 from app.features.graph.repositories.types import (
     AddFactToEntityResult,
     CreateEntityResult,
     FactWithOptionalSource,
+    FactWithSource,
     FindEntityByIdResult,
     FindEntityResult,
+    IdentifierWithRelationship,
 )
 
 
@@ -129,8 +138,6 @@ class AgeRepository(GraphRepository):
             fetch_mode="row",
         )
 
-        print(f"----------> Record: {record}")
-
         if not record:
             raise RuntimeError(
                 "Failed to create or find entity, the query returned no results."
@@ -139,7 +146,6 @@ class AgeRepository(GraphRepository):
         # Extract the result string from the agtype, clean it, and parse it as JSON
         record = cast(asyncpg.Record, record)
         result_str = cast(str, record["result"])
-        print(f"----------> Result string: {result_str}")
 
         cleaned_result_str = self._clean_agtype_string(result_str)
         result_map = cast(dict[str, Any], json.loads(cleaned_result_str))
@@ -182,7 +188,131 @@ class AgeRepository(GraphRepository):
         self, identifier_value: str, identifier_type: str
     ) -> FindEntityResult | None:
         """Find an entity by its identifier."""
-        raise NotImplementedError()
+        cypher_query = f"""
+        MATCH (e:Entity)-[r:HAS_IDENTIFIER]->(i:Identifier {{
+            value: '{self._escape_cypher_string(identifier_value)}',
+            type: '{self._escape_cypher_string(identifier_type)}'
+        }})
+        OPTIONAL MATCH (e)-[hf:HAS_FACT]->(f:Fact)
+        OPTIONAL MATCH (f)-[df:DERIVED_FROM]->(s:Source)
+        RETURN collect(DISTINCT {{
+            entity: e,
+            identifier: i,
+            relationship: r,
+            fact: f,
+            source: s,
+            fact_relationship: hf
+        }}) AS result
+        """
+
+        record = await self._execute_cypher(
+            cypher_query=cypher_query,
+            as_clause="as (result agtype)",
+            fetch_mode="row",
+        )
+        print(f"----------> Record: {record}")
+
+        if not record:
+            return None
+
+        record = cast(asyncpg.Record, record)
+        result_str = cast(str, record["result"])
+        cleaned_result_str = self._clean_agtype_string(result_str)
+        results_list = cast(list[dict[str, Any]], json.loads(cleaned_result_str))
+        print(f"----------> Results list: {results_list}")
+        if not results_list:
+            return None
+
+        # The first result contains the entity and identifier info
+        first_result = results_list[0]
+
+        # Extract entity
+        entity_props = cast(dict[str, Any], first_result["entity"]["properties"])
+        entity = Entity(
+            id=UUID(entity_props["id"]),
+            created_at=datetime.fromisoformat(entity_props["created_at"]),
+            metadata=json.loads(entity_props["metadata"])
+            if entity_props["metadata"]
+            else {},
+        )
+
+        # Extract identifier and relationship
+        identifier_props = cast(
+            dict[str, Any], first_result["identifier"]["properties"]
+        )
+        relationship_props = cast(
+            dict[str, Any], first_result["relationship"]["properties"]
+        )
+
+        identifier = Identifier(
+            value=identifier_props["value"],
+            type=identifier_props["type"],
+        )
+
+        has_identifier_rel = HasIdentifier(
+            from_entity_id=entity.id,
+            to_identifier_value=identifier.value,
+            is_primary=relationship_props["is_primary"],
+            created_at=datetime.fromisoformat(relationship_props["created_at"]),
+        )
+
+        identifier_with_rel: IdentifierWithRelationship = {
+            "identifier": identifier,
+            "relationship": has_identifier_rel,
+        }
+
+        # Build facts with sources from all results
+        facts_with_sources: list[FactWithSource] = []
+
+        for result_item in results_list:
+            fact_data = result_item.get("fact")
+            if not fact_data:  # Skip if no fact
+                continue
+
+            fact_props = cast(dict[str, Any], fact_data["properties"])
+            fact = Fact(
+                name=fact_props["name"],
+                type=fact_props["type"],
+            )
+            fact.fact_id = fact_props["fact_id"]
+
+            # Ensure fact_id is not None
+            if not fact.fact_id:
+                continue
+
+            source = None
+            source_data = result_item.get("source")
+            if source_data:
+                source_props = cast(dict[str, Any], source_data["properties"])
+                source = Source(
+                    id=UUID(source_props["id"]),
+                    content=source_props["content"],
+                    timestamp=datetime.fromisoformat(source_props["timestamp"]),
+                )
+
+            fact_rel_props = cast(
+                dict[str, Any], result_item["fact_relationship"]["properties"]
+            )
+            has_fact_rel = HasFact(
+                from_entity_id=entity.id,
+                to_fact_id=fact.fact_id,
+                verb=fact_rel_props["verb"],
+                confidence_score=fact_rel_props["confidence_score"],
+                created_at=datetime.fromisoformat(fact_rel_props["created_at"]),
+            )
+
+            fact_with_source: FactWithSource = {
+                "fact": fact,
+                "source": source,
+                "relationship": has_fact_rel,
+            }
+            facts_with_sources.append(fact_with_source)
+
+        return {
+            "entity": entity,
+            "identifier": identifier_with_rel,
+            "facts_with_sources": facts_with_sources,
+        }
 
     @override
     async def find_entity_by_id(self, entity_id: str) -> FindEntityByIdResult | None:
