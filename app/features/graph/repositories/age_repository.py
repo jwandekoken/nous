@@ -330,7 +330,139 @@ class AgeRepository(GraphRepository):
     @override
     async def find_entity_by_id(self, entity_id: str) -> FindEntityByIdResult | None:
         """Find an entity by its ID."""
-        raise NotImplementedError()
+        cypher_query = f"""
+        MATCH (e:Entity {{id: '{entity_id}'}})
+        OPTIONAL MATCH (e)-[r:HAS_IDENTIFIER]->(i:Identifier)
+        OPTIONAL MATCH (e)-[hf:HAS_FACT]->(f:Fact)
+        OPTIONAL MATCH (f)-[df:DERIVED_FROM]->(s:Source)
+        RETURN collect(DISTINCT {{
+            entity: e,
+            identifier: i,
+            relationship: r,
+            fact: f,
+            source: s,
+            fact_relationship: hf
+        }}) AS result
+        """
+
+        record = await self._execute_cypher(
+            cypher_query=cypher_query,
+            as_clause="as (result agtype)",
+            fetch_mode="row",
+        )
+
+        if not record:
+            return None
+
+        record = cast(asyncpg.Record, record)
+        result_str = cast(str, record["result"])
+        cleaned_result_str = self._clean_agtype_string(result_str)
+        results_list = cast(list[dict[str, Any]], json.loads(cleaned_result_str))
+
+        if not results_list:
+            return None
+
+        # The first result contains the entity info
+        first_result = results_list[0]
+
+        # Extract entity
+        entity_props = cast(dict[str, Any], first_result["entity"]["properties"])
+        entity = Entity(
+            id=UUID(entity_props["id"]),
+            created_at=datetime.fromisoformat(entity_props["created_at"]),
+            metadata=json.loads(entity_props["metadata"])
+            if entity_props["metadata"]
+            else {},
+        )
+
+        # Find the primary identifier (or first one if no primary exists)
+        identifier_with_rel: IdentifierWithRelationship | None = None
+
+        for result_item in results_list:
+            identifier_data = result_item.get("identifier")
+            relationship_data = result_item.get("relationship")
+
+            if identifier_data and relationship_data:
+                identifier_props = cast(dict[str, Any], identifier_data["properties"])
+                relationship_props = cast(
+                    dict[str, Any], relationship_data["properties"]
+                )
+
+                identifier = Identifier(
+                    value=identifier_props["value"],
+                    type=identifier_props["type"],
+                )
+
+                has_identifier_rel = HasIdentifier(
+                    from_entity_id=entity.id,
+                    to_identifier_value=identifier.value,
+                    is_primary=relationship_props["is_primary"],
+                    created_at=datetime.fromisoformat(relationship_props["created_at"]),
+                )
+
+                # Prefer primary identifier, but take the first one if none is primary
+                if identifier_with_rel is None or relationship_props["is_primary"]:
+                    identifier_with_rel = {
+                        "identifier": identifier,
+                        "relationship": has_identifier_rel,
+                    }
+
+                    # If this is primary, we can stop looking
+                    if relationship_props["is_primary"]:
+                        break
+
+        # Build facts with sources from all results
+        facts_with_sources: list[FactWithSource] = []
+
+        for result_item in results_list:
+            fact_data = result_item.get("fact")
+            if not fact_data:  # Skip if no fact
+                continue
+
+            fact_props = cast(dict[str, Any], fact_data["properties"])
+            fact = Fact(
+                name=fact_props["name"],
+                type=fact_props["type"],
+            )
+            fact.fact_id = fact_props["fact_id"]
+
+            # Ensure fact_id is not None
+            if not fact.fact_id:
+                continue
+
+            source = None
+            source_data = result_item.get("source")
+            if source_data:
+                source_props = cast(dict[str, Any], source_data["properties"])
+                source = Source(
+                    id=UUID(source_props["id"]),
+                    content=source_props["content"],
+                    timestamp=datetime.fromisoformat(source_props["timestamp"]),
+                )
+
+            fact_rel_props = cast(
+                dict[str, Any], result_item["fact_relationship"]["properties"]
+            )
+            has_fact_rel = HasFact(
+                from_entity_id=entity.id,
+                to_fact_id=fact.fact_id,
+                verb=fact_rel_props["verb"],
+                confidence_score=fact_rel_props["confidence_score"],
+                created_at=datetime.fromisoformat(fact_rel_props["created_at"]),
+            )
+
+            fact_with_source: FactWithSource = {
+                "fact": fact,
+                "source": source,
+                "relationship": has_fact_rel,
+            }
+            facts_with_sources.append(fact_with_source)
+
+        return {
+            "entity": entity,
+            "identifier": identifier_with_rel,
+            "facts_with_sources": facts_with_sources,
+        }
 
     @override
     async def delete_entity_by_id(self, entity_id: str) -> bool:
