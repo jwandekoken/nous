@@ -2,7 +2,7 @@
 
 import json
 from datetime import datetime
-from typing import cast, override
+from typing import Any, cast, override
 from uuid import UUID
 
 import asyncpg
@@ -137,16 +137,19 @@ class AgeRepository(GraphRepository):
             )
 
         # Extract the result string from the agtype, clean it, and parse it as JSON
-        result_str = record["result"]
+        record = cast(asyncpg.Record, record)
+        result_str = cast(str, record["result"])
         print(f"----------> Result string: {result_str}")
 
         cleaned_result_str = self._clean_agtype_string(result_str)
-        result_map = json.loads(cleaned_result_str)
+        result_map = cast(dict[str, Any], json.loads(cleaned_result_str))
 
         # Extract properties from the agtype objects
-        entity_props = result_map["entity"]["properties"]
-        identifier_props = result_map["identifier"]["properties"]
-        relationship_props = result_map["relationship"]["properties"]
+        entity_props = cast(dict[str, Any], result_map["entity"]["properties"])
+        identifier_props = cast(dict[str, Any], result_map["identifier"]["properties"])
+        relationship_props = cast(
+            dict[str, Any], result_map["relationship"]["properties"]
+        )
 
         created_entity = Entity(
             id=UUID(entity_props["id"]),
