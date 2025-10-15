@@ -35,6 +35,14 @@ class AgeRepository(GraphRepository):
         """Escape single quotes for use in Cypher string literals."""
         return value.replace("'", "\\'")
 
+    @staticmethod
+    def _clean_agtype_string(agtype_str: str) -> str:
+        """Clean AGE agtype string by removing type annotations like ::vertex and ::edge."""
+        import re
+
+        # Remove ::vertex and ::edge annotations
+        return re.sub(r"::(vertex|edge)", "", agtype_str)
+
     async def _setup_age_connection(self, conn: asyncpg.Connection) -> None:
         """Setup AGE extension and search path for a connection."""
         _ = await conn.execute("LOAD 'age';")
@@ -99,20 +107,17 @@ class AgeRepository(GraphRepository):
         MERGE (i:Identifier {{value: '{self._escape_cypher_string(identifier.value)}', type: '{self._escape_cypher_string(identifier.type)}'}})
         MERGE (e:Entity {{id: '{entity.id}', created_at: '{entity.created_at.isoformat()}', metadata: '{metadata_json}'::agtype}})
         MERGE (e)-[r:HAS_IDENTIFIER {{is_primary: {is_primary_str}, created_at: '{relationship.created_at.isoformat()}'}}]->(i)
-        RETURN
-            e.id AS entity_id,
-            e.created_at AS entity_created_at,
-            e.metadata AS entity_metadata,
-            i.value AS identifier_value,
-            i.type AS identifier_type,
-            r.is_primary AS is_primary,
-            r.created_at AS rel_created_at
+        RETURN {{
+            entity: e,
+            identifier: i,
+            relationship: r
+        }} AS result
         """
 
         # Build the complete AGE SQL query
         query = f"""
         SELECT * FROM cypher('{self.graph_name}', $${cypher_query}$$)
-        as (entity_id agtype, entity_created_at agtype, entity_metadata agtype, identifier_value agtype, identifier_type agtype, is_primary agtype, rel_created_at agtype);
+        as (result agtype);
         """
 
         # Execute the query using our helper method
@@ -125,30 +130,36 @@ class AgeRepository(GraphRepository):
                 "Failed to create or find entity, the query returned no results."
             )
 
-        # Map the record back to your Pydantic models
-        # agtype returns values as strings with quotes, so we need to strip and parse them
-        # AGE escapes the JSON when storing, so we need to decode the escape sequences
-        metadata_str = record["entity_metadata"].strip('"')
-        # Replace escaped quotes with regular quotes
-        metadata_str = metadata_str.replace('\\"', '"')
+        # Extract the result string from the agtype, clean it, and parse it as JSON
+        result_str = record["result"]
+        print(f"----------> Result string: {result_str}")
+
+        cleaned_result_str = self._clean_agtype_string(result_str)
+        result_map = json.loads(cleaned_result_str)
+
+        # Extract properties from the agtype objects
+        entity_props = result_map["entity"]["properties"]
+        identifier_props = result_map["identifier"]["properties"]
+        relationship_props = result_map["relationship"]["properties"]
 
         created_entity = Entity(
-            id=UUID(record["entity_id"].strip('"')),
-            created_at=datetime.fromisoformat(record["entity_created_at"].strip('"')),
-            # Parse the unescaped JSON
-            metadata=json.loads(metadata_str) if metadata_str else {},
+            id=UUID(entity_props["id"]),
+            created_at=datetime.fromisoformat(entity_props["created_at"]),
+            metadata=json.loads(entity_props["metadata"])
+            if entity_props["metadata"]
+            else {},
         )
 
         created_identifier = Identifier(
-            value=record["identifier_value"].strip('"'),
-            type=record["identifier_type"].strip('"'),
+            value=identifier_props["value"],
+            type=identifier_props["type"],
         )
 
         created_relationship = HasIdentifier(
             from_entity_id=created_entity.id,
             to_identifier_value=created_identifier.value,
-            is_primary=record["is_primary"],
-            created_at=datetime.fromisoformat(record["rel_created_at"].strip('"')),
+            is_primary=relationship_props["is_primary"],
+            created_at=datetime.fromisoformat(relationship_props["created_at"]),
         )
 
         return {
