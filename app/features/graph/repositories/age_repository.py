@@ -101,13 +101,26 @@ class AgeRepository(GraphRepository):
         self, entity: Entity, identifier: Identifier, relationship: HasIdentifier
     ) -> CreateEntityResult:
         """
-        Creates a new entity with an identifier using an idempotent Cypher query.
+        Creates a new entity with an identifier using an idempotent approach.
 
-        This method uses MERGE to find or create an Identifier node and then
-        finds or creates the associated Entity and the HAS_IDENTIFIER relationship.
-        Since AGE doesn't support ON CREATE SET, the MERGE includes all properties.
+        This method first checks if an entity already exists for the given identifier.
+        If it exists, returns the existing entity. If not, creates a new one.
         """
 
+        # Check if entity already exists for this identifier
+        existing_entity = await self.find_entity_by_identifier(
+            identifier.value, identifier.type
+        )
+
+        if existing_entity is not None:
+            # Return existing entity with its identifier and relationship
+            return {
+                "entity": existing_entity["entity"],
+                "identifier": existing_entity["identifier"]["identifier"],
+                "relationship": existing_entity["identifier"]["relationship"],
+            }
+
+        # Entity doesn't exist, create it
         # Convert Python boolean to Cypher boolean (lowercase)
         is_primary_str = str(relationship.is_primary).lower()
 
@@ -140,7 +153,7 @@ class AgeRepository(GraphRepository):
 
         if not record:
             raise RuntimeError(
-                "Failed to create or find entity, the query returned no results."
+                "Failed to create entity, the query returned no results."
             )
 
         # Extract the result string from the agtype, clean it, and parse it as JSON
