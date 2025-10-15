@@ -30,10 +30,46 @@ class AgeRepository(GraphRepository):
         self.pool = pool
         self.graph_name = get_settings().age_graph_name
 
+    @staticmethod
+    def _escape_cypher_string(value: str) -> str:
+        """Escape single quotes for use in Cypher string literals."""
+        return value.replace("'", "\\'")
+
     async def _setup_age_connection(self, conn: asyncpg.Connection) -> None:
         """Setup AGE extension and search path for a connection."""
-        await conn.execute("LOAD 'age';")
-        await conn.execute("SET search_path = ag_catalog, '$user', public;")
+        _ = await conn.execute("LOAD 'age';")
+        _ = await conn.execute("SET search_path = ag_catalog, '$user', public;")
+
+    async def _execute_cypher(
+        self,
+        query: str,
+        fetch_mode: str = "row",
+    ) -> asyncpg.Record | list[asyncpg.Record] | str | None:
+        """
+        Execute a Cypher query through AGE with proper connection setup.
+
+        Args:
+            query: The complete SQL query to execute (already formatted for AGE)
+            fetch_mode: "row" for fetchrow, "all" for fetch, "none" for execute
+
+        Returns:
+            Query result based on fetch_mode:
+            - "row": Single record or None
+            - "all": List of records
+            - "none": Execution status string
+        """
+        async with self.pool.acquire() as conn:
+            conn = cast(asyncpg.Connection, conn)
+
+            async with conn.transaction():
+                await self._setup_age_connection(conn)
+
+                if fetch_mode == "row":
+                    return await conn.fetchrow(query)
+                elif fetch_mode == "all":
+                    return await conn.fetch(query)
+                else:  # "none"
+                    return await conn.execute(query)
 
     @override
     async def create_entity(
@@ -46,11 +82,6 @@ class AgeRepository(GraphRepository):
         finds or creates the associated Entity and the HAS_IDENTIFIER relationship.
         Since AGE doesn't support ON CREATE SET, the MERGE includes all properties.
         """
-
-        # Escape single quotes in string values to prevent Cypher syntax errors
-        def escape_cypher_string(value: str) -> str:
-            """Escape single quotes for use in Cypher string literals."""
-            return value.replace("'", "\\'")
 
         # Convert Python boolean to Cypher boolean (lowercase)
         is_primary_str = str(relationship.is_primary).lower()
@@ -65,7 +96,7 @@ class AgeRepository(GraphRepository):
         # We use MERGE for idempotency - it will find or create
         # Note: AGE doesn't support ON CREATE SET, so we include all properties in MERGE
         cypher_query = f"""
-        MERGE (i:Identifier {{value: '{escape_cypher_string(identifier.value)}', type: '{escape_cypher_string(identifier.type)}'}})
+        MERGE (i:Identifier {{value: '{self._escape_cypher_string(identifier.value)}', type: '{self._escape_cypher_string(identifier.type)}'}})
         MERGE (e:Entity {{id: '{entity.id}', created_at: '{entity.created_at.isoformat()}', metadata: '{metadata_json}'::agtype}})
         MERGE (e)-[r:HAS_IDENTIFIER {{is_primary: {is_primary_str}, created_at: '{relationship.created_at.isoformat()}'}}]->(i)
         RETURN
@@ -78,21 +109,16 @@ class AgeRepository(GraphRepository):
             r.created_at AS rel_created_at
         """
 
-        async with self.pool.acquire() as conn:
-            # Cast the connection for type hinting
-            conn = cast(asyncpg.Connection, conn)
+        # Build the complete AGE SQL query
+        query = f"""
+        SELECT * FROM cypher('{self.graph_name}', $${cypher_query}$$)
+        as (entity_id agtype, entity_created_at agtype, entity_metadata agtype, identifier_value agtype, identifier_type agtype, is_primary agtype, rel_created_at agtype);
+        """
 
-            # AGE requires setup within the transaction
-            async with conn.transaction():
-                await self._setup_age_connection(conn)
+        # Execute the query using our helper method
+        record = await self._execute_cypher(query)
 
-                # Execute the Cypher query using AGE's cypher function
-                # We use fetchrow because we expect exactly one result (either found or created)
-                record = await conn.fetchrow(
-                    f"SELECT * FROM ag_catalog.cypher('{self.graph_name}', $${cypher_query}$$) as (entity_id agtype, entity_created_at agtype, entity_metadata agtype, identifier_value agtype, identifier_type agtype, is_primary agtype, rel_created_at agtype);"
-                )
-
-                print(f"----------> Record: {record}")
+        print(f"----------> Record: {record}")
 
         if not record:
             raise RuntimeError(
