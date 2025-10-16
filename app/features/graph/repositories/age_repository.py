@@ -604,6 +604,8 @@ class AgeRepository(GraphRepository):
             raise RuntimeError(
                 f"Fact ID mismatch: expected '{fact_props['fact_id']}', got '{created_fact.fact_id}'"
             )
+        # At this point we know fact_id is not None
+        assert created_fact.fact_id is not None
 
         created_source = Source(
             id=UUID(source_props["id"]),
