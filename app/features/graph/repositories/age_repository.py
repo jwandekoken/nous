@@ -635,4 +635,52 @@ class AgeRepository(GraphRepository):
     @override
     async def find_fact_by_id(self, fact_id: str) -> FactWithOptionalSource | None:
         """Find a fact by its ID."""
-        raise NotImplementedError()
+        cypher_query = f"""
+        MATCH (f:Fact {{fact_id: '{fact_id}'}})
+        OPTIONAL MATCH (f)-[df:DERIVED_FROM]->(s:Source)
+        RETURN {{
+            fact: f,
+            source: s
+        }} AS result
+        """
+
+        record = await self._execute_cypher(
+            cypher_query=cypher_query,
+            as_clause="as (result agtype)",
+            fetch_mode="row",
+        )
+
+        if not record:
+            return None
+
+        record = cast(asyncpg.Record, record)
+        result_str = cast(str, record["result"])
+        cleaned_result_str = self._clean_agtype_string(result_str)
+        result_map = cast(dict[str, Any], json.loads(cleaned_result_str))
+
+        # Extract fact properties
+        fact_props = cast(dict[str, Any], result_map["fact"]["properties"])
+        fact = Fact(
+            name=fact_props["name"],
+            type=fact_props["type"],
+        )
+
+        # Verify fact_id matches (should be computed by model validator)
+        if fact.fact_id != fact_props["fact_id"]:
+            return None
+
+        # Extract source if it exists
+        source = None
+        source_data = result_map.get("source")
+        if source_data:
+            source_props = cast(dict[str, Any], source_data["properties"])
+            source = Source(
+                id=UUID(source_props["id"]),
+                content=source_props["content"],
+                timestamp=datetime.fromisoformat(source_props["timestamp"]),
+            )
+
+        return {
+            "fact": fact,
+            "source": source,
+        }
