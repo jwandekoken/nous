@@ -477,12 +477,6 @@ class AgeRepository(GraphRepository):
 
         # Get facts connected to this entity before deletion
         entity_data = entity_check
-        fact_ids_to_check = []
-        if entity_data["facts_with_sources"]:
-            fact_ids_to_check = [
-                str(fact_data["fact"].fact_id)
-                for fact_data in entity_data["facts_with_sources"]
-            ]
 
         # For each fact connected to this entity, check if it's used by other entities
         facts_to_delete = []
