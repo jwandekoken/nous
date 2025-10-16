@@ -303,7 +303,7 @@ class TestAddFactToEntity:
     ) -> None:
         """Test basic fact addition to an entity."""
         # Arrange
-        await age_repository.create_entity(
+        _ = await age_repository.create_entity(
             test_entity, test_identifier, test_has_identifier_relationship
         )
 
@@ -340,17 +340,17 @@ class TestAddFactToEntity:
     ) -> None:
         """Test that adding the same fact is idempotent."""
         # Arrange
-        await age_repository.create_entity(
+        _ = await age_repository.create_entity(
             test_entity, test_identifier, test_has_identifier_relationship
         )
         # Act
-        await age_repository.add_fact_to_entity(
+        _ = await age_repository.add_fact_to_entity(
             entity_id=str(test_entity.id),
             fact=test_fact,
             source=test_source,
             verb="lives_in",
         )
-        await age_repository.add_fact_to_entity(
+        _ = await age_repository.add_fact_to_entity(
             entity_id=str(test_entity.id),
             fact=test_fact,
             source=test_source,

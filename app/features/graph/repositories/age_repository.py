@@ -224,7 +224,6 @@ class AgeRepository(GraphRepository):
             as_clause="as (result agtype)",
             fetch_mode="row",
         )
-        print(f"----------> Record: {record}")
 
         if not record:
             return None
@@ -233,7 +232,6 @@ class AgeRepository(GraphRepository):
         result_str = cast(str, record["result"])
         cleaned_result_str = self._clean_agtype_string(result_str)
         results_list = cast(list[dict[str, Any]], json.loads(cleaned_result_str))
-        print(f"----------> Results list: {results_list}")
         if not results_list:
             return None
 
