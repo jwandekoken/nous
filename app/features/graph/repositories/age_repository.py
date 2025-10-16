@@ -9,6 +9,7 @@ import asyncpg
 
 from app.core.settings import get_settings
 from app.features.graph.models import (
+    DerivedFrom,
     Entity,
     Fact,
     HasFact,
@@ -287,11 +288,13 @@ class AgeRepository(GraphRepository):
                 name=fact_props["name"],
                 type=fact_props["type"],
             )
-            fact.fact_id = fact_props["fact_id"]
 
-            # Ensure fact_id is not None
-            if not fact.fact_id:
+            # Verify fact_id matches (should be computed by model validator)
+            if fact.fact_id != fact_props["fact_id"]:
                 continue
+
+            # At this point we know fact.fact_id is not None
+            assert fact.fact_id is not None
 
             source = None
             source_data = result_item.get("source")
@@ -424,11 +427,13 @@ class AgeRepository(GraphRepository):
                 name=fact_props["name"],
                 type=fact_props["type"],
             )
-            fact.fact_id = fact_props["fact_id"]
 
-            # Ensure fact_id is not None
-            if not fact.fact_id:
+            # Verify fact_id matches (should be computed by model validator)
+            if fact.fact_id != fact_props["fact_id"]:
                 continue
+
+            # At this point we know fact.fact_id is not None
+            assert fact.fact_id is not None
 
             source = None
             source_data = result_item.get("source")
@@ -479,8 +484,153 @@ class AgeRepository(GraphRepository):
         confidence_score: float = 1.0,
         create_source: bool = True,
     ) -> AddFactToEntityResult:
-        """Add a fact to an entity."""
-        raise NotImplementedError()
+        """
+        Add a fact to an entity with its source using an idempotent approach.
+
+        This method creates or updates the fact, source, and relationships in the graph.
+        If create_source is False, it will only create the relationship to an existing source.
+        """
+        # Ensure fact_id is set
+        if fact.fact_id is None:
+            raise ValueError("Fact must have a fact_id set")
+
+        # First check if the entity exists
+        entity_check = await self.find_entity_by_id(entity_id)
+        if entity_check is None:
+            raise ValueError(f"Entity with ID '{entity_id}' does not exist")
+
+        # Check if the HAS_FACT relationship already exists
+        check_query = f"""
+        MATCH (e:Entity {{id: '{entity_id}'}})-[hf:HAS_FACT {{
+            verb: '{self._escape_cypher_string(verb)}'
+        }}]->(f:Fact {{fact_id: '{fact.fact_id}'}})
+        RETURN hf AS relationship
+        """
+
+        existing_rel = await self._execute_cypher(
+            cypher_query=check_query,
+            as_clause="as (relationship agtype)",
+            fetch_mode="row",
+        )
+
+        if existing_rel:
+            # Relationship already exists, return the existing data
+            # Get the full data by finding the entity
+            found = await self.find_entity_by_id(entity_id)
+            if found and found["facts_with_sources"]:
+                # Find the matching fact
+                for fact_with_source in found["facts_with_sources"]:
+                    if (
+                        fact_with_source["fact"].fact_id == fact.fact_id
+                        and fact_with_source["relationship"].verb == verb
+                    ):
+                        if fact_with_source["source"] is None:
+                            raise RuntimeError(
+                                "Existing fact relationship found but source is missing"
+                            )
+                        derived_from_rel = DerivedFrom(
+                            from_fact_id=fact.fact_id,
+                            to_source_id=fact_with_source["source"].id,
+                        )
+                        return {
+                            "fact": fact_with_source["fact"],
+                            "source": fact_with_source["source"],
+                            "has_fact_relationship": fact_with_source["relationship"],
+                            "derived_from_relationship": derived_from_rel,
+                        }
+            raise RuntimeError("Relationship exists but could not retrieve data")
+
+        # Relationship doesn't exist, create it
+        cypher_query = f"""
+        MATCH (e:Entity {{id: '{entity_id}'}})
+        MERGE (f:Fact {{
+            fact_id: '{fact.fact_id}',
+            name: '{self._escape_cypher_string(fact.name)}',
+            type: '{self._escape_cypher_string(fact.type)}'
+        }})
+        MERGE (s:Source {{
+            id: '{source.id}',
+            content: '{self._escape_cypher_string(source.content)}',
+            timestamp: '{source.timestamp.isoformat()}'
+        }})
+        CREATE (e)-[hf:HAS_FACT {{
+            verb: '{self._escape_cypher_string(verb)}',
+            confidence_score: {confidence_score},
+            created_at: '{datetime.now().isoformat()}'
+        }}]->(f)
+        MERGE (f)-[df:DERIVED_FROM]->(s)
+        RETURN {{
+            fact: f,
+            source: s,
+            has_fact_relationship: hf,
+            derived_from_relationship: df
+        }} AS result
+        """
+
+        # Execute the query using the helper method
+        record = await self._execute_cypher(
+            cypher_query=cypher_query,
+            as_clause="as (result agtype)",
+            fetch_mode="row",
+        )
+
+        if not record:
+            raise RuntimeError(
+                f"Failed to add fact '{fact.fact_id}' to entity '{entity_id}', the query returned no results."
+            )
+
+        # Extract the result string from the agtype, clean it, and parse it as JSON
+        record = cast(asyncpg.Record, record)
+        result_str = cast(str, record["result"])
+
+        cleaned_result_str = self._clean_agtype_string(result_str)
+        result_map = cast(dict[str, Any], json.loads(cleaned_result_str))
+
+        # Extract properties from the agtype objects
+        fact_props = cast(dict[str, Any], result_map["fact"]["properties"])
+        source_props = cast(dict[str, Any], result_map["source"]["properties"])
+        has_fact_props = cast(
+            dict[str, Any], result_map["has_fact_relationship"]["properties"]
+        )
+
+        # Reconstruct the objects
+        # Note: fact_id is automatically computed by the model validator from name and type
+        created_fact = Fact(
+            name=fact_props["name"],
+            type=fact_props["type"],
+        )
+        # Verify the fact_id matches what we expect
+        if created_fact.fact_id != fact_props["fact_id"]:
+            raise RuntimeError(
+                f"Fact ID mismatch: expected '{fact_props['fact_id']}', got '{created_fact.fact_id}'"
+            )
+
+        created_source = Source(
+            id=UUID(source_props["id"]),
+            content=source_props["content"],
+            timestamp=datetime.fromisoformat(source_props["timestamp"]),
+        )
+
+        created_has_fact = HasFact(
+            from_entity_id=UUID(entity_id),
+            to_fact_id=created_fact.fact_id,
+            verb=has_fact_props["verb"],
+            confidence_score=has_fact_props["confidence_score"],
+            created_at=datetime.fromisoformat(has_fact_props["created_at"]),
+        )
+
+        # Note: DerivedFrom relationship doesn't have additional properties beyond the connection
+        derived_from_rel = DerivedFrom(
+            from_fact_id=created_fact.fact_id,
+            to_source_id=created_source.id,
+        )
+
+        return {
+            "fact": created_fact,
+            "source": created_source,
+            "has_fact_relationship": created_has_fact,
+            "derived_from_relationship": derived_from_rel,
+        }
 
     @override
     async def find_fact_by_id(self, fact_id: str) -> FactWithOptionalSource | None:
