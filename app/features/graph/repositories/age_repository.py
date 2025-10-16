@@ -470,7 +470,203 @@ class AgeRepository(GraphRepository):
     @override
     async def delete_entity_by_id(self, entity_id: str) -> bool:
         """Delete an entity by its ID."""
-        raise NotImplementedError()
+        # First check if entity exists
+        entity_check = await self.find_entity_by_id(entity_id)
+        if entity_check is None:
+            return False
+
+        # Get facts connected to this entity before deletion
+        entity_data = entity_check
+        fact_ids_to_check = []
+        if entity_data["facts_with_sources"]:
+            fact_ids_to_check = [
+                str(fact_data["fact"].fact_id)
+                for fact_data in entity_data["facts_with_sources"]
+            ]
+
+        # For each fact connected to this entity, check if it's used by other entities
+        facts_to_delete = []
+        for fact_data in entity_data["facts_with_sources"]:
+            fact_id = fact_data["fact"].fact_id
+            assert fact_id is not None
+
+            # Check if this fact is used by other entities
+            check_query = f"""
+            MATCH (f:Fact {{fact_id: '{fact_id}'}})
+            MATCH (e:Entity)-[:HAS_FACT]->(f)
+            RETURN count(e) AS usage_count
+            """
+
+            record = await self._execute_cypher(
+                cypher_query=check_query,
+                as_clause="as (usage_count agtype)",
+                fetch_mode="row",
+            )
+
+            if record:
+                record = cast(asyncpg.Record, record)
+                usage_count_str = cast(str, record["usage_count"])
+                usage_count = int(usage_count_str)
+
+                # If only used by this entity (usage_count == 1), mark for deletion
+                if usage_count == 1:
+                    facts_to_delete.append(fact_id)
+
+        # Now perform the cascading delete
+        # 1. Delete HAS_FACT relationships for this entity
+        # 2. Delete HAS_IDENTIFIER relationships for this entity
+        # 3. Delete facts that are only used by this entity
+        # 4. Delete sources that are no longer referenced
+        # 5. Delete identifiers that are no longer referenced
+        # 6. Delete the entity itself
+
+        # Delete HAS_FACT relationships for this entity
+        delete_has_fact_query = f"""
+        MATCH (e:Entity {{id: '{entity_id}'}})-[hf:HAS_FACT]->(f:Fact)
+        DETACH DELETE hf
+        RETURN count(hf) AS deleted_count
+        """
+
+        await self._execute_cypher(
+            cypher_query=delete_has_fact_query,
+            as_clause="as (deleted_count agtype)",
+            fetch_mode="row",
+        )
+
+        # Delete HAS_IDENTIFIER relationships for this entity
+        delete_has_identifier_query = f"""
+        MATCH (e:Entity {{id: '{entity_id}'}})-[hi:HAS_IDENTIFIER]->(i:Identifier)
+        DETACH DELETE hi
+        RETURN count(hi) AS deleted_count
+        """
+
+        await self._execute_cypher(
+            cypher_query=delete_has_identifier_query,
+            as_clause="as (deleted_count agtype)",
+            fetch_mode="row",
+        )
+
+        # Delete the entity itself
+        delete_entity_query = f"""
+        MATCH (e:Entity {{id: '{entity_id}'}})
+        DETACH DELETE e
+        RETURN true AS entity_deleted
+        """
+
+        record = await self._execute_cypher(
+            cypher_query=delete_entity_query,
+            as_clause="as (entity_deleted agtype)",
+            fetch_mode="row",
+        )
+
+        if not record:
+            raise RuntimeError(f"Failed to delete entity '{entity_id}'")
+
+        # Now delete facts that were only used by this entity
+        for fact_id in facts_to_delete:
+            # Get the source ID before deleting the fact
+            source_query = f"""
+            MATCH (f:Fact {{fact_id: '{fact_id}'}})
+            OPTIONAL MATCH (f)-[:DERIVED_FROM]->(s:Source)
+            RETURN s.id AS source_id
+            """
+
+            source_record = await self._execute_cypher(
+                cypher_query=source_query,
+                as_clause="as (source_id agtype)",
+                fetch_mode="row",
+            )
+
+            # Delete the fact
+            delete_fact_query = f"""
+            MATCH (f:Fact {{fact_id: '{fact_id}'}})
+            DETACH DELETE f
+            RETURN true AS fact_deleted
+            """
+
+            await self._execute_cypher(
+                cypher_query=delete_fact_query,
+                as_clause="as (fact_deleted agtype)",
+                fetch_mode="row",
+            )
+
+            # Check if source should be deleted (no longer referenced by any facts)
+            if source_record:
+                source_record = cast(asyncpg.Record, source_record)
+                source_id_str = cast(str, source_record["source_id"])
+
+                if source_id_str != "null":
+                    # Check if source is still used by other facts
+                    check_source_usage = f"""
+                    MATCH (s:Source {{id: '{source_id_str}'}})
+                    OPTIONAL MATCH (f:Fact)-[:DERIVED_FROM]->(s)
+                    RETURN count(f) AS usage_count
+                    """
+
+                    usage_record = await self._execute_cypher(
+                        cypher_query=check_source_usage,
+                        as_clause="as (usage_count agtype)",
+                        fetch_mode="row",
+                    )
+
+                    if usage_record:
+                        usage_record = cast(asyncpg.Record, usage_record)
+                        usage_count_str = cast(str, usage_record["usage_count"])
+                        usage_count = int(usage_count_str)
+
+                        # Delete source if no longer used
+                        if usage_count == 0:
+                            delete_source_query = f"""
+                            MATCH (s:Source {{id: '{source_id_str}'}})
+                            DETACH DELETE s
+                            RETURN true AS source_deleted
+                            """
+
+                            await self._execute_cypher(
+                                cypher_query=delete_source_query,
+                                as_clause="as (source_deleted agtype)",
+                                fetch_mode="row",
+                            )
+
+        # Check and delete identifiers that are no longer used
+        if entity_data["identifier"]:
+            identifier_value = entity_data["identifier"]["identifier"].value
+            identifier_type = entity_data["identifier"]["identifier"].type
+
+            # Check if identifier is still used by other entities
+            # Note: We need to check after all relationships are deleted
+            check_identifier_query = f"""
+            MATCH (i:Identifier {{value: '{self._escape_cypher_string(identifier_value)}', type: '{self._escape_cypher_string(identifier_type)}'}})
+            OPTIONAL MATCH (e:Entity)-[:HAS_IDENTIFIER]->(i)
+            RETURN count(e) AS identifier_usage_count
+            """
+
+            record = await self._execute_cypher(
+                cypher_query=check_identifier_query,
+                as_clause="as (identifier_usage_count agtype)",
+                fetch_mode="row",
+            )
+
+            if record:
+                record = cast(asyncpg.Record, record)
+                usage_count_str = cast(str, record["identifier_usage_count"])
+                usage_count = int(usage_count_str)
+
+                # If no longer used, delete the identifier
+                if usage_count == 0:
+                    delete_identifier_query = f"""
+                    MATCH (i:Identifier {{value: '{self._escape_cypher_string(identifier_value)}', type: '{self._escape_cypher_string(identifier_type)}'}})
+                    DETACH DELETE i
+                    RETURN true AS identifier_deleted
+                    """
+
+                    await self._execute_cypher(
+                        cypher_query=delete_identifier_query,
+                        as_clause="as (identifier_deleted agtype)",
+                        fetch_mode="row",
+                    )
+
+        return True
 
     @override
     async def add_fact_to_entity(

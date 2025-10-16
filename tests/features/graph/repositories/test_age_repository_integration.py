@@ -267,7 +267,7 @@ class TestDeleteEntityById:
     ) -> None:
         """Test deleting an entity by its ID."""
         # Arrange
-        await age_repository.create_entity(
+        _ = await age_repository.create_entity(
             test_entity, test_identifier, test_has_identifier_relationship
         )
         # Act
@@ -286,6 +286,176 @@ class TestDeleteEntityById:
         """Test deleting a non-existent entity."""
         delete_result = await age_repository.delete_entity_by_id(str(uuid.uuid4()))
         assert delete_result is False
+
+    @pytest.mark.asyncio
+    async def test_delete_entity_cascades_to_unique_identifier(
+        self,
+        age_repository: AgeRepository,
+        test_entity: Entity,
+        test_identifier: Identifier,
+        test_has_identifier_relationship: HasIdentifier,
+    ) -> None:
+        """Test that deleting an entity also deletes its unique identifier."""
+        # Arrange: Create entity with identifier
+        _ = await age_repository.create_entity(
+            test_entity, test_identifier, test_has_identifier_relationship
+        )
+
+        # Verify identifier exists
+        found_before = await age_repository.find_entity_by_identifier(
+            test_identifier.value, test_identifier.type
+        )
+        assert found_before is not None
+
+        # Act: Delete the entity
+        delete_result = await age_repository.delete_entity_by_id(str(test_entity.id))
+        assert delete_result is True
+
+        # Assert: Identifier should also be deleted since it was only used by this entity
+        found_after = await age_repository.find_entity_by_identifier(
+            test_identifier.value, test_identifier.type
+        )
+        assert found_after is None
+
+    @pytest.mark.asyncio
+    async def test_delete_entity_does_not_affect_other_entities(
+        self,
+        age_repository: AgeRepository,
+        test_entity: Entity,
+        test_identifier: Identifier,
+        test_has_identifier_relationship: HasIdentifier,
+    ) -> None:
+        """Test that deleting one entity doesn't affect other entities with different identifiers."""
+        # Arrange: Create first entity
+        _ = await age_repository.create_entity(
+            test_entity, test_identifier, test_has_identifier_relationship
+        )
+
+        # Create second entity with different identifier
+        second_entity = Entity()
+        second_identifier = Identifier(
+            value=f"second.{uuid.uuid4()}@example.com", type="email"
+        )
+        second_relationship = HasIdentifier(
+            from_entity_id=second_entity.id,
+            to_identifier_value=second_identifier.value,
+        )
+        _ = await age_repository.create_entity(
+            second_entity, second_identifier, second_relationship
+        )
+
+        # Act: Delete the first entity
+        delete_result = await age_repository.delete_entity_by_id(str(test_entity.id))
+        assert delete_result is True
+
+        # Assert: Second entity should still exist
+        found_second = await age_repository.find_entity_by_identifier(
+            second_identifier.value, second_identifier.type
+        )
+        assert found_second is not None
+        assert found_second["entity"].id == second_entity.id
+
+        # And first entity should be gone
+        found_first = await age_repository.find_entity_by_identifier(
+            test_identifier.value, test_identifier.type
+        )
+        assert found_first is None
+
+    @pytest.mark.asyncio
+    async def test_delete_entity_cascades_to_unique_facts(
+        self,
+        age_repository: AgeRepository,
+        test_entity: Entity,
+        test_identifier: Identifier,
+        test_has_identifier_relationship: HasIdentifier,
+        test_fact: Fact,
+        test_source: Source,
+    ) -> None:
+        """Test that deleting an entity also deletes its unique facts and sources."""
+        # Arrange: Create entity with fact and source
+        _ = await age_repository.create_entity(
+            test_entity, test_identifier, test_has_identifier_relationship
+        )
+        _ = await age_repository.add_fact_to_entity(
+            entity_id=str(test_entity.id),
+            fact=test_fact,
+            source=test_source,
+            verb="lives_in",
+        )
+
+        # Verify fact exists
+        assert test_fact.fact_id is not None
+        fact_before = await age_repository.find_fact_by_id(test_fact.fact_id)
+        assert fact_before is not None
+
+        # Act: Delete the entity
+        delete_result = await age_repository.delete_entity_by_id(str(test_entity.id))
+        assert delete_result is True
+
+        # Assert: Fact should also be deleted since it was only used by this entity
+        fact_after = await age_repository.find_fact_by_id(test_fact.fact_id)
+        assert fact_after is None
+
+    @pytest.mark.asyncio
+    async def test_delete_entity_preserves_shared_facts(
+        self,
+        age_repository: AgeRepository,
+        test_entity: Entity,
+        test_identifier: Identifier,
+        test_has_identifier_relationship: HasIdentifier,
+        test_fact: Fact,
+        test_source: Source,
+    ) -> None:
+        """Test that deleting an entity preserves facts shared with other entities."""
+        # Arrange: Create first entity with fact
+        _ = await age_repository.create_entity(
+            test_entity, test_identifier, test_has_identifier_relationship
+        )
+        _ = await age_repository.add_fact_to_entity(
+            entity_id=str(test_entity.id),
+            fact=test_fact,
+            source=test_source,
+            verb="lives_in",
+        )
+
+        # Create second entity and add the same fact to it
+        second_entity = Entity()
+        second_identifier = Identifier(
+            value=f"second.{uuid.uuid4()}@example.com", type="email"
+        )
+        second_relationship = HasIdentifier(
+            from_entity_id=second_entity.id,
+            to_identifier_value=second_identifier.value,
+        )
+        _ = await age_repository.create_entity(
+            second_entity, second_identifier, second_relationship
+        )
+        _ = await age_repository.add_fact_to_entity(
+            entity_id=str(second_entity.id),
+            fact=test_fact,  # Same fact
+            source=test_source,  # Same source
+            verb="works_in",  # Different verb
+        )
+
+        # Act: Delete the first entity
+        delete_result = await age_repository.delete_entity_by_id(str(test_entity.id))
+        assert delete_result is True
+
+        # Assert: Fact should still exist because it's used by the second entity
+        assert test_fact.fact_id is not None
+        fact_after = await age_repository.find_fact_by_id(test_fact.fact_id)
+        assert fact_after is not None
+
+        # And the second entity should still have the fact
+        second_entity_found = await age_repository.find_entity_by_id(
+            str(second_entity.id)
+        )
+        assert second_entity_found is not None
+        assert len(second_entity_found["facts_with_sources"]) == 1
+        assert (
+            second_entity_found["facts_with_sources"][0]["fact"].fact_id
+            == test_fact.fact_id
+        )
 
 
 class TestAddFactToEntity:
