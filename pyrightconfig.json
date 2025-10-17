@@ -1,0 +1,9 @@
+{
+  "include": ["apps/api"],
+  "executionEnvironments": [
+    {
+      "root": "apps/api",
+      "pythonVersion": "3.12"
+    }
+  ]
+}
