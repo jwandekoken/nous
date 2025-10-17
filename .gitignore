@@ -213,7 +213,10 @@ bower_components
 # node_modules (if using any Node.js tools)
 node_modules/
 
-# Optional npm cache directory
+# Turborepo cache
+.turbo/
+
+# Optional npm cache
 .npm
 
 # Optional eslint cache
