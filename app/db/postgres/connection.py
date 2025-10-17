@@ -31,3 +31,14 @@ async def close_db_pool() -> None:
     if _pool:
         await _pool.close()
         _pool = None
+
+
+async def reset_db_pool() -> None:
+    """Reset the database connection pool for testing purposes."""
+    global _pool
+    if _pool:
+        try:
+            await _pool.close()
+        except Exception:
+            pass  # Ignore errors during reset
+        _pool = None

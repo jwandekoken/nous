@@ -7,15 +7,16 @@ using the actual production implementation of ArcadedbRepository.
 import uuid
 from datetime import datetime
 
+import asyncpg
 import pytest
 
-from app.db.arcadedb import ArcadeDB, get_database_name, get_graph_db, reset_graph_db
+from app.db.postgres.connection import get_db_pool, reset_db_pool
 from app.features.graph.dtos.knowledge_dto import (
     AssimilateKnowledgeRequest,
     GetEntityResponse,
     IdentifierDto,
 )
-from app.features.graph.repositories.arcadedb_repository import ArcadedbRepository
+from app.features.graph.repositories.age_repository import AgeRepository
 from app.features.graph.services.langchain_fact_extractor import LangChainFactExtractor
 from app.features.graph.usecases.assimilate_knowledge_usecase import (
     AssimilateKnowledgeUseCaseImpl,
@@ -26,40 +27,28 @@ from app.features.graph.usecases.get_entity_usecase import GetEntityUseCaseImpl
 @pytest.fixture(autouse=True)
 async def reset_db_connection():
     """Reset database connection and clear data before each test."""
-    await reset_graph_db()
+    await reset_db_pool()
 
-    # Clear all data from the database to ensure clean state
-    db = await get_graph_db()
-    database_name = get_database_name()
+    # Clear all data from the graph to ensure clean state
+    pool = await get_db_pool()
+    age_repo = AgeRepository(pool)
 
-    # Delete all vertices and edges in reverse dependency order
-    clear_commands = [
-        "DELETE FROM DERIVED_FROM",
-        "DELETE FROM HAS_FACT",
-        "DELETE FROM HAS_IDENTIFIER",
-        "DELETE FROM Fact",
-        "DELETE FROM Source",
-        "DELETE FROM Identifier",
-        "DELETE FROM Entity",
-    ]
-
-    for command in clear_commands:
-        try:
-            await db.execute_command(command, database_name, language="sql")
-        except Exception:
-            pass  # Ignore errors if tables don't exist or are already empty
+    try:
+        await age_repo.clear_all_data()
+    except Exception:
+        pass  # Ignore errors if graph is already empty
 
 
 @pytest.fixture
-async def graph_db() -> ArcadeDB:
-    """Real database connection for integration tests."""
-    return await get_graph_db()
+async def postgres_pool() -> asyncpg.Pool:
+    """PostgreSQL connection pool for integration tests."""
+    return await get_db_pool()
 
 
 @pytest.fixture
-async def arcadedb_repository(graph_db: ArcadeDB) -> ArcadedbRepository:
-    """Fixture to get an ArcadedbRepository instance."""
-    return ArcadedbRepository(graph_db)
+async def age_repository(postgres_pool: asyncpg.Pool) -> AgeRepository:
+    """Fixture to get an AgeRepository instance."""
+    return AgeRepository(postgres_pool)
 
 
 @pytest.fixture
@@ -70,21 +59,21 @@ def langchain_fact_extractor() -> LangChainFactExtractor:
 
 @pytest.fixture
 async def assimilate_knowledge_usecase(
-    arcadedb_repository: ArcadedbRepository,
+    age_repository: AgeRepository,
     langchain_fact_extractor: LangChainFactExtractor,
 ) -> AssimilateKnowledgeUseCaseImpl:
     """AssimilateKnowledgeUseCaseImpl instance for setting up test data."""
     return AssimilateKnowledgeUseCaseImpl(
-        repository=arcadedb_repository, fact_extractor=langchain_fact_extractor
+        repository=age_repository, fact_extractor=langchain_fact_extractor
     )
 
 
 @pytest.fixture
 async def get_entity_usecase(
-    arcadedb_repository: ArcadedbRepository,
+    age_repository: AgeRepository,
 ) -> GetEntityUseCaseImpl:
     """GetEntityUseCaseImpl instance for testing."""
-    return GetEntityUseCaseImpl(repository=arcadedb_repository)
+    return GetEntityUseCaseImpl(repository=age_repository)
 
 
 @pytest.fixture
@@ -269,7 +258,7 @@ class TestGetEntityUseCaseIntegration:
     async def test_get_entity_entity_with_no_facts(
         self,
         get_entity_usecase: GetEntityUseCaseImpl,
-        arcadedb_repository: ArcadedbRepository,
+        age_repository: AgeRepository,
         test_identifier: IdentifierDto,
     ) -> None:
         """Test retrieving an entity that exists but has no associated facts."""
@@ -285,7 +274,7 @@ class TestGetEntityUseCaseIntegration:
             is_primary=True,
         )  # Will use default timestamp
 
-        _ = await arcadedb_repository.create_entity(entity, identifier, relationship)
+        _ = await age_repository.create_entity(entity, identifier, relationship)
 
         # Retrieve the entity
         result: GetEntityResponse = await get_entity_usecase.execute(
@@ -301,7 +290,7 @@ class TestGetEntityUseCaseIntegration:
     async def test_get_entity_with_primary_identifier_selection(
         self,
         get_entity_usecase: GetEntityUseCaseImpl,
-        arcadedb_repository: ArcadedbRepository,
+        age_repository: AgeRepository,
         test_identifier: IdentifierDto,
     ) -> None:
         """Test that when an entity has multiple identifiers, the primary one is returned."""
@@ -320,7 +309,7 @@ class TestGetEntityUseCaseIntegration:
         )
 
         # Create the entity with primary identifier
-        _ = await arcadedb_repository.create_entity(
+        _ = await age_repository.create_entity(
             entity, primary_identifier, primary_relationship
         )
 
@@ -334,32 +323,11 @@ class TestGetEntityUseCaseIntegration:
             is_primary=False,
         )
 
-        # Add secondary identifier using SQL
-        database_name = get_database_name()
-        params = {
-            "entity_id": str(entity.id),
-            "identifier_value": secondary_identifier.value,
-            "identifier_type": secondary_identifier.type,
-            "is_primary": secondary_relationship.is_primary,
-            "relationship_created_at": secondary_relationship.created_at.isoformat(),
-        }
-
-        transaction_script = """
-        UPDATE Identifier
-        SET value = :identifier_value, type = :identifier_type
-        UPSERT WHERE value = :identifier_value AND type = :identifier_type;
-        CREATE EDGE HAS_IDENTIFIER
-        FROM (SELECT FROM Entity WHERE id = :entity_id)
-        TO (SELECT FROM Identifier WHERE value = :identifier_value AND type = :identifier_type)
-        SET is_primary = :is_primary,
-            created_at = :relationship_created_at;
-        """
-
-        await arcadedb_repository.db.execute_command(
-            transaction_script,
-            database_name,
-            parameters=params,
-            language="sqlscript",
+        # Add secondary identifier using the repository method
+        # We need to create a new entity instance for the secondary identifier
+        secondary_entity = Entity(id=entity.id)  # Same entity
+        _ = await age_repository.create_entity(
+            secondary_entity, secondary_identifier, secondary_relationship
         )
 
         # Retrieve the entity by primary identifier

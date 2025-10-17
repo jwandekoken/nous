@@ -874,3 +874,11 @@ class AgeRepository(GraphRepository):
             "fact": fact,
             "source": source,
         }
+
+    async def clear_all_data(self) -> None:
+        """Clear all data from the graph. Used for testing."""
+        _ = await self._execute_cypher(
+            cypher_query="MATCH (n) DETACH DELETE n",
+            as_clause="as (result agtype)",
+            fetch_mode="none",
+        )

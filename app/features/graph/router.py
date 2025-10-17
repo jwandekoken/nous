@@ -4,13 +4,13 @@ from typing import Protocol
 
 from fastapi import APIRouter, Depends
 
-from app.db.arcadedb.connection import get_graph_db
+from app.db.postgres.connection import get_db_pool
 from app.features.graph.dtos.knowledge_dto import (
     AssimilateKnowledgeRequest,
     AssimilateKnowledgeResponse,
     GetEntityResponse,
 )
-from app.features.graph.repositories.arcadedb_repository import ArcadedbRepository
+from app.features.graph.repositories.age_repository import AgeRepository
 from app.features.graph.services.langchain_fact_extractor import LangChainFactExtractor
 from app.features.graph.usecases import (
     AssimilateKnowledgeUseCaseImpl,
@@ -48,17 +48,17 @@ _fact_extractor = LangChainFactExtractor()
 async def get_assimilate_knowledge_use_case() -> AssimilateKnowledgeUseCase:
     """Dependency injection for the assimilate knowledge use case."""
 
-    db = await get_graph_db()
+    pool = await get_db_pool()
     return AssimilateKnowledgeUseCaseImpl(
-        repository=ArcadedbRepository(db), fact_extractor=_fact_extractor
+        repository=AgeRepository(pool), fact_extractor=_fact_extractor
     )
 
 
 async def get_get_entity_use_case() -> GetEntityUseCase:
     """Dependency injection for the get entity use case."""
 
-    db = await get_graph_db()
-    return GetEntityUseCaseImpl(repository=ArcadedbRepository(db))
+    pool = await get_db_pool()
+    return GetEntityUseCaseImpl(repository=AgeRepository(pool))
 
 
 @router.post("/entities/assimilate", response_model=AssimilateKnowledgeResponse)
