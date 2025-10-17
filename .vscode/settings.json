@@ -1,0 +1,16 @@
+{
+  // Sets the default Python interpreter for this workspace.
+  // This path points to the interpreter inside the virtual environment
+  // created by `uv` within your `api` application.
+  "python.defaultInterpreterPath": "${workspaceFolder}/apps/api/.venv/bin/python",
+
+  // Tells the Python extension where your source code is,
+  // which helps with IntelliSense and module resolution.
+  "python.analysis.extraPaths": ["${workspaceFolder}/apps/api"],
+
+  // Optional: Auto-format Python files using ruff on save.
+  "editor.formatOnSave": true,
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff"
+  }
+}
