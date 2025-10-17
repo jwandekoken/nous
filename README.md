@@ -1,6 +1,6 @@
 # Nous - FastAPI Modular Architecture
 
-A FastAPI application built with a modular, feature-based architecture supporting ArcadeDB Graph Database.
+A FastAPI application built with a modular, feature-based architecture supporting PostgreSQL AGE Graph Database.
 
 ## Architecture
 
@@ -16,7 +16,7 @@ This project follows the modular architecture defined in [Project-architecture](
 │   │   ├── security.py           # Authentication & security
 │   │   └── settings.py           # Configuration
 │   ├── db/                       # Database connections
-│   │   ├── arcadedb/             # ArcadeDB HTTP API client
+│   │   ├── postgres/             # PostgreSQL AGE connection
 │   └── features/                 # Feature modules
 │       └── graph/                # Graph feature
 │           ├── models/           # Domain models
@@ -39,8 +39,8 @@ This project follows the modular architecture defined in [Project-architecture](
 ## Features
 
 - ✅ **Modular Architecture**: Feature-based organization
-- ✅ **Graph Database Support**: ArcadeDB Graph Database
-- ✅ **HTTP API Integration**: ArcadeDB accessed via REST API calls using httpx
+- ✅ **Graph Database Support**: PostgreSQL AGE Graph Database
+- ✅ **Database Integration**: PostgreSQL AGE accessed via native SQL queries
 - ✅ **Authentication**: JWT-based auth with password hashing
 - ✅ **Test Suite**: Comprehensive test coverage with separated test directory
 - ✅ **Modern Python**: Type hints, async/await, Pydantic v2, SQLModel
@@ -51,7 +51,7 @@ This project follows the modular architecture defined in [Project-architecture](
 ### Prerequisites
 
 - Python 3.12+
-- ArcadeDB (required, for graph database features)
+- PostgreSQL with AGE extension (required, for graph database features)
 - `uv` package manager
 
 ### Installation
@@ -121,7 +121,7 @@ uv run pytest tests/core/test_security.py -v
 
 #### Integration Tests
 
-Run integration tests for EntityRepository (uses real ArcadeDB database):
+Run integration tests for EntityRepository (uses real PostgreSQL AGE database):
 
 ```bash
 # Run all integration tests for entity repository
@@ -134,7 +134,7 @@ uv run python -m pytest tests/features/graph/repositories/entity_repository/test
 uv run python -m pytest tests/features/graph/repositories/entity_repository/test_entity_repository_create_entity_integration.py --cov=app.features.graph.repositories.entity
 ```
 
-**Note**: Integration tests connect to your actual ArcadeDB database, so ensure your database is running and properly configured in your environment variables.
+**Note**: Integration tests connect to your actual PostgreSQL AGE database, so ensure your database is running and properly configured in your environment variables.
 
 ### Development Tools
 
@@ -180,23 +180,25 @@ uv run basedpyright app/ tests/
 
 ## Database Setup
 
-### ArcadeDB Graph Database
+### PostgreSQL AGE Graph Database
 
-1. **Setup ArcadeDB** (required):
+1. **Setup PostgreSQL with AGE extension** (required):
 
-   ArcadeDB integration uses HTTP API calls, so no additional Python dependencies are required beyond `httpx` (already included).
+   The application uses PostgreSQL with the AGE extension for graph database functionality.
 
    ```bash
-   # Install ArcadeDB server (follow official ArcadeDB installation guide)
-   # Or use ArcadeDB cloud service
+   # Install PostgreSQL and AGE extension (see compose/postgres/ for Docker setup)
+   # Or use a PostgreSQL service with AGE extension installed
    ```
 
 2. **Update connection settings in `.env`**:
    ```env
-   ARCADEDB_URL=http://localhost:2480
-   ARCADEDB_USER=root
-   ARCADEDB_PASSWORD=your_password
-   ARCADEDB_DATABASE=your_database_name
+   POSTGRES_USER=admin
+   POSTGRES_PASSWORD=supersecretpassword
+   POSTGRES_HOST=localhost
+   POSTGRES_PORT=5432
+   POSTGRES_DB=multimodel_db
+   AGE_GRAPH_NAME=nous
    ```
 
 ## Development
@@ -215,7 +217,7 @@ uv run basedpyright app/ tests/
    - `service.py` - Business logic
    - `schemas.py` - Pydantic models
    - `models.py` - SQLModel database models
-   - `graph_models.py` - ArcadeDB models (if needed)
+   - `graph_models.py` - PostgreSQL AGE models (if needed)
 
 3. **Add corresponding tests in `tests/` directory**:
 

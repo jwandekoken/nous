@@ -39,20 +39,6 @@ class Settings(BaseSettings):
         default=30, description="Access token expiration time in minutes"
     )
 
-    # Graph Database (ArcadeDB HTTP API)
-    arcadedb_url: str = Field(
-        default="http://localhost:2480", description="ArcadeDB HTTP API server URL"
-    )
-    arcadedb_user: str | None = Field(
-        default=None, description="ArcadeDB API server username for basic auth"
-    )
-    arcadedb_password: str | None = Field(
-        default=None, description="ArcadeDB API server password for basic auth"
-    )
-    arcadedb_database: str = Field(
-        default="graphdb", description="ArcadeDB database name"
-    )
-
     # PostgreSQL Database
     postgres_user: str = Field(default="admin", description="PostgreSQL user")
     postgres_password: str = Field(
