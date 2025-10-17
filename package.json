@@ -1,0 +1,19 @@
+{
+  "name": "nous-monorepo",
+  "private": true,
+  "packageManager": "pnpm@9.6.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jwandekoken/nous.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/jwandekoken/nous/issues"
+  },
+  "homepage": "https://github.com/jwandekoken/nous#readme",
+  "devDependencies": {
+    "turbo": "^2.5.8"
+  }
+}

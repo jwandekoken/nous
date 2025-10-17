@@ -1,0 +1,5759 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+.turbo/
+  cookies/
+    10.cookie
+    11.cookie
+    9.cookie
+apps/
+  api/
+    .cursor/
+      rules/
+        git-conventional-commits.mdc
+        python-commands-uv.mdc
+        python-fastapi.mdc
+        python-uv.mdc
+    app/
+      core/
+        __init__.py
+        security.py
+        settings.py
+      db/
+        postgres/
+          __init__.py
+          connection.py
+        __init__.py
+      features/
+        graph/
+          dtos/
+            __init__.py
+            knowledge_dto.py
+          models/
+            __init__.py
+            base_model.py
+            entity_model.py
+            fact_model.py
+            identifier_model.py
+            source_model.py
+            utils.py
+          repositories/
+            __init__.py
+            age_repository.py
+            base.py
+            types.py
+          routes/
+            .gitkeep
+          services/
+            langchain_fact_extractor.py
+          usecases/
+            __init__.py
+            assimilate_knowledge_usecase.py
+            get_entity_usecase.py
+          router.py
+        __init__.py
+      __init__.py
+      main.py
+    compose/
+      postgres/
+        docker-compose.yml
+        Dockerfile
+    docs/
+      plans/
+        .gitkeep
+      graph_db_schema_age.md
+      graph_db_schema.md
+      naming_convention.md
+      project_architecture.md
+      project_scope.md
+    scripts/
+      setup_postgres_schema.py
+    tests/
+      core/
+        test_security.py
+      db/
+        postgres/
+          test_postgres_integration.py
+      features/
+        graph/
+          repositories/
+            test_age_repository_integration.py
+          services/
+            test_langchain_fact_extractor.py
+          usecases/
+            test_assimilate_knowledge_usecase_integration.py
+            test_get_entity_usecase_integration.py
+    package.json
+    pyproject.toml
+    README.md
+.gitignore
+package.json
+pnpm-workspace.yaml
+turbo.json
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="apps/api/.cursor/rules/git-conventional-commits.mdc">
+---
+description: apply this rule when using git
+alwaysApply: false
+---
+
+# Git Conventional Commits
+
+When using git, always use conventional commits following the format: `type(scope): description`
+
+Common types: feat, fix, docs, style, refactor, test, chore
+
+Examples:
+
+- `feat(auth): add login functionality`
+- `fix(api): resolve null pointer exception`
+- `docs(readme): update installation instructions`
+
+# Git Conventional Commits
+
+When using git, always use conventional commits following the format: `type(scope): description`
+
+Common types: feat, fix, docs, style, refactor, test, chore
+
+Examples:
+
+- `feat(auth): add login functionality`
+- `fix(api): resolve null pointer exception`
+- `docs(readme): update installation instructions`
+</file>
+
+<file path="apps/api/.cursor/rules/python-commands-uv.mdc">
+---
+description: Always run Python commands using uv run instead of direct python execution
+alwaysApply: true
+---
+
+# Python Command Execution with `uv`
+
+All Python commands in this project **must** be executed using `uv run` instead of calling `python` or `python3` directly.
+
+**✅ Always use `uv run`**
+
+- Never run `python script.py`, `python -m pytest`, or similar commands directly
+- Always prefix Python execution with `uv run`
+
+**🔁 Correct usage**
+
+```bash
+# Instead of: python script.py
+uv run python script.py
+
+# Instead of: python -m pytest tests/
+uv run python -m pytest tests/
+
+# Instead of: python -m mymodule
+uv run python -m mymodule
+```
+
+**❌ Incorrect usage**
+
+```bash
+# Don't do this:
+python script.py
+python -m pytest tests/
+python3 -c "print('hello')"
+```
+
+This ensures that all Python execution uses the correct virtual environment and dependencies managed by `uv`.
+</file>
+
+<file path="apps/api/.cursor/rules/python-fastapi.mdc">
+---
+description:
+globs:
+alwaysApply: false
+---
+
+You are an expert in Python, FastAPI, and scalable API development.
+
+Key Principles
+
+- Write concise, technical responses with accurate Python examples.
+- Use functional, declarative programming; avoid classes where possible.
+- Prefer iteration and modularization over code duplication.
+- Use descriptive variable names with auxiliary verbs (e.g., is_active, has_permission).
+- Use lowercase with underscores for directories and files (e.g., routers/user_routes.py).
+- Favor named exports for routes and utility functions.
+- Use the Receive an Object, Return an Object (RORO) pattern.
+
+Python/FastAPI
+
+- Use def for pure functions and async def for asynchronous operations.
+- Use type hints for all function signatures. Prefer Pydantic models over raw dictionaries for input validation.
+- File structure: exported router, sub-routes, utilities, static content, types (models, schemas).
+- Avoid unnecessary curly braces in conditional statements.
+- For single-line statements in conditionals, omit curly braces.
+- Use concise, one-line syntax for simple conditional statements (e.g., if condition: do_something()).
+
+Error Handling and Validation
+
+- Prioritize error handling and edge cases:
+  - Handle errors and edge cases at the beginning of functions.
+  - Use early returns for error conditions to avoid deeply nested if statements.
+  - Place the happy path last in the function for improved readability.
+  - Avoid unnecessary else statements; use the if-return pattern instead.
+  - Use guard clauses to handle preconditions and invalid states early.
+  - Implement proper error logging and user-friendly error messages.
+  - Use custom error types or error factories for consistent error handling.
+
+Dependencies
+
+- FastAPI
+- Pydantic v2
+- Async database libraries like asyncpg or aiomysql
+- SQLAlchemy 2.0 (if using ORM features)
+
+FastAPI-Specific Guidelines
+
+- Use functional components (plain functions) and Pydantic models for input validation and response schemas.
+- Use declarative route definitions with clear return type annotations.
+- Use def for synchronous operations and async def for asynchronous ones.
+- Minimize @app.on_event("startup") and @app.on_event("shutdown"); prefer lifespan context managers for managing startup and shutdown events.
+- Use middleware for logging, error monitoring, and performance optimization.
+- Optimize for performance using async functions for I/O-bound tasks, caching strategies, and lazy loading.
+- Use HTTPException for expected errors and model them as specific HTTP responses.
+- Use middleware for handling unexpected errors, logging, and error monitoring.
+- Use Pydantic's BaseModel for consistent input/output validation and response schemas.
+
+Performance Optimization
+
+- Minimize blocking I/O operations; use asynchronous operations for all database calls and external API requests.
+- Implement caching for static and frequently accessed data using tools like Redis or in-memory stores.
+- Optimize data serialization and deserialization with Pydantic.
+- Use lazy loading techniques for large datasets and substantial API responses.
+
+Key Conventions
+
+1. Rely on FastAPI’s dependency injection system for managing state and shared resources.
+2. Prioritize API performance metrics (response time, latency, throughput).
+3. Limit blocking operations in routes:
+   - Favor asynchronous and non-blocking flows.
+   - Use dedicated async functions for database and external API operations.
+   - Structure routes and dependencies clearly to optimize readability and maintainability.
+
+Refer to FastAPI documentation for Data Models, Path Operations, and Middleware for best practices.
+</file>
+
+<file path="apps/api/.cursor/rules/python-uv.mdc">
+---
+description: this rule must be applied when managing the project, installing or removing dependencies and when running the project in development mode
+alwaysApply: false
+---
+
+# Package Management with `uv`
+
+These rules define strict guidelines for managing Python dependencies in this project using the `uv` dependency manager.
+
+**✅ Use `uv` exclusively**
+
+- All Python dependencies **must be installed, synchronized, and locked** using `uv`.
+- Never use `pip`, `pip-tools`, or `poetry` directly for dependency management.
+
+**🔁 Managing Dependencies**
+
+Always use these commands:
+
+```bash
+# Add or upgrade dependencies
+uv add <package>
+
+# Remove dependencies
+uv remove <package>
+
+# Reinstall all dependencies from lock file
+uv sync
+```
+
+**🔁 Scripts**
+
+```bash
+# Run script with proper dependencies
+uv run script.py
+```
+
+You can edit inline-metadata manually:
+
+```python
+# /// script
+# requires-python = ">=3.12"
+# dependencies = [
+#     "torch",
+#     "torchvision",
+#     "opencv-python",
+#     "numpy",
+#     "matplotlib",
+#     "Pillow",
+#     "timm",
+# ]
+# ///
+
+print("some python code")
+```
+
+Or using uv cli:
+
+```bash
+# Add or upgrade script dependencies
+uv add package-name --script script.py
+
+# Remove script dependencies
+uv remove package-name --script script.py
+
+# Reinstall all script dependencies from lock file
+uv sync --script script.py
+```
+</file>
+
+<file path="apps/api/app/core/__init__.py">
+# Empty file to make core a package
+</file>
+
+<file path="apps/api/app/core/security.py">
+"""Security utilities for authentication and authorization."""
+
+from datetime import UTC, datetime, timedelta
+from typing import Any
+
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from jose import JWTError, jwt
+from passlib.context import CryptContext
+
+from app.core.settings import get_settings
+
+# Password hashing
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# JWT token scheme
+security = HTTPBearer()
+
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """Verify a plain password against its hash."""
+    return pwd_context.verify(plain_password, hashed_password)
+
+
+def get_password_hash(password: str) -> str:
+    """Hash a password."""
+    return pwd_context.hash(password)
+
+
+def create_access_token(
+    data: dict[str, Any], expires_delta: timedelta | None = None
+) -> str:
+    """Create a JWT access token."""
+    settings = get_settings()
+    to_encode = data.copy()
+
+    if expires_delta:
+        expire = datetime.now(UTC) + expires_delta
+    else:
+        expire = datetime.now(UTC) + timedelta(
+            minutes=settings.access_token_expire_minutes
+        )
+
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(
+        to_encode, settings.secret_key, algorithm=settings.algorithm
+    )
+    return encoded_jwt
+
+
+def verify_token(token: str) -> dict[str, Any]:
+    """Verify and decode a JWT token."""
+    settings = get_settings()
+
+    try:
+        payload = jwt.decode(
+            token, settings.secret_key, algorithms=[settings.algorithm]
+        )
+        return payload
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+
+async def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+) -> dict[str, Any]:
+    """Get current user from JWT token."""
+    token = credentials.credentials
+    payload = verify_token(token)
+
+    user_id: str = payload.get("sub")
+    if user_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    return {"user_id": user_id, "payload": payload}
+</file>
+
+<file path="apps/api/app/core/settings.py">
+"""Application settings and configuration."""
+
+from functools import lru_cache
+
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    """Application settings loaded from environment variables."""
+
+    model_config = SettingsConfigDict(  # pyright: ignore[reportUnannotatedClassAttribute]
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="ignore",
+    )
+
+    # Application
+    app_name: str = Field(default="Nous API", description="Application name")
+    app_version: str = Field(default="0.1.0", description="Application version")
+    debug: bool = Field(default=False, description="Debug mode")
+    host: str = Field(default="0.0.0.0", description="Host to bind to")
+    port: int = Field(default=8000, description="Port to bind to")
+
+    # CORS
+    allowed_origins: list[str] = Field(
+        default=["http://localhost:3000", "http://localhost:8080"],
+        description="Allowed CORS origins",
+    )
+
+    # Security
+    secret_key: str = Field(
+        default="your-secret-key-change-in-production",
+        description="Secret key for JWT tokens",
+    )
+    algorithm: str = Field(default="HS256", description="JWT algorithm")
+    access_token_expire_minutes: int = Field(
+        default=30, description="Access token expiration time in minutes"
+    )
+
+    # PostgreSQL Database
+    postgres_user: str = Field(default="admin", description="PostgreSQL user")
+    postgres_password: str = Field(
+        default="supersecretpassword", description="PostgreSQL password"
+    )
+    postgres_host: str = Field(default="localhost", description="PostgreSQL host")
+    postgres_port: int = Field(default=5432, description="PostgreSQL port")
+    postgres_db: str = Field(
+        default="multimodel_db", description="PostgreSQL database name"
+    )
+    age_graph_name: str = Field(default="nous", description="AGE graph name")
+
+    # Google AI
+    google_api_key: str | None = Field(
+        default=None, description="Google AI API key for Gemini model"
+    )
+
+
+@lru_cache
+def get_settings() -> Settings:
+    """Get cached application settings."""
+    return Settings()
+</file>
+
+<file path="apps/api/app/db/postgres/connection.py">
+"""PostgreSQL database connection management."""
+
+import asyncpg
+
+from app.core.settings import get_settings
+
+_pool: asyncpg.Pool | None = None
+
+
+async def get_db_pool() -> asyncpg.Pool:
+    """Get the database connection pool as a dependency."""
+    global _pool
+    if _pool is None:
+        settings = get_settings()
+        _pool = await asyncpg.create_pool(
+            user=settings.postgres_user,
+            password=settings.postgres_password,
+            host=settings.postgres_host,
+            port=settings.postgres_port,
+            database=settings.postgres_db,
+            min_size=5,
+            max_size=20,
+        )
+
+    return _pool
+
+
+async def close_db_pool() -> None:
+    """Close the database connection pool."""
+    global _pool
+    if _pool:
+        await _pool.close()
+        _pool = None
+
+
+async def reset_db_pool() -> None:
+    """Reset the database connection pool for testing purposes."""
+    global _pool
+    if _pool:
+        try:
+            await _pool.close()
+        except Exception:
+            pass  # Ignore errors during reset
+        _pool = None
+</file>
+
+<file path="apps/api/app/db/__init__.py">
+# Empty file to make db a package
+</file>
+
+<file path="apps/api/app/features/graph/dtos/__init__.py">
+"""Graph database DTOs package.
+
+This package contains all Data Transfer Objects for API responses
+and requests in the graph database feature.
+"""
+
+from .knowledge_dto import (
+    AssimilateKnowledgeRequest,
+    AssimilateKnowledgeResponse,
+    EntityDto,
+    FactDto,
+    IdentifierDto,
+    SourceDto,
+)
+
+__all__ = [
+    "EntityDto",
+    "FactDto",
+    "IdentifierDto",
+    "AssimilateKnowledgeRequest",
+    "AssimilateKnowledgeResponse",
+    "SourceDto",
+]
+</file>
+
+<file path="apps/api/app/features/graph/dtos/knowledge_dto.py">
+"""Knowledge assimilation DTOs for API requests and responses.
+
+This module defines Data Transfer Objects for the knowledge assimilation API.
+"""
+
+from datetime import datetime, timezone
+from uuid import UUID
+
+from pydantic import BaseModel, Field
+
+
+class EntityDto(BaseModel):
+    """DTO for Entity API responses."""
+
+    id: UUID = Field(..., description="Unique system identifier")
+    created_at: datetime = Field(
+        ..., description="When this entity was created in the system"
+    )
+    metadata: dict[str, str] | None = Field(
+        default_factory=dict, description="Flexible metadata as key-value pairs"
+    )
+
+
+class FactDto(BaseModel):
+    """DTO for Fact API responses."""
+
+    name: str = Field(..., description="The name or value of the fact")
+    type: str = Field(
+        ..., description="The category of fact (e.g., 'Location', 'Company', 'Skill')"
+    )
+    fact_id: str | None = Field(
+        default=None, description="Synthetic primary key (e.g., 'Location:Paris')"
+    )
+
+
+class ExtractedFactDto(BaseModel):
+    """DTO for facts extracted from text content."""
+
+    name: str = Field(..., description="The name or value of the extracted fact")
+    type: str = Field(
+        ..., description="The category of the fact (e.g., 'Location', 'Profession')"
+    )
+    verb: str = Field(
+        ..., description="The semantic verb connecting the entity to the fact"
+    )
+    confidence_score: float = Field(
+        default=1.0,
+        ge=0.0,
+        le=1.0,
+        description="Confidence level of the extracted fact (0.0 to 1.0)",
+    )
+
+
+class IdentifierDto(BaseModel):
+    """DTO for an Identifier."""
+
+    value: str = Field(
+        ..., description="The identifier value (e.g., 'user@example.com')"
+    )
+    type: str = Field(
+        ..., description="Type of identifier (e.g., 'email', 'phone', 'username')"
+    )
+
+
+class AssimilateKnowledgeRequest(BaseModel):
+    """Request to process content and associate facts with an entity."""
+
+    identifier: IdentifierDto = Field(
+        ..., description="The entity's external identifier."
+    )
+    content: str = Field(..., description="The textual content to process.")
+    timestamp: datetime | None = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        description="The real-world timestamp of the content's creation.",
+    )
+    history: list[str] | None = Field(
+        default=None,
+        description="Optional list of previous conversational turns for context.",
+    )
+
+
+class SourceDto(BaseModel):
+    """DTO for a Source."""
+
+    id: UUID = Field(..., description="Unique system identifier")
+    content: str = Field(..., description="The original content/source text")
+    timestamp: datetime = Field(
+        ..., description="Real-world timestamp when the source was created"
+    )
+
+
+class HasFactDto(BaseModel):
+    """DTO for the relationship between an Entity and a Fact."""
+
+    verb: str = Field(
+        ..., description="Semantic relationship (e.g., 'lives_in', 'works_at')"
+    )
+    confidence_score: float = Field(
+        ge=0.0,
+        le=1.0,
+        description="Confidence level of this fact (0.0 to 1.0)",
+    )
+    created_at: datetime = Field(
+        ..., description="When this relationship was established"
+    )
+
+
+class AssimilatedFactDto(BaseModel):
+    """DTO grouping a fact with its relationship to the entity."""
+
+    fact: FactDto = Field(..., description="The extracted fact")
+    relationship: HasFactDto = Field(
+        ..., description="The relationship between the entity and the fact"
+    )
+
+
+class AssimilateKnowledgeResponse(BaseModel):
+    """Response after successfully assimilating knowledge."""
+
+    entity: EntityDto = Field(
+        ..., description="The entity the knowledge was assimilated for."
+    )
+    source: SourceDto = Field(..., description="The source created from the content.")
+    assimilated_facts: list[AssimilatedFactDto] = Field(
+        ...,
+        description="A list of facts extracted with their relationships to the entity.",
+    )
+
+
+class HasIdentifierDto(BaseModel):
+    """DTO for the relationship between an Entity and an Identifier."""
+
+    is_primary: bool = Field(
+        ..., description="Whether this is the primary identifier for the entity"
+    )
+    created_at: datetime = Field(
+        ..., description="When this relationship was established"
+    )
+
+
+class IdentifierWithRelationshipDto(BaseModel):
+    """DTO grouping an identifier with its relationship to the entity."""
+
+    identifier: IdentifierDto
+    relationship: HasIdentifierDto
+
+
+class FactWithSourceDto(BaseModel):
+    """DTO grouping a fact with its relationship and source."""
+
+    fact: FactDto
+    relationship: HasFactDto
+    source: SourceDto | None = Field(
+        None, description="The source of the fact, if available."
+    )
+
+
+class GetEntityResponse(BaseModel):
+    """Response for getting an entity by identifier."""
+
+    entity: EntityDto
+    identifier: IdentifierWithRelationshipDto
+    facts: list[FactWithSourceDto]
+</file>
+
+<file path="apps/api/app/features/graph/models/__init__.py">
+"""Graph database models package.
+
+This package contains all Pydantic models for the KuzuDB graph schema
+including nodes, relationships, API models, and utility functions.
+"""
+
+# Base models
+from .base_model import GraphBaseModel
+
+# Node models
+from .entity_model import Entity
+from .fact_model import Fact, HasFact
+from .identifier_model import HasIdentifier, Identifier
+
+# Relationship models
+from .source_model import DerivedFrom, Source
+
+# Utility models and helper functions
+from .utils import (
+    EntityWithRelations,
+    GraphQueryResult,
+    create_entity_with_identifier,
+    create_fact_with_source,
+)
+
+__all__ = [
+    # Base models
+    "GraphBaseModel",
+    # Node models
+    "Entity",
+    "Identifier",
+    "Fact",
+    "Source",
+    # Relationship models
+    "HasIdentifier",
+    "HasFact",
+    "DerivedFrom",
+    # Utility models
+    "GraphQueryResult",
+    "EntityWithRelations",
+    # Helper functions
+    "create_entity_with_identifier",
+    "create_fact_with_source",
+]
+</file>
+
+<file path="apps/api/app/features/graph/models/base_model.py">
+"""Base models for graph database entities.
+
+This module defines the base configuration and common functionality
+for all graph database models.
+"""
+
+from pydantic import BaseModel, ConfigDict
+
+
+# Base configuration for all models
+class GraphBaseModel(BaseModel):
+    """Base model for all graph entities with common functionality."""
+
+    model_config = ConfigDict(  # pyright: ignore[reportUnannotatedClassAttribute]
+        from_attributes=True,
+    )
+</file>
+
+<file path="apps/api/app/features/graph/models/entity_model.py">
+"""Entity models for graph database.
+
+This module defines the Entity model and related entity-specific functionality.
+"""
+
+from datetime import datetime, timezone
+from uuid import UUID, uuid4
+
+from pydantic import Field
+
+from .base_model import GraphBaseModel
+
+
+class Entity(GraphBaseModel):
+    """Represents a canonical entity in the graph database.
+
+    The Entity is the central node that represents a real-world subject
+    (e.g., a person, organization, or concept) with a stable UUID.
+    """
+
+    id: UUID = Field(default_factory=uuid4, description="Unique system identifier")
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        description="When this entity was created in the system",
+    )
+    metadata: dict[str, str] | None = Field(
+        default_factory=dict, description="Flexible metadata as key-value pairs"
+    )
+</file>
+
+<file path="apps/api/app/features/graph/models/fact_model.py">
+"""Fact models for graph database.
+
+This module defines the Fact model for representing discrete pieces
+of knowledge or named entities.
+"""
+
+from datetime import datetime, timezone
+from uuid import UUID
+
+from pydantic import Field, field_validator, model_validator
+
+from .base_model import GraphBaseModel
+
+
+class Fact(GraphBaseModel):
+    """Represents a discrete piece of knowledge or named entity.
+
+    Facts can be locations, companies, hobbies, skills, etc.
+    The fact_id is a synthetic key combining type and name.
+    """
+
+    name: str = Field(..., description="The name or value of the fact")
+    type: str = Field(
+        ..., description="The category of fact (e.g., 'Location', 'Company', 'Skill')"
+    )
+    fact_id: str | None = Field(
+        default=None,
+        description="Synthetic primary key (e.g., 'Location:Paris')",
+        # make it non-editable after creation
+        frozen=True,
+    )
+
+    @field_validator("name", "type")
+    @classmethod
+    def validate_not_empty(cls, v: str) -> str:
+        """Ensure name and type are not empty."""
+        if not v or not v.strip():
+            raise ValueError("Field cannot be empty")
+        return v.strip()
+
+    @model_validator(mode="after")
+    def compute_fact_id(self) -> "Fact":
+        """Generate the synthetic fact_id from name and type."""
+        # This code runs after 'name' and 'type' have been validated.
+        # 'self' here is the complete model, so self.name and self.type are safe to access.
+        if self.name and self.type:
+            # Pydantic v2 protects frozen fields, so we use `object.__setattr__`
+            # to assign the computed value.
+            object.__setattr__(
+                self, "fact_id", self.create_fact_id(self.type, self.name)
+            )
+        return self
+
+    @classmethod
+    def create_fact_id(cls, fact_type: str, name: str) -> str:
+        """Helper method to create a synthetic fact_id."""
+        return f"{fact_type}:{name}"
+
+
+class HasFact(GraphBaseModel):
+    """Relationship connecting an Entity to a Fact it possesses.
+
+    The verb provides semantic context about how the entity relates to the fact.
+    """
+
+    from_entity_id: UUID = Field(..., description="Entity that possesses the fact")
+    to_fact_id: str = Field(..., description="Fact being connected")
+    verb: str = Field(
+        ..., description="Semantic relationship (e.g., 'lives_in', 'works_at')"
+    )
+    confidence_score: float = Field(
+        ge=0.0,
+        le=1.0,
+        default=1.0,
+        description="Confidence level of this fact (0.0 to 1.0)",
+    )
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        description="When this relationship was established",
+    )
+
+    @field_validator("verb")
+    @classmethod
+    def validate_verb(cls, v: str) -> str:
+        """Ensure verb is a valid semantic relationship."""
+        if not v or not v.strip():
+            raise ValueError("Verb cannot be empty")
+        return v.strip().lower()
+</file>
+
+<file path="apps/api/app/features/graph/models/identifier_model.py">
+"""Identifier models for graph database.
+
+This module defines the Identifier model for external identifiers
+like email addresses, phone numbers, usernames, etc.
+"""
+
+from datetime import datetime, timezone
+from uuid import UUID
+
+from pydantic import Field, field_validator
+
+from .base_model import GraphBaseModel
+
+
+class Identifier(GraphBaseModel):
+    """Represents an external identifier for an entity.
+
+    Examples: email addresses, phone numbers, usernames, etc.
+    The value serves as the primary key for uniqueness.
+    """
+
+    value: str = Field(
+        ..., description="The identifier value (e.g., 'user@example.com')"
+    )
+    type: str = Field(
+        ..., description="Type of identifier (e.g., 'email', 'phone', 'username')"
+    )
+
+    @field_validator("value")
+    @classmethod
+    def validate_value(cls, v: str) -> str:
+        """Ensure identifier value is not empty and properly formatted."""
+        if not v or not v.strip():
+            raise ValueError("Identifier value cannot be empty")
+        return v.strip()
+
+    @field_validator("type")
+    @classmethod
+    def validate_type(cls, v: str) -> str:
+        """Ensure identifier type is valid."""
+        valid_types = {"email", "phone", "username", "uuid", "social_id"}
+        if v not in valid_types:
+            raise ValueError(f"Identifier type must be one of: {valid_types}")
+        return v
+
+
+class HasIdentifier(GraphBaseModel):
+    """Relationship connecting an Entity to its external Identifiers.
+
+    This relationship allows entities to have multiple identifiers
+    while maintaining a canonical UUID as the primary key.
+    """
+
+    from_entity_id: UUID = Field(..., description="Entity that owns the identifier")
+    to_identifier_value: str = Field(
+        ..., description="Identifier value being connected"
+    )
+    is_primary: bool = Field(
+        default=False,
+        description="Whether this is the primary identifier for the entity",
+    )
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        description="When this relationship was established",
+    )
+</file>
+
+<file path="apps/api/app/features/graph/models/source_model.py">
+"""Source models for graph database.
+
+This module defines the Source model for tracking the origin
+of information in the graph.
+"""
+
+from datetime import datetime, timezone
+from uuid import UUID, uuid4
+
+from pydantic import Field, field_validator
+
+from .base_model import GraphBaseModel
+
+
+class Source(GraphBaseModel):
+    """Represents the origin of information in the graph.
+
+    Sources track where facts came from (chat messages, emails, documents, etc.)
+    enabling traceability and data provenance.
+    """
+
+    id: UUID = Field(default_factory=uuid4, description="Unique system identifier")
+    content: str = Field(..., description="The original content/source text")
+    timestamp: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        description="Real-world timestamp when the source was created",
+    )
+
+    @field_validator("content")
+    @classmethod
+    def validate_content(cls, v: str) -> str:
+        """Ensure content is not empty."""
+        if not v or not v.strip():
+            raise ValueError("Source content cannot be empty")
+        return v.strip()
+
+
+class DerivedFrom(GraphBaseModel):
+    """Relationship connecting a Fact to its Source.
+
+    This enables traceability by linking facts back to their origins,
+    answering the question: "How do we know this fact?"
+    """
+
+    from_fact_id: str = Field(..., description="Fact that was derived")
+    to_source_id: UUID = Field(..., description="Source where the fact originated")
+</file>
+
+<file path="apps/api/app/features/graph/models/utils.py">
+"""Utility models and helper functions for graph database.
+
+This module contains utility models and helper functions that don't
+fit into the main model categories.
+"""
+
+from datetime import datetime, timezone
+from typing import Any
+
+from pydantic import Field
+
+from .base_model import GraphBaseModel
+from .entity_model import Entity
+from .fact_model import Fact
+from .identifier_model import HasIdentifier, Identifier
+from .source_model import DerivedFrom, Source
+
+
+# Utility Models for API Operations
+class GraphQueryResult(GraphBaseModel):
+    """Result of a graph database query operation."""
+
+    success: bool = Field(..., description="Whether the operation succeeded")
+    data: list[dict[str, Any]] | None = Field(
+        default_factory=list, description="Query results as list of dictionaries"
+    )
+    error: str | None = Field(None, description="Error message if operation failed")
+    metadata: dict[str, Any] | None = Field(
+        default_factory=dict, description="Additional metadata about the operation"
+    )
+
+
+class EntityWithRelations(GraphBaseModel):
+    """Entity with its associated identifiers and facts for full representation."""
+
+    entity: Entity
+    identifiers: list[Identifier] = Field(default_factory=list)
+    facts: list[dict[str, Any]] = Field(
+        default_factory=list, description="Facts with relationship metadata"
+    )
+    primary_identifier: Identifier | None = None
+
+
+# Helper Functions
+def create_entity_with_identifier(
+    identifier_value: str,
+    identifier_type: str,
+    metadata: dict[str, str] | None = None,
+) -> tuple[Entity, Identifier, HasIdentifier]:
+    """Helper function to create an entity with its primary identifier.
+
+    Args:
+        identifier_value: The identifier value (e.g., email)
+        identifier_type: Type of identifier
+        metadata: Optional entity metadata
+
+    Returns:
+        Tuple of (Entity, Identifier, HasIdentifier relationship)
+    """
+    entity = Entity(metadata=metadata or {})
+    identifier = Identifier(value=identifier_value, type=identifier_type)
+    relationship = HasIdentifier(
+        from_entity_id=entity.id, to_identifier_value=identifier.value, is_primary=True
+    )
+
+    return entity, identifier, relationship
+
+
+def create_fact_with_source(
+    name: str,
+    fact_type: str,
+    source_content: str,
+    source_timestamp: datetime | None = None,
+) -> tuple[Fact, Source, DerivedFrom]:
+    """Helper function to create a fact with its source.
+
+    Args:
+        name: Name of the fact
+        fact_type: Type/category of the fact
+        source_content: Content where the fact was found
+        source_timestamp: When the source was created
+
+    Returns:
+        Tuple of (Fact, Source, DerivedFrom relationship)
+    """
+    fact_id = Fact.create_fact_id(fact_type, name)
+    fact = Fact(fact_id=fact_id, name=name, type=fact_type)
+
+    source = Source(
+        content=source_content, timestamp=source_timestamp or datetime.now(timezone.utc)
+    )
+
+    relationship = DerivedFrom(from_fact_id=fact_id, to_source_id=source.id)
+
+    return fact, source, relationship
+</file>
+
+<file path="apps/api/app/features/graph/repositories/__init__.py">
+"""Graph repositories package."""
+
+from .age_repository import AgeRepository
+
+__all__ = ["AgeRepository"]
+</file>
+
+<file path="apps/api/app/features/graph/repositories/age_repository.py">
+"""PostgreSQL AGE implementation of the graph repository protocol."""
+
+import json
+from datetime import datetime
+from typing import Any, cast, override
+from uuid import UUID
+
+import asyncpg
+
+from app.core.settings import get_settings
+from app.features.graph.models import (
+    DerivedFrom,
+    Entity,
+    Fact,
+    HasFact,
+    HasIdentifier,
+    Identifier,
+    Source,
+)
+from app.features.graph.repositories.base import GraphRepository
+from app.features.graph.repositories.types import (
+    AddFactToEntityResult,
+    CreateEntityResult,
+    FactWithOptionalSource,
+    FactWithSource,
+    FindEntityByIdResult,
+    FindEntityResult,
+    IdentifierWithRelationship,
+)
+
+
+class AgeRepository(GraphRepository):
+    """PostgreSQL AGE implementation of the graph repository."""
+
+    pool: asyncpg.Pool
+    graph_name: str
+
+    def __init__(self, pool: asyncpg.Pool):
+        """Initialize the repository with a database connection pool."""
+        self.pool = pool
+        self.graph_name = get_settings().age_graph_name
+
+    @staticmethod
+    def _escape_cypher_string(value: str) -> str:
+        """Escape single quotes for use in Cypher string literals."""
+        return value.replace("'", "\\'")
+
+    @staticmethod
+    def _clean_agtype_string(agtype_str: str) -> str:
+        """Clean AGE agtype string by removing type annotations like ::vertex and ::edge."""
+        import re
+
+        # Remove ::vertex and ::edge annotations
+        return re.sub(r"::(vertex|edge)", "", agtype_str)
+
+    async def _setup_age_connection(self, conn: asyncpg.Connection) -> None:
+        """Setup AGE extension and search path for a connection."""
+        _ = await conn.execute("LOAD 'age';")
+        _ = await conn.execute("SET search_path = ag_catalog, '$user', public;")
+
+    async def _execute_cypher(
+        self,
+        cypher_query: str,
+        as_clause: str,
+        fetch_mode: str = "row",
+    ) -> asyncpg.Record | list[asyncpg.Record] | str | None:
+        """
+        Execute a Cypher query by wrapping it in the necessary SQL.
+
+        Args:
+            cypher_query: The raw Cypher query string.
+            as_clause: The complete AS clause string, e.g., "as (result agtype)".
+            fetch_mode: "row" for fetchrow, "all" for fetch, "none" for execute.
+
+        Returns:
+            Query result based on fetch_mode.
+        """
+        if not as_clause.strip().lower().startswith("as"):
+            raise ValueError("The 'as_clause' must start with 'AS'.")
+
+        # Build the complete AGE SQL query using the provided as_clause
+        query = f"""
+            SELECT * FROM cypher('{self.graph_name}', $${cypher_query}$$)
+            {as_clause};
+        """
+
+        async with self.pool.acquire() as conn:
+            conn = cast(asyncpg.Connection, conn)
+
+            async with conn.transaction():
+                await self._setup_age_connection(conn)
+
+                if fetch_mode == "row":
+                    return await conn.fetchrow(query)
+                elif fetch_mode == "all":
+                    return await conn.fetch(query)
+                else:  # "none"
+                    return await conn.execute(query)
+
+    @override
+    async def create_entity(
+        self, entity: Entity, identifier: Identifier, relationship: HasIdentifier
+    ) -> CreateEntityResult:
+        """
+        Creates a new entity with an identifier using an idempotent approach.
+
+        This method first checks if an entity already exists for the given identifier.
+        If it exists, returns the existing entity. If not, creates a new one.
+        """
+
+        # Check if entity already exists for this identifier
+        existing_entity = await self.find_entity_by_identifier(
+            identifier.value, identifier.type
+        )
+
+        if existing_entity is not None:
+            # Return existing entity with its identifier and relationship
+            return {
+                "entity": existing_entity["entity"],
+                "identifier": existing_entity["identifier"]["identifier"],
+                "relationship": existing_entity["identifier"]["relationship"],
+            }
+
+        # Entity doesn't exist, create it
+        # Convert Python boolean to Cypher boolean (lowercase)
+        is_primary_str = str(relationship.is_primary).lower()
+
+        # Prepare metadata JSON - use it directly as agtype without extra escaping
+        metadata_json = json.dumps(entity.metadata or {}).replace(
+            "'", "''"
+        )  # Double single quotes for SQL
+
+        # Build the Cypher query with embedded parameters
+        # AGE cypher function expects the query as a dollar-quoted string
+        # We use MERGE for idempotency - it will find or create
+        # Note: AGE doesn't support ON CREATE SET, so we include all properties in MERGE
+        cypher_query = f"""
+        MERGE (i:Identifier {{value: '{self._escape_cypher_string(identifier.value)}', type: '{self._escape_cypher_string(identifier.type)}'}})
+        MERGE (e:Entity {{id: '{entity.id}', created_at: '{entity.created_at.isoformat()}', metadata: '{metadata_json}'::agtype}})
+        MERGE (e)-[r:HAS_IDENTIFIER {{is_primary: {is_primary_str}, created_at: '{relationship.created_at.isoformat()}'}}]->(i)
+        RETURN {{
+            entity: e,
+            identifier: i,
+            relationship: r
+        }} AS result
+        """
+
+        # Execute the query using the new helper method
+        record = await self._execute_cypher(
+            cypher_query=cypher_query,
+            as_clause="as (result agtype)",
+            fetch_mode="row",
+        )
+
+        if not record:
+            raise RuntimeError(
+                "Failed to create entity, the query returned no results."
+            )
+
+        # Extract the result string from the agtype, clean it, and parse it as JSON
+        record = cast(asyncpg.Record, record)
+        result_str = cast(str, record["result"])
+
+        cleaned_result_str = self._clean_agtype_string(result_str)
+        result_map = cast(dict[str, Any], json.loads(cleaned_result_str))
+
+        # Extract properties from the agtype objects
+        entity_props = cast(dict[str, Any], result_map["entity"]["properties"])
+        identifier_props = cast(dict[str, Any], result_map["identifier"]["properties"])
+        relationship_props = cast(
+            dict[str, Any], result_map["relationship"]["properties"]
+        )
+
+        created_entity = Entity(
+            id=UUID(entity_props["id"]),
+            created_at=datetime.fromisoformat(entity_props["created_at"]),
+            metadata=json.loads(entity_props["metadata"])
+            if entity_props["metadata"]
+            else {},
+        )
+
+        created_identifier = Identifier(
+            value=identifier_props["value"],
+            type=identifier_props["type"],
+        )
+
+        created_relationship = HasIdentifier(
+            from_entity_id=created_entity.id,
+            to_identifier_value=created_identifier.value,
+            is_primary=relationship_props["is_primary"],
+            created_at=datetime.fromisoformat(relationship_props["created_at"]),
+        )
+
+        return {
+            "entity": created_entity,
+            "identifier": created_identifier,
+            "relationship": created_relationship,
+        }
+
+    @override
+    async def find_entity_by_identifier(
+        self, identifier_value: str, identifier_type: str
+    ) -> FindEntityResult | None:
+        """Find an entity by its identifier."""
+        cypher_query = f"""
+        MATCH (e:Entity)-[r:HAS_IDENTIFIER]->(i:Identifier {{
+            value: '{self._escape_cypher_string(identifier_value)}',
+            type: '{self._escape_cypher_string(identifier_type)}'
+        }})
+        OPTIONAL MATCH (e)-[hf:HAS_FACT]->(f:Fact)
+        OPTIONAL MATCH (f)-[df:DERIVED_FROM]->(s:Source)
+        RETURN collect(DISTINCT {{
+            entity: e,
+            identifier: i,
+            relationship: r,
+            fact: f,
+            source: s,
+            fact_relationship: hf
+        }}) AS result
+        """
+
+        record = await self._execute_cypher(
+            cypher_query=cypher_query,
+            as_clause="as (result agtype)",
+            fetch_mode="row",
+        )
+
+        if not record:
+            return None
+
+        record = cast(asyncpg.Record, record)
+        result_str = cast(str, record["result"])
+        cleaned_result_str = self._clean_agtype_string(result_str)
+        results_list = cast(list[dict[str, Any]], json.loads(cleaned_result_str))
+        if not results_list:
+            return None
+
+        # The first result contains the entity and identifier info
+        first_result = results_list[0]
+
+        # Extract entity
+        entity_props = cast(dict[str, Any], first_result["entity"]["properties"])
+        entity = Entity(
+            id=UUID(entity_props["id"]),
+            created_at=datetime.fromisoformat(entity_props["created_at"]),
+            metadata=json.loads(entity_props["metadata"])
+            if entity_props["metadata"]
+            else {},
+        )
+
+        # Extract identifier and relationship
+        identifier_props = cast(
+            dict[str, Any], first_result["identifier"]["properties"]
+        )
+        relationship_props = cast(
+            dict[str, Any], first_result["relationship"]["properties"]
+        )
+
+        identifier = Identifier(
+            value=identifier_props["value"],
+            type=identifier_props["type"],
+        )
+
+        has_identifier_rel = HasIdentifier(
+            from_entity_id=entity.id,
+            to_identifier_value=identifier.value,
+            is_primary=relationship_props["is_primary"],
+            created_at=datetime.fromisoformat(relationship_props["created_at"]),
+        )
+
+        identifier_with_rel: IdentifierWithRelationship = {
+            "identifier": identifier,
+            "relationship": has_identifier_rel,
+        }
+
+        # Build facts with sources from all results
+        facts_with_sources: list[FactWithSource] = []
+
+        for result_item in results_list:
+            fact_data = result_item.get("fact")
+            if not fact_data:  # Skip if no fact
+                continue
+
+            fact_props = cast(dict[str, Any], fact_data["properties"])
+            fact = Fact(
+                name=fact_props["name"],
+                type=fact_props["type"],
+            )
+
+            # Verify fact_id matches (should be computed by model validator)
+            if fact.fact_id != fact_props["fact_id"]:
+                continue
+
+            # At this point we know fact.fact_id is not None
+            assert fact.fact_id is not None
+
+            source = None
+            source_data = result_item.get("source")
+            if source_data:
+                source_props = cast(dict[str, Any], source_data["properties"])
+                source = Source(
+                    id=UUID(source_props["id"]),
+                    content=source_props["content"],
+                    timestamp=datetime.fromisoformat(source_props["timestamp"]),
+                )
+
+            fact_rel_props = cast(
+                dict[str, Any], result_item["fact_relationship"]["properties"]
+            )
+            has_fact_rel = HasFact(
+                from_entity_id=entity.id,
+                to_fact_id=fact.fact_id,
+                verb=fact_rel_props["verb"],
+                confidence_score=fact_rel_props["confidence_score"],
+                created_at=datetime.fromisoformat(fact_rel_props["created_at"]),
+            )
+
+            fact_with_source: FactWithSource = {
+                "fact": fact,
+                "source": source,
+                "relationship": has_fact_rel,
+            }
+            facts_with_sources.append(fact_with_source)
+
+        return {
+            "entity": entity,
+            "identifier": identifier_with_rel,
+            "facts_with_sources": facts_with_sources,
+        }
+
+    @override
+    async def find_entity_by_id(self, entity_id: str) -> FindEntityByIdResult | None:
+        """Find an entity by its ID."""
+        cypher_query = f"""
+        MATCH (e:Entity {{id: '{entity_id}'}})
+        OPTIONAL MATCH (e)-[r:HAS_IDENTIFIER]->(i:Identifier)
+        OPTIONAL MATCH (e)-[hf:HAS_FACT]->(f:Fact)
+        OPTIONAL MATCH (f)-[df:DERIVED_FROM]->(s:Source)
+        RETURN collect(DISTINCT {{
+            entity: e,
+            identifier: i,
+            relationship: r,
+            fact: f,
+            source: s,
+            fact_relationship: hf
+        }}) AS result
+        """
+
+        record = await self._execute_cypher(
+            cypher_query=cypher_query,
+            as_clause="as (result agtype)",
+            fetch_mode="row",
+        )
+
+        if not record:
+            return None
+
+        record = cast(asyncpg.Record, record)
+        result_str = cast(str, record["result"])
+        cleaned_result_str = self._clean_agtype_string(result_str)
+        results_list = cast(list[dict[str, Any]], json.loads(cleaned_result_str))
+
+        if not results_list:
+            return None
+
+        # The first result contains the entity info
+        first_result = results_list[0]
+
+        # Extract entity
+        entity_props = cast(dict[str, Any], first_result["entity"]["properties"])
+        entity = Entity(
+            id=UUID(entity_props["id"]),
+            created_at=datetime.fromisoformat(entity_props["created_at"]),
+            metadata=json.loads(entity_props["metadata"])
+            if entity_props["metadata"]
+            else {},
+        )
+
+        # Find the primary identifier (or first one if no primary exists)
+        identifier_with_rel: IdentifierWithRelationship | None = None
+
+        for result_item in results_list:
+            identifier_data = result_item.get("identifier")
+            relationship_data = result_item.get("relationship")
+
+            if identifier_data and relationship_data:
+                identifier_props = cast(dict[str, Any], identifier_data["properties"])
+                relationship_props = cast(
+                    dict[str, Any], relationship_data["properties"]
+                )
+
+                identifier = Identifier(
+                    value=identifier_props["value"],
+                    type=identifier_props["type"],
+                )
+
+                has_identifier_rel = HasIdentifier(
+                    from_entity_id=entity.id,
+                    to_identifier_value=identifier.value,
+                    is_primary=relationship_props["is_primary"],
+                    created_at=datetime.fromisoformat(relationship_props["created_at"]),
+                )
+
+                # Prefer primary identifier, but take the first one if none is primary
+                if identifier_with_rel is None or relationship_props["is_primary"]:
+                    identifier_with_rel = {
+                        "identifier": identifier,
+                        "relationship": has_identifier_rel,
+                    }
+
+                    # If this is primary, we can stop looking
+                    if relationship_props["is_primary"]:
+                        break
+
+        # Build facts with sources from all results
+        facts_with_sources: list[FactWithSource] = []
+
+        for result_item in results_list:
+            fact_data = result_item.get("fact")
+            if not fact_data:  # Skip if no fact
+                continue
+
+            fact_props = cast(dict[str, Any], fact_data["properties"])
+            fact = Fact(
+                name=fact_props["name"],
+                type=fact_props["type"],
+            )
+
+            # Verify fact_id matches (should be computed by model validator)
+            if fact.fact_id != fact_props["fact_id"]:
+                continue
+
+            # At this point we know fact.fact_id is not None
+            assert fact.fact_id is not None
+
+            source = None
+            source_data = result_item.get("source")
+            if source_data:
+                source_props = cast(dict[str, Any], source_data["properties"])
+                source = Source(
+                    id=UUID(source_props["id"]),
+                    content=source_props["content"],
+                    timestamp=datetime.fromisoformat(source_props["timestamp"]),
+                )
+
+            fact_rel_props = cast(
+                dict[str, Any], result_item["fact_relationship"]["properties"]
+            )
+            has_fact_rel = HasFact(
+                from_entity_id=entity.id,
+                to_fact_id=fact.fact_id,
+                verb=fact_rel_props["verb"],
+                confidence_score=fact_rel_props["confidence_score"],
+                created_at=datetime.fromisoformat(fact_rel_props["created_at"]),
+            )
+
+            fact_with_source: FactWithSource = {
+                "fact": fact,
+                "source": source,
+                "relationship": has_fact_rel,
+            }
+            facts_with_sources.append(fact_with_source)
+
+        return {
+            "entity": entity,
+            "identifier": identifier_with_rel,
+            "facts_with_sources": facts_with_sources,
+        }
+
+    @override
+    async def delete_entity_by_id(self, entity_id: str) -> bool:
+        """Delete an entity by its ID."""
+        # First check if entity exists
+        entity_check = await self.find_entity_by_id(entity_id)
+        if entity_check is None:
+            return False
+
+        # Get facts connected to this entity before deletion
+        entity_data = entity_check
+
+        # For each fact connected to this entity, check if it's used by other entities
+        facts_to_delete = []
+        for fact_data in entity_data["facts_with_sources"]:
+            fact_id = fact_data["fact"].fact_id
+            assert fact_id is not None
+
+            # Check if this fact is used by other entities
+            check_query = f"""
+            MATCH (f:Fact {{fact_id: '{fact_id}'}})
+            MATCH (e:Entity)-[:HAS_FACT]->(f)
+            RETURN count(e) AS usage_count
+            """
+
+            record = await self._execute_cypher(
+                cypher_query=check_query,
+                as_clause="as (usage_count agtype)",
+                fetch_mode="row",
+            )
+
+            if record:
+                record = cast(asyncpg.Record, record)
+                usage_count_str = cast(str, record["usage_count"])
+                usage_count = int(usage_count_str)
+
+                # If only used by this entity (usage_count == 1), mark for deletion
+                if usage_count == 1:
+                    facts_to_delete.append(fact_id)
+
+        # Now perform the cascading delete
+        # 1. Delete HAS_FACT relationships for this entity
+        # 2. Delete HAS_IDENTIFIER relationships for this entity
+        # 3. Delete facts that are only used by this entity
+        # 4. Delete sources that are no longer referenced
+        # 5. Delete identifiers that are no longer referenced
+        # 6. Delete the entity itself
+
+        # Delete HAS_FACT relationships for this entity
+        delete_has_fact_query = f"""
+        MATCH (e:Entity {{id: '{entity_id}'}})-[hf:HAS_FACT]->(f:Fact)
+        DETACH DELETE hf
+        RETURN count(hf) AS deleted_count
+        """
+
+        await self._execute_cypher(
+            cypher_query=delete_has_fact_query,
+            as_clause="as (deleted_count agtype)",
+            fetch_mode="row",
+        )
+
+        # Delete HAS_IDENTIFIER relationships for this entity
+        delete_has_identifier_query = f"""
+        MATCH (e:Entity {{id: '{entity_id}'}})-[hi:HAS_IDENTIFIER]->(i:Identifier)
+        DETACH DELETE hi
+        RETURN count(hi) AS deleted_count
+        """
+
+        await self._execute_cypher(
+            cypher_query=delete_has_identifier_query,
+            as_clause="as (deleted_count agtype)",
+            fetch_mode="row",
+        )
+
+        # Delete the entity itself
+        delete_entity_query = f"""
+        MATCH (e:Entity {{id: '{entity_id}'}})
+        DETACH DELETE e
+        RETURN true AS entity_deleted
+        """
+
+        record = await self._execute_cypher(
+            cypher_query=delete_entity_query,
+            as_clause="as (entity_deleted agtype)",
+            fetch_mode="row",
+        )
+
+        if not record:
+            raise RuntimeError(f"Failed to delete entity '{entity_id}'")
+
+        # Now delete facts that were only used by this entity
+        for fact_id in facts_to_delete:
+            # Get the source ID before deleting the fact
+            source_query = f"""
+            MATCH (f:Fact {{fact_id: '{fact_id}'}})
+            OPTIONAL MATCH (f)-[:DERIVED_FROM]->(s:Source)
+            RETURN s.id AS source_id
+            """
+
+            source_record = await self._execute_cypher(
+                cypher_query=source_query,
+                as_clause="as (source_id agtype)",
+                fetch_mode="row",
+            )
+
+            # Delete the fact
+            delete_fact_query = f"""
+            MATCH (f:Fact {{fact_id: '{fact_id}'}})
+            DETACH DELETE f
+            RETURN true AS fact_deleted
+            """
+
+            await self._execute_cypher(
+                cypher_query=delete_fact_query,
+                as_clause="as (fact_deleted agtype)",
+                fetch_mode="row",
+            )
+
+            # Check if source should be deleted (no longer referenced by any facts)
+            if source_record:
+                source_record = cast(asyncpg.Record, source_record)
+                source_id_str = cast(str, source_record["source_id"])
+
+                if source_id_str != "null":
+                    # Check if source is still used by other facts
+                    check_source_usage = f"""
+                    MATCH (s:Source {{id: '{source_id_str}'}})
+                    OPTIONAL MATCH (f:Fact)-[:DERIVED_FROM]->(s)
+                    RETURN count(f) AS usage_count
+                    """
+
+                    usage_record = await self._execute_cypher(
+                        cypher_query=check_source_usage,
+                        as_clause="as (usage_count agtype)",
+                        fetch_mode="row",
+                    )
+
+                    if usage_record:
+                        usage_record = cast(asyncpg.Record, usage_record)
+                        usage_count_str = cast(str, usage_record["usage_count"])
+                        usage_count = int(usage_count_str)
+
+                        # Delete source if no longer used
+                        if usage_count == 0:
+                            delete_source_query = f"""
+                            MATCH (s:Source {{id: '{source_id_str}'}})
+                            DETACH DELETE s
+                            RETURN true AS source_deleted
+                            """
+
+                            await self._execute_cypher(
+                                cypher_query=delete_source_query,
+                                as_clause="as (source_deleted agtype)",
+                                fetch_mode="row",
+                            )
+
+        # Check and delete identifiers that are no longer used
+        if entity_data["identifier"]:
+            identifier_value = entity_data["identifier"]["identifier"].value
+            identifier_type = entity_data["identifier"]["identifier"].type
+
+            # Check if identifier is still used by other entities
+            # Note: We need to check after all relationships are deleted
+            check_identifier_query = f"""
+            MATCH (i:Identifier {{value: '{self._escape_cypher_string(identifier_value)}', type: '{self._escape_cypher_string(identifier_type)}'}})
+            OPTIONAL MATCH (e:Entity)-[:HAS_IDENTIFIER]->(i)
+            RETURN count(e) AS identifier_usage_count
+            """
+
+            record = await self._execute_cypher(
+                cypher_query=check_identifier_query,
+                as_clause="as (identifier_usage_count agtype)",
+                fetch_mode="row",
+            )
+
+            if record:
+                record = cast(asyncpg.Record, record)
+                usage_count_str = cast(str, record["identifier_usage_count"])
+                usage_count = int(usage_count_str)
+
+                # If no longer used, delete the identifier
+                if usage_count == 0:
+                    delete_identifier_query = f"""
+                    MATCH (i:Identifier {{value: '{self._escape_cypher_string(identifier_value)}', type: '{self._escape_cypher_string(identifier_type)}'}})
+                    DETACH DELETE i
+                    RETURN true AS identifier_deleted
+                    """
+
+                    await self._execute_cypher(
+                        cypher_query=delete_identifier_query,
+                        as_clause="as (identifier_deleted agtype)",
+                        fetch_mode="row",
+                    )
+
+        return True
+
+    @override
+    async def add_fact_to_entity(
+        self,
+        entity_id: str,
+        fact: Fact,
+        source: Source,
+        verb: str,
+        confidence_score: float = 1.0,
+        create_source: bool = True,
+    ) -> AddFactToEntityResult:
+        """
+        Add a fact to an entity with its source using an idempotent approach.
+
+        This method creates or updates the fact, source, and relationships in the graph.
+        If create_source is False, it will only create the relationship to an existing source.
+        """
+        # Ensure fact_id is set
+        if fact.fact_id is None:
+            raise ValueError("Fact must have a fact_id set")
+
+        # First check if the entity exists
+        entity_check = await self.find_entity_by_id(entity_id)
+        if entity_check is None:
+            raise ValueError(f"Entity with ID '{entity_id}' does not exist")
+
+        # Check if the HAS_FACT relationship already exists
+        check_query = f"""
+        MATCH (e:Entity {{id: '{entity_id}'}})-[hf:HAS_FACT {{
+            verb: '{self._escape_cypher_string(verb)}'
+        }}]->(f:Fact {{fact_id: '{fact.fact_id}'}})
+        RETURN hf AS relationship
+        """
+
+        existing_rel = await self._execute_cypher(
+            cypher_query=check_query,
+            as_clause="as (relationship agtype)",
+            fetch_mode="row",
+        )
+
+        if existing_rel:
+            # Relationship already exists, return the existing data
+            # Get the full data by finding the entity
+            found = await self.find_entity_by_id(entity_id)
+            if found and found["facts_with_sources"]:
+                # Find the matching fact
+                for fact_with_source in found["facts_with_sources"]:
+                    if (
+                        fact_with_source["fact"].fact_id == fact.fact_id
+                        and fact_with_source["relationship"].verb == verb
+                    ):
+                        if fact_with_source["source"] is None:
+                            raise RuntimeError(
+                                "Existing fact relationship found but source is missing"
+                            )
+                        derived_from_rel = DerivedFrom(
+                            from_fact_id=fact.fact_id,
+                            to_source_id=fact_with_source["source"].id,
+                        )
+                        return {
+                            "fact": fact_with_source["fact"],
+                            "source": fact_with_source["source"],
+                            "has_fact_relationship": fact_with_source["relationship"],
+                            "derived_from_relationship": derived_from_rel,
+                        }
+            raise RuntimeError("Relationship exists but could not retrieve data")
+
+        # Relationship doesn't exist, create it
+        cypher_query = f"""
+        MATCH (e:Entity {{id: '{entity_id}'}})
+        MERGE (f:Fact {{
+            fact_id: '{fact.fact_id}',
+            name: '{self._escape_cypher_string(fact.name)}',
+            type: '{self._escape_cypher_string(fact.type)}'
+        }})
+        MERGE (s:Source {{
+            id: '{source.id}',
+            content: '{self._escape_cypher_string(source.content)}',
+            timestamp: '{source.timestamp.isoformat()}'
+        }})
+        CREATE (e)-[hf:HAS_FACT {{
+            verb: '{self._escape_cypher_string(verb)}',
+            confidence_score: {confidence_score},
+            created_at: '{datetime.now().isoformat()}'
+        }}]->(f)
+        MERGE (f)-[df:DERIVED_FROM]->(s)
+        RETURN {{
+            fact: f,
+            source: s,
+            has_fact_relationship: hf,
+            derived_from_relationship: df
+        }} AS result
+        """
+
+        # Execute the query using the helper method
+        record = await self._execute_cypher(
+            cypher_query=cypher_query,
+            as_clause="as (result agtype)",
+            fetch_mode="row",
+        )
+
+        if not record:
+            raise RuntimeError(
+                f"Failed to add fact '{fact.fact_id}' to entity '{entity_id}', the query returned no results."
+            )
+
+        # Extract the result string from the agtype, clean it, and parse it as JSON
+        record = cast(asyncpg.Record, record)
+        result_str = cast(str, record["result"])
+
+        cleaned_result_str = self._clean_agtype_string(result_str)
+        result_map = cast(dict[str, Any], json.loads(cleaned_result_str))
+
+        # Extract properties from the agtype objects
+        fact_props = cast(dict[str, Any], result_map["fact"]["properties"])
+        source_props = cast(dict[str, Any], result_map["source"]["properties"])
+        has_fact_props = cast(
+            dict[str, Any], result_map["has_fact_relationship"]["properties"]
+        )
+
+        # Reconstruct the objects
+        # Note: fact_id is automatically computed by the model validator from name and type
+        created_fact = Fact(
+            name=fact_props["name"],
+            type=fact_props["type"],
+        )
+        # Verify the fact_id matches what we expect
+        if created_fact.fact_id != fact_props["fact_id"]:
+            raise RuntimeError(
+                f"Fact ID mismatch: expected '{fact_props['fact_id']}', got '{created_fact.fact_id}'"
+            )
+        # At this point we know fact_id is not None
+        assert created_fact.fact_id is not None
+
+        created_source = Source(
+            id=UUID(source_props["id"]),
+            content=source_props["content"],
+            timestamp=datetime.fromisoformat(source_props["timestamp"]),
+        )
+
+        created_has_fact = HasFact(
+            from_entity_id=UUID(entity_id),
+            to_fact_id=created_fact.fact_id,
+            verb=has_fact_props["verb"],
+            confidence_score=has_fact_props["confidence_score"],
+            created_at=datetime.fromisoformat(has_fact_props["created_at"]),
+        )
+
+        # Note: DerivedFrom relationship doesn't have additional properties beyond the connection
+        derived_from_rel = DerivedFrom(
+            from_fact_id=created_fact.fact_id,
+            to_source_id=created_source.id,
+        )
+
+        return {
+            "fact": created_fact,
+            "source": created_source,
+            "has_fact_relationship": created_has_fact,
+            "derived_from_relationship": derived_from_rel,
+        }
+
+    @override
+    async def find_fact_by_id(self, fact_id: str) -> FactWithOptionalSource | None:
+        """Find a fact by its ID."""
+        cypher_query = f"""
+        MATCH (f:Fact {{fact_id: '{fact_id}'}})
+        OPTIONAL MATCH (f)-[df:DERIVED_FROM]->(s:Source)
+        RETURN {{
+            fact: f,
+            source: s
+        }} AS result
+        """
+
+        record = await self._execute_cypher(
+            cypher_query=cypher_query,
+            as_clause="as (result agtype)",
+            fetch_mode="row",
+        )
+
+        if not record:
+            return None
+
+        record = cast(asyncpg.Record, record)
+        result_str = cast(str, record["result"])
+        cleaned_result_str = self._clean_agtype_string(result_str)
+        result_map = cast(dict[str, Any], json.loads(cleaned_result_str))
+
+        # Extract fact properties
+        fact_props = cast(dict[str, Any], result_map["fact"]["properties"])
+        fact = Fact(
+            name=fact_props["name"],
+            type=fact_props["type"],
+        )
+
+        # Verify fact_id matches (should be computed by model validator)
+        if fact.fact_id != fact_props["fact_id"]:
+            return None
+
+        # Extract source if it exists
+        source = None
+        source_data = result_map.get("source")
+        if source_data:
+            source_props = cast(dict[str, Any], source_data["properties"])
+            source = Source(
+                id=UUID(source_props["id"]),
+                content=source_props["content"],
+                timestamp=datetime.fromisoformat(source_props["timestamp"]),
+            )
+
+        return {
+            "fact": fact,
+            "source": source,
+        }
+
+    async def clear_all_data(self) -> None:
+        """Clear all data from the graph. Used for testing."""
+        _ = await self._execute_cypher(
+            cypher_query="MATCH (n) DETACH DELETE n",
+            as_clause="as (result agtype)",
+            fetch_mode="none",
+        )
+</file>
+
+<file path="apps/api/app/features/graph/repositories/base.py">
+"""Base classes and protocols for graph repositories."""
+
+from typing import Protocol
+
+from app.features.graph.models import Entity, Fact, HasIdentifier, Identifier, Source
+from app.features.graph.repositories.types import (
+    AddFactToEntityResult,
+    CreateEntityResult,
+    FactWithOptionalSource,
+    FindEntityByIdResult,
+    FindEntityResult,
+)
+
+
+class GraphRepository(Protocol):
+    """Protocol for a generic graph repository."""
+
+    async def create_entity(
+        self, entity: Entity, identifier: Identifier, relationship: HasIdentifier
+    ) -> CreateEntityResult:
+        """Create a new entity with an identifier."""
+        ...
+
+    async def find_entity_by_identifier(
+        self, identifier_value: str, identifier_type: str
+    ) -> FindEntityResult | None:
+        """Find an entity by its identifier."""
+        ...
+
+    async def find_entity_by_id(self, entity_id: str) -> FindEntityByIdResult | None:
+        """Find an entity by its ID."""
+        ...
+
+    async def delete_entity_by_id(self, entity_id: str) -> bool:
+        """Delete an entity by its ID."""
+        ...
+
+    async def add_fact_to_entity(
+        self,
+        entity_id: str,
+        fact: Fact,
+        source: Source,
+        verb: str,
+        confidence_score: float = 1.0,
+        create_source: bool = True,
+    ) -> AddFactToEntityResult:
+        """Add a fact to an entity."""
+        ...
+
+    async def find_fact_by_id(self, fact_id: str) -> FactWithOptionalSource | None:
+        """Find a fact by its ID."""
+        ...
+</file>
+
+<file path="apps/api/app/features/graph/repositories/types.py">
+"""Type definitions for graph repository operations."""
+
+from typing import TypedDict
+
+from app.features.graph.models import (
+    DerivedFrom,
+    Entity,
+    Fact,
+    HasFact,
+    HasIdentifier,
+    Identifier,
+    Source,
+)
+
+
+class CreateEntityResult(TypedDict):
+    """Result of creating a new entity with its identifier and relationship."""
+
+    entity: Entity
+    identifier: Identifier
+    relationship: HasIdentifier
+
+
+class FactWithSource(TypedDict):
+    """A fact with its associated source information."""
+
+    fact: Fact
+    source: Source | None
+    relationship: HasFact
+
+
+class FactWithOptionalSource(TypedDict):
+    """A fact with its optionally associated source information."""
+
+    fact: Fact
+    source: Source | None
+
+
+class IdentifierWithRelationship(TypedDict):
+    """Groups the identifier used for the lookup with its relationship to the entity."""
+
+    identifier: Identifier
+    relationship: HasIdentifier
+
+
+class FindEntityResult(TypedDict):
+    """Result of finding an entity by its identifier, including facts and sources."""
+
+    entity: Entity
+    identifier: IdentifierWithRelationship
+    facts_with_sources: list[FactWithSource]
+
+
+class FindEntityByIdResult(TypedDict):
+    """Result of finding an entity by its ID, including facts and sources."""
+
+    entity: Entity
+    identifier: IdentifierWithRelationship | None
+    facts_with_sources: list[FactWithSource]
+
+
+class EntityWithRelations(TypedDict):
+    """Complete entity data with all its relationships and associated objects."""
+
+    entity: Entity
+    identifiers: list[Identifier]
+    facts_with_sources: list[FactWithSource]
+
+
+class AddFactToEntityResult(TypedDict):
+    """Result of adding a fact with source to an entity."""
+
+    fact: Fact
+    source: Source
+    has_fact_relationship: HasFact
+    derived_from_relationship: DerivedFrom
+</file>
+
+<file path="apps/api/app/features/graph/services/langchain_fact_extractor.py">
+"""Fact extraction service using LangChain and Google's Gemini model."""
+
+from typing import cast
+
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_google_genai import ChatGoogleGenerativeAI
+from pydantic import BaseModel, Field
+
+from app.core.settings import Settings
+from app.features.graph.dtos.knowledge_dto import ExtractedFactDto, IdentifierDto
+
+
+class ExtractedFact(BaseModel):
+    """A single, discrete fact extracted from a text."""
+
+    name: str = Field(
+        ...,
+        description="The name or value of the fact (e.g., 'Paris', 'Software Engineer')",
+    )
+    type: str = Field(
+        ...,
+        description="The category of the fact (e.g., 'Location', 'Profession', 'Hobby')",
+    )
+    verb: str = Field(
+        ...,
+        description="The semantic verb connecting the entity to the fact (e.g., 'lives_in', 'works_at', 'is_a')",
+    )
+    confidence_score: float = Field(
+        default=1.0,
+        ge=0.0,
+        le=1.0,
+        description="The confidence score of the extracted fact, from 0.0 to 1.0",
+    )
+
+
+class FactList(BaseModel):
+    """A list of facts extracted from a text."""
+
+    facts: list[ExtractedFact]
+
+
+class LangChainFactExtractor:
+    """Extracts facts from text content using LangChain and Gemini.
+
+    This service can process text in any language, but standardizes the output
+    by generating fact 'types' and 'verbs' in English, while keeping the fact
+    'name' in the original language.
+    """
+
+    def __init__(self):
+        """Initialize the fact extractor with LangChain and Gemini model."""
+        # Create settings that will read from current environment
+        settings = Settings()
+        if not settings.google_api_key:
+            raise ValueError("GOOGLE_API_KEY environment variable not set.")
+
+        # Create the prompt template for fact extraction
+        prompt = ChatPromptTemplate.from_messages(
+            [
+                (
+                    "system",
+                    """You are an expert at extracting key facts about a specific entity from text.
+The text is a turn in a conversation. Your task is to identify discrete, meaningful facts from the provided text that are relevant to the entity identified by: {entity_identifier}.
+You may also be provided with the history of the conversation for context.
+
+Guidelines:
+- The input text can be in any language. However, the `type` and `verb` values in your output **MUST be in valid English**. The `name` value should remain in the original language of the input text.
+- Extract facts that are specific and verifiable, but also sentiments or opinions if they are stated as facts by the entity (e.g., 'likes chocolate', 'dislikes flying').
+- For each fact, provide a 'verb' that describes the relationship from the entity to the fact (e.g., 'lives_in', 'works_at', 'is_a', 'likes', 'dislikes').
+- Use clear, concise names and appropriate categories for each fact.
+- Provide a confidence score (0.0 to 1.0) indicating how certain you are about the extracted fact.
+- Focus on facts that would be useful for building a knowledge graph about the entity's preferences, statements, and characteristics.
+- If the text contains no new facts about the entity, return an empty list.
+- Avoid extracting subjective opinions or interpretations from *other* people in the conversation, focus on the identified entity.
+- Ignore generic statements, meta-comments, or information that isn't a specific characteristic, preference, or action of the entity. For example, from 'This is a test entity with minimal information.', no facts should be extracted.
+
+Example 1:
+If the entity is 'email:john.doe@example.com' and the text is 'I really enjoy hiking on weekends.', the output should be:
+[
+    {{ "name": "Hiking", "type": "Hobby", "verb": "enjoys", "confidence_score": 1.0 }}
+]
+
+Example 2:
+If the entity is 'email:jane.doe@example.com' and the text is 'I think that new project is a bad idea.', the output could be:
+[
+    {{ "name": "new project", "type": "Opinion", "verb": "considers_bad_idea", "confidence_score": 0.9 }}
+]
+
+Example 3:
+If the entity is 'name:Mariele' and the text is 'De tomar a decisão correta em uma empresa nova que eu e meu marido vamos abrir', the output could be:
+[
+    {{ "name": "tomar a decisão correta em uma empresa nova", "type": "Goal", "verb": "wants_to_make_right_decision", "confidence_score": 0.9 }}
+]""",
+                ),
+                ("human", "{history_section}Here is the text to analyze:\n\n{content}"),
+            ]
+        )
+
+        # Initialize the Gemini model
+        llm = ChatGoogleGenerativeAI(
+            model="gemini-2.5-flash",
+            temperature=0,
+            google_api_key=settings.google_api_key,
+        )
+
+        # Create structured output chain
+        structured_llm = llm.with_structured_output(FactList)
+        self.chain = prompt | structured_llm
+
+    async def extract_facts(
+        self,
+        content: str,
+        entity_identifier: IdentifierDto,
+        history: list[str] | None = None,
+    ) -> list[ExtractedFactDto]:
+        """Extracts facts and converts them to the required dictionary format.
+
+        Args:
+            content: The text content to extract facts from
+            entity_identifier: The entity identifier payload
+            history: Optional list of previous conversational turns for context.
+
+        Returns:
+            List of dictionaries containing fact name, type, verb and confidence
+        """
+        history_section = ""
+        if history:
+            history_section = (
+                "For context, here is the preceding conversation:\n"
+                + "\n".join(history)
+                + "\n\n"
+            )
+
+        response: FactList = cast(
+            FactList,
+            await self.chain.ainvoke(
+                {
+                    "content": content,
+                    "entity_identifier": f"{entity_identifier.type}:{entity_identifier.value}",
+                    "history_section": history_section,
+                }
+            ),
+        )
+        return [
+            ExtractedFactDto(
+                name=fact.name,
+                type=fact.type,
+                verb=fact.verb,
+                confidence_score=fact.confidence_score,
+            )
+            for fact in response.facts
+        ]
+</file>
+
+<file path="apps/api/app/features/graph/usecases/__init__.py">
+"""Graph database use cases package.
+
+This package contains all use cases for the graph database feature.
+"""
+
+from .assimilate_knowledge_usecase import (
+    AssimilateKnowledgeUseCaseImpl,
+)
+from .get_entity_usecase import (
+    GetEntityUseCaseImpl,
+)
+
+__all__ = [
+    "AssimilateKnowledgeUseCaseImpl",
+    "GetEntityUseCaseImpl",
+]
+</file>
+
+<file path="apps/api/app/features/graph/usecases/assimilate_knowledge_usecase.py">
+"""Use case for assimilating knowledge into the graph database.
+
+This module defines the use case for processing textual content,
+extracting facts, and associating them with entities.
+"""
+
+from datetime import datetime, timezone
+from typing import Protocol, cast
+from uuid import uuid4
+
+from app.features.graph.dtos.knowledge_dto import (
+    AssimilatedFactDto,
+    AssimilateKnowledgeRequest,
+    AssimilateKnowledgeResponse,
+    EntityDto,
+    ExtractedFactDto,
+    FactDto,
+    HasFactDto,
+    IdentifierDto,
+    SourceDto,
+)
+from app.features.graph.models import (
+    Entity,
+    Fact,
+    HasIdentifier,
+    Identifier,
+    Source,
+)
+from app.features.graph.repositories.base import GraphRepository
+
+
+class FactExtractor(Protocol):
+    """Protocol for extracting facts from text content."""
+
+    async def extract_facts(
+        self,
+        content: str,
+        entity_identifier: IdentifierDto,
+        history: list[str] | None = None,
+    ) -> list[ExtractedFactDto]:
+        """Extract facts from text content."""
+        ...
+
+
+class AssimilateKnowledgeUseCaseImpl:
+    """Implementation of the assimilate knowledge use case."""
+
+    def __init__(self, repository: GraphRepository, fact_extractor: FactExtractor):
+        """Initialize the use case with dependencies.
+
+        Args:
+            repository: Repository for graph database operations
+            fact_extractor: Service for extracting facts from text
+        """
+        self.repository: GraphRepository = repository
+        self.fact_extractor: FactExtractor = fact_extractor
+
+    async def execute(
+        self, request: AssimilateKnowledgeRequest
+    ) -> AssimilateKnowledgeResponse:
+        """Process content and associate facts with an entity.
+
+        Args:
+            request: The request containing identifier, content, and timestamp
+
+        Returns:
+            Response containing the entity, source, and extracted facts
+        """
+        # 1. Find or create entity based on identifier
+        entity_result = await self.repository.find_entity_by_identifier(
+            request.identifier.value, request.identifier.type
+        )
+
+        if entity_result is None:
+            # Create new entity with identifier
+            new_entity = Entity(id=uuid4(), created_at=datetime.now(timezone.utc))
+            identifier = Identifier(
+                value=request.identifier.value, type=request.identifier.type
+            )
+            has_identifier = HasIdentifier(
+                from_entity_id=new_entity.id,
+                to_identifier_value=identifier.value,
+                is_primary=True,
+                created_at=datetime.now(timezone.utc),
+            )
+
+            create_result = await self.repository.create_entity(
+                new_entity, identifier, has_identifier
+            )
+            entity_result = {
+                "entity": create_result["entity"],
+                "identifier": create_result["identifier"],
+                "relationship": create_result["relationship"],
+            }
+
+        entity: Entity = cast(Entity, entity_result["entity"])
+
+        # 2. Create source from content and timestamp
+        source = Source(
+            id=uuid4(),
+            content=request.content,
+            timestamp=request.timestamp or datetime.now(timezone.utc),
+        )
+
+        # 3. Extract facts using fact_extractor
+        extracted_facts_data = await self.fact_extractor.extract_facts(
+            request.content, request.identifier, request.history
+        )
+        assimilated_facts: list[AssimilatedFactDto] = []
+
+        # 4. Create and link facts to entity
+        for i, fact_data in enumerate(extracted_facts_data):
+            # Create fact model
+            fact = Fact(name=fact_data.name, type=fact_data.type)
+
+            # Ensure fact_id is not None (this should be set by the model validator)
+            if not fact.fact_id:
+                raise ValueError(f"Fact ID cannot be None for fact: {fact.name}")
+
+            # Add fact to entity using repository method
+            # Create source only for the first fact
+            create_source = i == 0
+            result = await self.repository.add_fact_to_entity(
+                entity_id=str(entity.id),
+                fact=fact,
+                source=source,
+                verb=fact_data.verb,
+                confidence_score=fact_data.confidence_score,
+                create_source=create_source,
+            )
+
+            # Add to response
+            fact_dto = FactDto(
+                name=result["fact"].name,
+                type=result["fact"].type,
+                fact_id=result["fact"].fact_id,
+            )
+            has_fact_dto = HasFactDto(
+                verb=result["has_fact_relationship"].verb,
+                confidence_score=result["has_fact_relationship"].confidence_score,
+                created_at=result["has_fact_relationship"].created_at,
+            )
+            assimilated_fact_dto = AssimilatedFactDto(
+                fact=fact_dto,
+                relationship=has_fact_dto,
+            )
+            assimilated_facts.append(assimilated_fact_dto)
+
+        # 4. Return response with entity, source, and assimilated facts
+        return AssimilateKnowledgeResponse(
+            entity=EntityDto(
+                id=entity.id,
+                created_at=entity.created_at,
+                metadata=entity.metadata or {},
+            ),
+            source=SourceDto(
+                id=source.id,
+                content=source.content,
+                timestamp=source.timestamp,
+            ),
+            assimilated_facts=assimilated_facts,
+        )
+</file>
+
+<file path="apps/api/app/features/graph/usecases/get_entity_usecase.py">
+"""Use case for retrieving entity information by identifier.
+
+This module defines the use case for fetching entity details including
+their identifiers and associated facts with sources.
+"""
+
+from fastapi import HTTPException, status
+
+from app.features.graph.dtos.knowledge_dto import (
+    EntityDto,
+    FactDto,
+    FactWithSourceDto,
+    GetEntityResponse,
+    HasFactDto,
+    HasIdentifierDto,
+    IdentifierDto,
+    IdentifierWithRelationshipDto,
+    SourceDto,
+)
+from app.features.graph.models.fact_model import Fact
+from app.features.graph.repositories.base import GraphRepository
+from app.features.graph.repositories.types import FindEntityResult
+
+
+class GetEntityUseCaseImpl:
+    """Implementation of the get entity use case."""
+
+    def __init__(self, repository: GraphRepository):
+        """Initialize the use case with dependencies.
+
+        Args:
+            repository: Repository for graph database operations
+        """
+        self.repository: GraphRepository = repository
+
+    async def execute(
+        self, identifier_value: str, identifier_type: str
+    ) -> GetEntityResponse:
+        """Retrieve entity information by identifier.
+
+        Args:
+            identifier_value: The identifier value (e.g., 'user@example.com')
+            identifier_type: The identifier type (e.g., 'email', 'phone')
+
+        Returns:
+            GetEntityResponse containing the entity, identifier, and facts
+
+        Raises:
+            HTTPException: If the entity is not found (404)
+        """
+        entity_result: (
+            FindEntityResult | None
+        ) = await self.repository.find_entity_by_identifier(
+            identifier_value, identifier_type
+        )
+
+        if entity_result is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Entity with identifier '{identifier_type}:{identifier_value}' not found",
+            )
+
+        # Map entity to DTO
+        entity_dto = EntityDto(
+            id=entity_result["entity"].id,
+            created_at=entity_result["entity"].created_at,
+            metadata=entity_result["entity"].metadata or {},
+        )
+
+        # Map identifier and relationship to DTOs
+        identifier_dto = IdentifierDto(
+            value=entity_result["identifier"]["identifier"].value,
+            type=entity_result["identifier"]["identifier"].type,
+        )
+        has_identifier_dto = HasIdentifierDto(
+            is_primary=entity_result["identifier"]["relationship"].is_primary,
+            created_at=entity_result["identifier"]["relationship"].created_at,
+        )
+        identifier_with_relationship_dto = IdentifierWithRelationshipDto(
+            identifier=identifier_dto,
+            relationship=has_identifier_dto,
+        )
+
+        # Map facts with sources to DTOs
+        facts_with_sources_dto: list[FactWithSourceDto] = []
+        for fact_with_source in entity_result["facts_with_sources"]:
+            fact: Fact = fact_with_source["fact"]
+            relationship_dto = HasFactDto(
+                verb=fact_with_source["relationship"].verb,
+                confidence_score=fact_with_source["relationship"].confidence_score,
+                created_at=fact_with_source["relationship"].created_at,
+            )
+            source_dto = None
+            if fact_with_source["source"] is not None:
+                source_dto = SourceDto(
+                    id=fact_with_source["source"].id,
+                    content=fact_with_source["source"].content,
+                    timestamp=fact_with_source["source"].timestamp,
+                )
+            fact_with_source_dto = FactWithSourceDto(
+                fact=FactDto(
+                    name=fact.name,
+                    type=fact.type,
+                    fact_id=fact.fact_id,
+                ),
+                relationship=relationship_dto,
+                source=source_dto,
+            )
+            facts_with_sources_dto.append(fact_with_source_dto)
+
+        return GetEntityResponse(
+            entity=entity_dto,
+            identifier=identifier_with_relationship_dto,
+            facts=facts_with_sources_dto,
+        )
+</file>
+
+<file path="apps/api/app/features/graph/router.py">
+"""Graph database API routes - main router that includes all entity-specific route modules."""
+
+from typing import Protocol
+
+from fastapi import APIRouter, Depends
+
+from app.db.postgres.connection import get_db_pool
+from app.features.graph.dtos.knowledge_dto import (
+    AssimilateKnowledgeRequest,
+    AssimilateKnowledgeResponse,
+    GetEntityResponse,
+)
+from app.features.graph.repositories.age_repository import AgeRepository
+from app.features.graph.services.langchain_fact_extractor import LangChainFactExtractor
+from app.features.graph.usecases import (
+    AssimilateKnowledgeUseCaseImpl,
+    GetEntityUseCaseImpl,
+)
+
+
+class AssimilateKnowledgeUseCase(Protocol):
+    """Protocol for the assimilate knowledge use case."""
+
+    async def execute(
+        self, request: AssimilateKnowledgeRequest
+    ) -> AssimilateKnowledgeResponse:
+        """Process content and associate facts with an entity."""
+        ...
+
+
+class GetEntityUseCase(Protocol):
+    """Protocol for the get entity use case."""
+
+    async def execute(
+        self, identifier_value: str, identifier_type: str
+    ) -> GetEntityResponse:
+        """Retrieve entity information by identifier."""
+        ...
+
+
+router = APIRouter(prefix="/graph", tags=["graph"])
+
+
+# Create the fact extractor instance at module level to avoid instantiation issues
+_fact_extractor = LangChainFactExtractor()
+
+
+async def get_assimilate_knowledge_use_case() -> AssimilateKnowledgeUseCase:
+    """Dependency injection for the assimilate knowledge use case."""
+
+    pool = await get_db_pool()
+    return AssimilateKnowledgeUseCaseImpl(
+        repository=AgeRepository(pool), fact_extractor=_fact_extractor
+    )
+
+
+async def get_get_entity_use_case() -> GetEntityUseCase:
+    """Dependency injection for the get entity use case."""
+
+    pool = await get_db_pool()
+    return GetEntityUseCaseImpl(repository=AgeRepository(pool))
+
+
+@router.post("/entities/assimilate", response_model=AssimilateKnowledgeResponse)
+async def assimilate_knowledge(
+    request: AssimilateKnowledgeRequest,
+    use_case: AssimilateKnowledgeUseCase = Depends(get_assimilate_knowledge_use_case),
+) -> AssimilateKnowledgeResponse:
+    """Assimilate knowledge by processing content and associating facts with an entity.
+
+    This endpoint processes textual content, extracts facts, and associates them
+    with the specified entity in the knowledge graph.
+    """
+
+    return await use_case.execute(request)
+
+
+@router.get("/entities/lookup", response_model=GetEntityResponse)
+async def get_entity(
+    type: str,
+    value: str,
+    use_case: GetEntityUseCase = Depends(get_get_entity_use_case),
+) -> GetEntityResponse:
+    """Retrieve entity information by identifier.
+
+    This endpoint looks up an entity using an external identifier (e.g., email, phone)
+    and returns the entity details along with all associated facts and their sources.
+    """
+
+    return await use_case.execute(identifier_value=value, identifier_type=type)
+</file>
+
+<file path="apps/api/app/features/__init__.py">
+# Empty file to make features a package
+</file>
+
+<file path="apps/api/app/__init__.py">
+# Empty file to make app a package
+</file>
+
+<file path="apps/api/app/main.py">
+"""Main FastAPI application entry point."""
+
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from app.core.settings import get_settings
+from app.db.postgres.connection import close_db_pool, get_db_pool
+from app.features.graph.router import router as graph_router
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
+    """Application lifespan context manager.
+    Handles startup and shutdown events.
+    """
+    # Startup
+    settings = get_settings()
+    print(f"Starting {settings.app_name} v{settings.app_version}")
+    await get_db_pool()
+    print("Database connection pool created.")
+
+    yield
+
+    # Shutdown
+    print("Shutting down application")
+    await close_db_pool()
+    print("Database connection pool closed.")
+
+
+def create_app() -> FastAPI:
+    """Create and configure the FastAPI application."""
+    settings = get_settings()
+
+    app = FastAPI(
+        title=settings.app_name,
+        version=settings.app_version,
+        description="FastAPI application with modular architecture",
+        lifespan=lifespan,
+    )
+
+    # Add CORS middleware
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.allowed_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    # Include routers
+    app.include_router(graph_router, prefix="/api/v1")
+
+    @app.get("/health")
+    async def health_check() -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
+        """Health check endpoint."""
+        return {"status": "healthy"}
+
+    return app
+
+
+# Create the app instance
+app = create_app()
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    settings = get_settings()
+    uvicorn.run(
+        "app.main:app",
+        host=settings.host,
+        port=settings.port,
+        reload=settings.debug,
+        log_level="info" if not settings.debug else "debug",
+    )
+</file>
+
+<file path="apps/api/compose/postgres/Dockerfile">
+# Use a specific version of the official PostgreSQL image for reproducibility
+ARG PG_VERSION=16
+FROM postgres:${PG_VERSION}
+
+# Re-declare the ARG to make it available in the rest of the build
+ARG PG_VERSION
+
+# Install build dependencies required for compiling extensions
+# Install build dependencies required for compiling extensions
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    git \
+    ca-certificates \
+    flex \
+    bison \
+    postgresql-server-dev-${PG_VERSION} \
+    && rm -rf /var/lib/apt/lists/*
+
+# --- Install Apache AGE ---
+# Clone the Apache AGE repository
+WORKDIR /usr/src
+RUN git clone https://github.com/apache/age.git
+
+# Build and install the AGE extension
+WORKDIR /usr/src/age
+RUN make install
+
+# --- Install pgvector ---
+# Clone the pgvector repository
+WORKDIR /usr/src
+RUN git clone --branch v0.7.2 https://github.com/pgvector/pgvector.git
+
+# Build and install the pgvector extension
+WORKDIR /usr/src/pgvector
+RUN make install
+
+# --- Cleanup ---
+# Remove build dependencies and source files to reduce image size
+WORKDIR /
+RUN apt-get purge -y --auto-remove build-essential git postgresql-server-dev-${PG_VERSION} \
+    && rm -rf /usr/src/age /usr/src/pgvector
+
+# Switch back to the postgres user
+USER postgres
+</file>
+
+<file path="apps/api/docs/graph_db_schema_age.md">
+# Apache AGE Graph Schema for a Knowledge Graph
+
+This document outlines the graph schema for Apache AGE, a PostgreSQL extension for graph databases. It is designed to implement the conceptual model defined in `graph_db_schema.md`.
+
+Apache AGE follows a dynamic schema approach, meaning vertex and edge labels (types) do not need to be explicitly defined before use. They are created automatically when the first vertex or edge with that label is created. However, for data integrity and query performance, it is crucial to define unique constraints and indexes on key properties.
+
+## 1. Initial Setup
+
+Before creating any data, you must load the AGE extension and create a graph.
+
+```sql
+-- Load the AGE extension
+LOAD 'age';
+
+-- Set the search path to include the graph
+SET search_path = ag_catalog, "$user", public;
+
+-- Create the graph (if it doesn't exist)
+SELECT create_graph('knowledge_graph');
+```
+
+## 2. Schema Definition (Constraints and Indexes)
+
+The following commands should be run to enforce the schema's integrity and ensure efficient lookups. These are written in a mix of SQL and Cypher, as executed through AGE's functions.
+
+### Vertex Labels
+
+#### `Entity`
+
+- **Purpose**: The canonical subject of the graph.
+- **Commands**:
+
+  ```sql
+  -- Although the label is created on first use, we must create a UNIQUE constraint on the 'id' property.
+  -- This requires creating at least one node first.
+  SELECT * FROM cypher('knowledge_graph', $$
+      CREATE (:Entity {id: 'temp'})
+  $$) AS (v agtype);
+
+  CREATE UNIQUE INDEX ON entity ((properties->>'id'));
+
+  -- Clean up the temporary node
+  SELECT * FROM cypher('knowledge_graph', $$
+      MATCH (e:Entity {id: 'temp'}) DELETE e
+  $$) AS (v agtype);
+  ```
+
+#### `Identifier`
+
+- **Purpose**: An external identifier for an entity.
+- **Commands**:
+
+  ```sql
+  -- Create a temporary node to establish the label
+  SELECT * FROM cypher('knowledge_graph', $$
+      CREATE (:Identifier {value: 'temp'})
+  $$) AS (v agtype);
+
+  CREATE UNIQUE INDEX ON identifier ((properties->>'value'));
+
+  -- Clean up the temporary node
+  SELECT * FROM cypher('knowledge_graph', $$
+      MATCH (i:Identifier {value: 'temp'}) DELETE i
+  $$) AS (v agtype);
+  ```
+
+#### `Fact`
+
+- **Purpose**: A discrete piece of knowledge.
+- **Commands**:
+
+  ```sql
+  -- Create a temporary node to establish the label
+  SELECT * FROM cypher('knowledge_graph', $$
+      CREATE (:Fact {fact_id: 'temp'})
+  $$) AS (v agtype);
+
+  CREATE UNIQUE INDEX ON fact ((properties->>'fact_id'));
+
+  -- Clean up the temporary node
+  SELECT * FROM cypher('knowledge_graph', $$
+      MATCH (f:Fact {fact_id: 'temp'}) DELETE f
+  $$) AS (v agtype);
+  ```
+
+#### `Source`
+
+- **Purpose**: The origin of the information.
+- **Commands**:
+
+  ```sql
+  -- Create a temporary node to establish the label
+  SELECT * FROM cypher('knowledge_graph', $$
+      CREATE (:Source {id: 'temp'})
+  $$) AS (v agtype);
+
+  CREATE UNIQUE INDEX ON source ((properties->>'id'));
+
+  -- Clean up the temporary node
+  SELECT * FROM cypher('knowledge_graph', $$
+      MATCH (s:Source {id: 'temp'}) DELETE s
+  $$) AS (v agtype);
+  ```
+
+### Edge Labels
+
+Edge labels (`HAS_IDENTIFIER`, `HAS_FACT`, `DERIVED_FROM`) are created implicitly when an edge with that label is first created. There are no constraints or indexes applied to edges in this schema.
+
+## 3. Example Cypher Queries for Data Creation
+
+The following `CREATE` queries demonstrate how to insert data that conforms to this schema. Executing these queries will implicitly create the labels if they don't already exist.
+
+```cypher
+-- Create an Entity
+CREATE (e:Entity {
+    id: 'entity-uuid-123',
+    created_at: '2023-10-27T10:00:00Z',
+    metadata: {
+        source_system: 'CRM'
+    }
+});
+
+-- Create an Identifier and link it to the Entity
+CREATE (i:Identifier {
+    value: 'user@example.com',
+    type: 'email'
+});
+MATCH (e:Entity {id: 'entity-uuid-123'}), (i:Identifier {value: 'user@example.com'})
+CREATE (e)-[:HAS_IDENTIFIER {is_primary: true, created_at: '2023-10-27T10:00:00Z'}]->(i);
+
+-- Create a Fact, a Source, and link them
+CREATE (f:Fact {
+    fact_id: 'Location:Paris',
+    name: 'Paris',
+    type: 'Location'
+});
+CREATE (s:Source {
+    id: 'source-uuid-456',
+    content: 'User mentioned they live in Paris.',
+    timestamp: '2023-10-26T18:30:00Z'
+});
+MATCH (f:Fact {fact_id: 'Location:Paris'}), (s:Source {id: 'source-uuid-456'})
+CREATE (f)-[:DERIVED_FROM]->(s);
+
+-- Link the Fact to the Entity
+MATCH (e:Entity {id: 'entity-uuid-123'}), (f:Fact {fact_id: 'Location:Paris'})
+CREATE (e)-[:HAS_FACT {verb: 'lives in', confidence_score: 0.95, created_at: '2023-10-27T10:01:00Z'}]->(f);
+```
+</file>
+
+<file path="apps/api/docs/graph_db_schema.md">
+# Conceptual Graph Schema for a Knowledge Graph
+
+This document outlines the conceptual data model for a flexible and scalable knowledge graph. It is designed to be implementation-agnostic and can be adapted to various graph database technologies. The schema's purpose is to capture facts about specific entities derived from textual sources.
+
+## Core Components
+
+The schema consists of four primary node (vertex) types and three primary relationship (edge) types.
+
+### Node Types
+
+#### 1. Entity
+
+- **Purpose**: Represents the abstract, central subject of the graph (e.g., a person, an organization, a concept). It serves as the canonical anchor for all related information.
+- **Key Properties**:
+  - `id`: A unique, application-managed identifier (e.g., a UUID) that is stable and portable.
+  - `created_at`: A timestamp indicating when the entity was created in the system.
+  - `metadata`: A flexible container for additional, semi-structured properties related to the entity.
+
+#### 2. Identifier
+
+- **Purpose**: Represents an external, real-world identifier for an `Entity`.
+- **Key Properties**:
+  - `value`: The value of the identifier (e.g., "user@example.com", "+15551234567"). This should be unique across all identifiers.
+  - `type`: The type of the identifier (e.g., "email", "phone_number").
+
+#### 3. Fact
+
+- **Purpose**: Represents a discrete piece of knowledge or a named entity (e.g., a location, a company, a hobby).
+- **Key Properties**:
+  - `fact_id`: A unique, application-generated identifier for the fact (e.g., a composite key of its type and name).
+  - `name`: The name or value of the fact (e.g., "Paris", "Acme Corp").
+  - `type`: The category of the fact (e.g., "Location", "Company").
+
+#### 4. Source
+
+- **Purpose**: Represents the origin of the information (e.g., a chat message, an email, a document).
+- **Key Properties**:
+  - `id`: A unique, application-managed identifier for the source.
+  - `content`: The original content from which facts were derived.
+  - `timestamp`: The real-world timestamp of when the source was created (e.g., when an email was sent).
+
+### Relationship Types
+
+#### 1. `HAS_IDENTIFIER`
+
+- **Purpose**: A directed relationship connecting an `Entity` to its `Identifier`.
+- **Direction**: `(Entity) -[HAS_IDENTIFIER]-> (Identifier)`
+- **Key Properties**:
+  - `is_primary`: A boolean flag to indicate if this is the primary identifier for the entity.
+  - `created_at`: A timestamp for when the relationship was established.
+
+#### 2. `HAS_FACT`
+
+- **Purpose**: A directed relationship connecting an `Entity` to a `Fact` it possesses.
+- **Direction**: `(Entity) -[HAS_FACT]-> (Fact)`
+- **Key Properties**:
+  - `verb`: Describes the relationship between the entity and the fact (e.g., "lives in", "works at").
+  - `confidence_score`: A numerical value indicating the confidence in the validity of the fact.
+  - `created_at`: A timestamp for when the relationship was established.
+
+#### 3. `DERIVED_FROM`
+
+- **Purpose**: A directed relationship linking a `Fact` back to the `Source` from which it was extracted.
+- **Direction**: `(Fact) -[DERIVED_FROM]-> (Source)`
+- **Rationale**: This relationship is the cornerstone of data traceability and provenance, answering the question: "How do we know this fact?"
+
+## Schema Rationale and Design Principles
+
+### Identity Management
+
+The separation of the canonical `Entity` from its external `Identifier`(s) is a core design principle. This allows a single `Entity` to be associated with multiple identifiers, preventing duplicate profiles and providing a flexible foundation for identity resolution.
+
+### Traceability
+
+Every `Fact` should be traceable to a `Source`. The `DERIVED_FROM` relationship ensures that the provenance of all information in the graph is maintained.
+
+### Timestamps
+
+A clear distinction is made between two types of timestamps:
+
+- **Event Time (`Source.timestamp`)**: The real-world time an event occurred.
+- **System Time (`created_at`)**: The internal audit time when a record or relationship was created in our system.
+
+This separation allows for accurate contextual queries alongside system-level auditing.
+</file>
+
+<file path="apps/api/docs/naming_convention.md">
+## Python Naming Conventions Cheat Sheet
+
+### General Principles
+
+- **Readability is Key:** Python's philosophy emphasizes clear, readable code. Follow conventions to make your code easy for others (and your future self) to understand.
+- **Be Consistent:** Once you choose a convention, stick with it throughout your project.
+- **PEP 8:** The official style guide for Python code. This cheat sheet is based on PEP 8.
+
+---
+
+### Key Naming Styles
+
+| Style                                | Format                                         | Example             | When to Use                                                                                                                                                                     |
+| ------------------------------------ | ---------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`snake_case`**                     | All lowercase, words separated by underscores. | `my_variable`       | **Variables**, **functions**, **methods**                                                                                                                                       |
+| **`PascalCase`**                     | Each word capitalized, no separators.          | `MyClass`           | **Classes**                                                                                                                                                                     |
+| **`ALL_CAPS`**                       | All uppercase, words separated by underscores. | `MY_CONSTANT`       | **Constants** (values that don't change)                                                                                                                                        |
+| **`_single_leading_underscore`**     | Single underscore prefix.                      | `_private_variable` | **Internal Use:** A convention to indicate a variable or method is intended for internal use within a class or module. Python doesn't enforce "private" access, this is a hint. |
+| **`__double_leading_underscore`**    | Double underscore prefix.                      | `__name_mangling`   | **Name Mangling:** Used to avoid naming conflicts in subclasses. The interpreter renames the attribute to `_ClassName__attribute`.                                              |
+| **`__double_trailing_underscore__`** | Double underscore suffix.                      | `__init__`          | **Special/Magic Methods:** Reserved for methods with specific behavior in Python. (e.g., `__init__`, `__str__`, `__len__`).                                                     |
+
+---
+
+### Naming Convention Details
+
+#### 1. **Variables & Functions**
+
+- Use `snake_case`.
+- Avoid single-letter variable names unless it's a simple loop counter (`i`, `j`).
+- Choose names that are descriptive and self-documenting.
+- **Bad:** `x` (what is `x`?)
+- **Good:** `user_age`, `calculate_total_price`
+
+#### 2. **Classes**
+
+- Use `PascalCase`.
+- Class names are typically singular nouns.
+- **Bad:** `user_manager`, `users`
+- **Good:** `User`, `UserManager`
+
+#### 3. **Modules & Packages**
+
+- Use `snake_case`.
+- Keep names short, all lowercase, and avoid underscores where possible.
+- **Good:** `my_module.py`, `data_processing`
+
+#### 4. **Constants**
+
+- Use `ALL_CAPS` with underscores.
+- These are variables intended to be treated as immutable.
+- **Example:** `MAX_CONNECTIONS = 10`, `PI = 3.14159`
+
+---
+
+### Special Naming Rules
+
+- **Private Members (convention):** `_my_internal_method()`
+
+  - The single leading underscore is a convention to signal to other developers that this is a private implementation detail. You can still access it from outside the class, but you shouldn't.
+
+- **Name Mangling:** `__my_private_method()`
+
+  - Python renames this method internally to `_MyClass__my_private_method()`. This prevents subclasses from accidentally overriding it. It's generally less common than the single underscore for typical use cases.
+
+- **Reserved Names:** `__init__`, `__str__`, `__add__`
+
+  - These are built-in "dunder" (double underscore) or "magic" methods. Never invent your own names using this convention. They are reserved for special language features.
+
+- **Variable `_`:**
+  - A single underscore can be used as a placeholder for a variable you don't intend to use.
+  - **Example:** `for _ in range(5):` (if you don't need the loop counter)
+  - **Example:** `name, _ = full_name.split(' ')` (if you only need the first name)
+
+---
+
+### Summary Table
+
+| What to Name              | Convention                           | Example                        |
+| ------------------------- | ------------------------------------ | ------------------------------ |
+| Variables                 | `snake_case`                         | `user_name`, `is_active`       |
+| Functions & Methods       | `snake_case`                         | `get_data()`, `process_info()` |
+| Classes                   | `PascalCase`                         | `User`, `DataProcessor`        |
+| Modules                   | `snake_case` (lowercase, no hyphens) | `my_module.py`, `database.py`  |
+| Constants                 | `ALL_CAPS`                           | `MAX_SIZE`, `DEFAULT_TIMEOUT`  |
+| Internal Use (convention) | `_single_leading_underscore`         | `_internal_method`             |
+| Special/Magic Methods     | `__double_trailing_underscore__`     | `__init__`, `__str__`          |
+</file>
+
+<file path="apps/api/docs/project_architecture.md">
+# Modular Architecture
+
+## Context
+
+We need a scalable and maintainable structure for our growing FastAPI application. The architecture supports PostgreSQL AGE Graph Database and promotes clear separation of concerns.
+
+## Decision
+
+We have implemented a modular, feature-based architecture with **inline tests** and **entity-specific separation**. The project is organized by business domains (e.g., `users`, `graph`), with each feature containing its own routes, logic, models, repositories, and tests. We follow the **Clean Architecture** principles with clear separation between:
+
+- **Presentation Layer** (Routes/APIs)
+- **Application Layer** (Use Cases/Business Logic)
+- **Domain Layer** (Models/Entities)
+- **Infrastructure Layer** (Repositories/Databases)
+
+## Development Environment
+
+Dependency management will be handled by `uv`, with dependencies specified in `pyproject.toml`.
+
+Tests will be run by pointing `pytest` to the application source directory: `uv run pytest app/`.
+
+## Architecture Overview
+
+```plaintext
+/nous-api/
+|
+|-- /app/
+|   |-- main.py                    # FastAPI app factory & router inclusion
+|   |-- /core/
+|   |   |-- security.py
+|   |   `-- test_security.py       # Test co-located with code
+|   |
+|   |-- /db/
+|   |   `-- /postgres/             # PostgreSQL AGE connection logic
+|   `-- /features/
+|       |-- /users/                # User management feature
+|       |   |-- router.py
+|       |   |-- test_router.py     # Test co-located with code
+|       |   |-- service.py
+|       |   |-- models.py
+|       |   `-- schemas.py
+|       |
+|       `-- /graph/                # Graph database feature (IMPLEMENTED)
+|           |-- router.py          # Main router including all entity routes
+|           |-- /models/           # Domain models (Entity, Fact, etc.)
+|           |-- /repositories/     # Entity-specific repositories
+|           |   |-- entity.py      # EntityRepository
+|           |   |-- fact.py        # FactRepository
+|           |   |-- identifier.py  # IdentifierRepository
+|           |   `-- source.py      # SourceRepository
+|           |-- /routes/           # Entity-specific route modules
+|           |   |-- entities.py    # Entity CRUD routes
+|           |   |-- facts.py       # Fact retrieval routes
+|           |   |-- entity_facts.py # Entity-Fact relationship routes
+|           |   `-- __init__.py    # Route exports
+|           `-- /usecases/         # Business logic use cases
+|               |-- create_entity.py
+|               |-- get_entity.py
+|               |-- add_fact.py
+|               `-- ...
+|
+`-- pyproject.toml
+```
+
+### Data Layer Architecture with SQLModel
+
+This project uses **SQLModel**, which unifies database models and API schemas into single class definitions. SQLModel classes serve dual purposes:
+
+1. **Database Tables**: When defined with `table=True`, they create SQLAlchemy table models
+2. **API Schemas**: The same classes automatically work as Pydantic models for FastAPI serialization
+
+This approach reduces code duplication and ensures consistency between database structure and API contracts.
+
+**File Usage Patterns:**
+
+- `models.py`: Contains SQLModel classes that serve as both database tables and API schemas
+- `schemas.py`: Contains pure Pydantic models for cases where you need API-only schemas (e.g., authentication tokens, complex validation models)
+
+### Component Responsibilities
+
+| Component         | Responsibility                                                                     |
+| :---------------- | :--------------------------------------------------------------------------------- |
+| `main.py`         | Creates and configures the main `FastAPI` instance with router inclusion.          |
+| `core/`           | App-wide concerns (settings, security).                                            |
+| `db/`             | Contains isolated connection logic for each database.                              |
+| `router.py`       | **Main Router:** Orchestrates entity-specific route modules.                       |
+| `routes/`         | **API Layer:** Entity-specific route modules handling HTTP requests/responses.     |
+| `usecases/`       | **Application Layer:** Business logic use cases with validation and rules.         |
+| `repositories/`   | **Infrastructure Layer:** Entity-specific database operations and queries.         |
+| `models/`         | **Domain Layer:** Core business entities, relationships, and domain models.        |
+| `schemas.py`      | **Data Layer:** Pure Pydantic models for API I/O (when separate from DB models).   |
+| `models.py`       | **Persistence Layer:** SQLModel classes serving as both DB tables and API schemas. |
+| `graph_models.py` | **Persistence Layer:** Graph DB node/edge models.                                  |
+| `test_*.py`       | **Testing Layer:** Verifies the correctness of each module.                        |
+
+### API Structure
+
+```
+FastAPI Application
+├── /api/v1/graph/
+│   ├── POST /entities           # Create entity with identifier
+│   ├── GET /entities/{id}       # Get entity by ID
+│   ├── GET /entities            # Search entities by identifier
+│   ├── GET /facts/{id}          # Get fact by ID
+│   └── POST /entities/{id}/facts # Add fact to entity
+└── /health                      # Health check endpoint
+```
+</file>
+
+<file path="apps/api/docs/project_scope.md">
+# Project Scope: AI Agent Memory System
+
+This document outlines the scope for building a memory system for AI Agents using a knowledge graph.
+
+## Core Concepts
+
+The system is built around four fundamental concepts:
+
+1.  **Entity**: Represents a canonical person, place, or concept. Each `Entity` has a stable, unique identifier.
+2.  **Identifier**: An external identifier linked to an `Entity`, such as an email address, phone number, or username. It's used to look up and identify entities.
+3.  **Fact**: A discrete piece of information or an attribute related to an `Entity` (e.g., "lives in New York", "works at Acme Corp").
+4.  **Source**: The origin of a `Fact`, providing traceability. This could be a chat message, an email, or a document.
+
+## System Workflow
+
+The basic workflow of the memory system is as follows:
+
+1.  An `Entity` is created or identified using an `Identifier`.
+2.  Information is processed from a `Source` to extract `Facts`.
+3.  These `Facts` are then associated with the corresponding `Entity`.
+
+This structure allows the system to build a rich, interconnected memory graph for an AI agent, with clear provenance for every piece of information.
+</file>
+
+<file path="apps/api/scripts/setup_postgres_schema.py">
+"""Script to set up the PostgreSQL database schema for the graph."""
+
+import asyncio
+
+from app.core.settings import get_settings
+from app.db.postgres.connection import close_db_pool, get_db_pool
+
+
+async def setup_schema() -> None:
+    """Create the graph and set up the schema."""
+    settings = get_settings()
+    pool = await get_db_pool()
+    async with pool.acquire() as connection:
+        print("Creating AGE extension...")
+        await connection.execute("CREATE EXTENSION IF NOT EXISTS age;")
+
+        print("Loading AGE extension...")
+        await connection.execute("LOAD 'age';")
+
+        print("Setting search path...")
+        await connection.execute("SET search_path = ag_catalog, '$user', public;")
+
+        graph_name = settings.age_graph_name
+
+        # Delete the old knowledge_graph if it exists
+        old_graph_exists = await connection.fetchval(
+            "SELECT 1 FROM ag_graph WHERE name = $1;", "knowledge_graph"
+        )
+        if old_graph_exists:
+            print("Deleting old 'knowledge_graph'...")
+            await connection.execute("SELECT drop_graph('knowledge_graph', true);")
+            print("Old graph deleted.")
+
+        print(f"Creating graph '{graph_name}'...")
+
+        # Check if graph exists
+        graph_exists = await connection.fetchval(
+            "SELECT 1 FROM ag_graph WHERE name = $1;", graph_name
+        )
+        if not graph_exists:
+            await connection.execute(f"SELECT create_graph('{graph_name}');")
+            print(f"Graph '{graph_name}' created.")
+        else:
+            print(f"Graph '{graph_name}' already exists.")
+
+        print("Creating vertex labels...")
+        # Create vertex labels if they don't exist
+        await connection.execute(f"SELECT create_vlabel('{graph_name}', 'Entity');")
+        await connection.execute(f"SELECT create_vlabel('{graph_name}', 'Identifier');")
+        await connection.execute(f"SELECT create_vlabel('{graph_name}', 'Fact');")
+        await connection.execute(f"SELECT create_vlabel('{graph_name}', 'Source');")
+
+        print("Creating edge labels...")
+        # Create edge labels if they don't exist
+        await connection.execute(
+            f"SELECT create_elabel('{graph_name}', 'HAS_IDENTIFIER');"
+        )
+        await connection.execute(f"SELECT create_elabel('{graph_name}', 'HAS_FACT');")
+        await connection.execute(f"SELECT create_elabel('{graph_name}', 'HAS_SOURCE');")
+
+        print("Schema setup complete.")
+
+
+async def main() -> None:
+    """Main function to run the schema setup."""
+    try:
+        await setup_schema()
+    finally:
+        await close_db_pool()
+
+
+if __name__ == "__main__":
+    print("Starting database schema setup...")
+    asyncio.run(main())
+</file>
+
+<file path="apps/api/tests/core/test_security.py">
+"""Tests for security utilities."""
+
+from datetime import UTC, datetime, timedelta
+
+import pytest
+from jose import jwt
+
+from app.core.security import (
+    create_access_token,
+    get_password_hash,
+    verify_password,
+    verify_token,
+)
+from app.core.settings import get_settings
+
+
+def test_password_hashing():
+    """Test password hashing and verification."""
+    password = "testpassword123"
+    hashed = get_password_hash(password)
+
+    # Hash should be different from original password
+    assert hashed != password
+
+    # Should verify correctly
+    assert verify_password(password, hashed) is True
+
+    # Should not verify incorrect password
+    assert verify_password("wrongpassword", hashed) is False
+
+
+def test_create_access_token():
+    """Test JWT token creation."""
+    data = {"sub": "123", "email": "test@example.com"}
+    token = create_access_token(data)
+
+    # Token should be a string
+    assert isinstance(token, str)
+
+    # Token should have 3 parts (header.payload.signature)
+    assert len(token.split(".")) == 3
+
+
+def test_create_access_token_with_expiration():
+    """Test JWT token creation with custom expiration."""
+    data = {"sub": "123"}
+    expires_delta = timedelta(minutes=15)
+    token = create_access_token(data, expires_delta)
+
+    # Decode token to check expiration
+    settings = get_settings()
+    payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
+
+    # Check that expiration is set
+    assert "exp" in payload
+
+    # Check that expiration is approximately 15 minutes from now
+    exp_time = datetime.fromtimestamp(payload["exp"], tz=UTC)
+    expected_time = datetime.now(UTC) + expires_delta
+
+    # Allow 1 minute tolerance
+    assert abs((exp_time - expected_time).total_seconds()) < 60
+
+
+def test_verify_token_valid():
+    """Test token verification with valid token."""
+    data = {"sub": "123", "email": "test@example.com"}
+    token = create_access_token(data)
+
+    payload = verify_token(token)
+
+    assert payload["sub"] == "123"
+    assert payload["email"] == "test@example.com"
+    assert "exp" in payload
+
+
+def test_verify_token_invalid():
+    """Test token verification with invalid token."""
+    from fastapi import HTTPException
+
+    with pytest.raises(HTTPException) as exc_info:
+        verify_token("invalid.token.here")
+
+    assert exc_info.value.status_code == 401
+    assert "Could not validate credentials" in str(exc_info.value.detail)
+</file>
+
+<file path="apps/api/tests/db/postgres/test_postgres_integration.py">
+"""Integration tests for PostgreSQL connection management."""
+
+from collections.abc import AsyncGenerator
+
+import asyncpg
+import pytest
+
+from app.core.settings import get_settings
+from app.db.postgres.connection import close_db_pool, get_db_pool
+
+
+@pytest.fixture
+async def postgres_pool() -> AsyncGenerator[asyncpg.Pool, None]:
+    """Provide a connection pool and ensure it's closed after the test."""
+    pool = await get_db_pool()
+    try:
+        yield pool
+    finally:
+        # Ensure the pool is closed after each test
+        await close_db_pool()
+
+
+class TestPostgresIntegration:
+    """Integration tests for PostgreSQL using a real database connection."""
+
+    @pytest.mark.asyncio
+    async def test_settings_configuration(self):
+        """Test that PostgreSQL settings are properly configured."""
+        settings = get_settings()
+
+        # Check that required settings exist and are of the correct type
+        assert hasattr(settings, "postgres_user")
+        assert isinstance(settings.postgres_user, str)
+        assert len(settings.postgres_user.strip()) > 0
+
+        assert hasattr(settings, "postgres_password")
+        assert isinstance(settings.postgres_password, str)
+
+        assert hasattr(settings, "postgres_host")
+        assert isinstance(settings.postgres_host, str)
+        assert len(settings.postgres_host.strip()) > 0
+
+        assert hasattr(settings, "postgres_port")
+        assert isinstance(settings.postgres_port, int)
+
+        assert hasattr(settings, "postgres_db")
+        assert isinstance(settings.postgres_db, str)
+        assert len(settings.postgres_db.strip()) > 0
+
+    @pytest.mark.asyncio
+    async def test_connection_pooling_lifecycle(self):
+        """Test the singleton behavior of the connection pool."""
+        try:
+            # First call should create a new pool
+            pool1 = await get_db_pool()
+            assert isinstance(pool1, asyncpg.Pool)
+            assert not pool1.is_closing()
+
+            # Second call should return the same pool instance
+            pool2 = await get_db_pool()
+            assert pool1 is pool2
+
+            # Close the pool
+            await close_db_pool()
+            assert pool1.is_closing()
+
+            # The global _pool variable should be None now
+            # Next call should create a new pool
+            new_pool = await get_db_pool()
+            assert isinstance(new_pool, asyncpg.Pool)
+            assert new_pool is not pool1
+
+        except Exception as e:
+            pytest.skip(f"PostgreSQL server not available: {e}")
+        finally:
+            # Final cleanup
+            await close_db_pool()
+
+    @pytest.mark.asyncio
+    async def test_successful_connection_and_query(self, postgres_pool: asyncpg.Pool):
+        """Test that we can connect and execute a simple query."""
+        try:
+            async with postgres_pool.acquire() as connection:
+                async with connection.transaction():
+                    result = await connection.fetchval("SELECT 1")
+            assert result == 1
+        except Exception as e:
+            pytest.skip(f"PostgreSQL server not available: {e}")
+</file>
+
+<file path="apps/api/tests/features/graph/repositories/test_age_repository_integration.py">
+"""Integration tests for AgeRepository using a real PostgreSQL/AGE connection."""
+
+import uuid
+from collections.abc import AsyncGenerator
+from datetime import datetime
+from typing import cast
+
+import asyncpg
+import pytest
+
+from app.core.settings import get_settings
+from app.db.postgres.connection import close_db_pool, get_db_pool
+from app.features.graph.models import Entity, Fact, HasIdentifier, Identifier, Source
+from app.features.graph.repositories.age_repository import AgeRepository
+
+
+@pytest.fixture
+async def postgres_pool() -> AsyncGenerator[asyncpg.Pool, None]:
+    """Provides a connection pool and ensures it's closed after the test."""
+    pool = await get_db_pool()
+    try:
+        yield pool
+    finally:
+        await close_db_pool()
+
+
+@pytest.fixture
+async def age_repository(postgres_pool: asyncpg.Pool) -> AgeRepository:
+    """Fixture to get an AgeRepository instance."""
+    return AgeRepository(postgres_pool)
+
+
+@pytest.fixture(autouse=True)
+async def clean_graph_db(postgres_pool: asyncpg.Pool) -> None:
+    """Clean all data from the AGE graph before each test."""
+    settings = get_settings()
+    graph_name = settings.age_graph_name
+
+    async with postgres_pool.acquire() as conn:
+        conn = cast(asyncpg.Connection, conn)
+        async with conn.transaction():
+            await conn.execute("LOAD 'age';")
+            await conn.execute("SET search_path = ag_catalog, '$user', public;")
+            # The VACUUM command is used to reclaim storage occupied by dead tuples. In this case, it is used to clean the graph.
+            await conn.execute(
+                f"SELECT * from ag_catalog.cypher('{graph_name}', $$ MATCH (n) DETACH DELETE n $$) as (v agtype);"
+            )
+
+
+@pytest.fixture
+def test_entity() -> Entity:
+    """Test entity with integration test metadata."""
+    return Entity(
+        metadata={
+            "test_type": "integration",
+            "test_run_id": str(uuid.uuid4()),
+            "created_by": "test_age_repository_integration.py",
+        }
+    )
+
+
+@pytest.fixture
+def test_identifier() -> Identifier:
+    """Test identifier for integration testing."""
+    return Identifier(
+        value=f"test.integration.{uuid.uuid4()}@example.com", type="email"
+    )
+
+
+@pytest.fixture
+def test_has_identifier_relationship(
+    test_entity: Entity, test_identifier: Identifier
+) -> HasIdentifier:
+    """Test HasIdentifier relationship between entity and identifier."""
+    return HasIdentifier(
+        from_entity_id=test_entity.id,
+        to_identifier_value=test_identifier.value,
+        is_primary=True,
+    )
+
+
+@pytest.fixture
+def test_fact() -> Fact:
+    """Test fact for integration testing."""
+    return Fact(
+        name="Paris",
+        type="Location",
+    )
+
+
+@pytest.fixture
+def test_source() -> Source:
+    """Test source for integration testing."""
+    return Source(
+        content="User mentioned they live in Paris during onboarding",
+        timestamp=datetime.now(),
+    )
+
+
+class TestCreateEntity:
+    """Integration tests for AgeRepository.create_entity method."""
+
+    @pytest.mark.asyncio
+    async def test_create_entity_basic(
+        self,
+        age_repository: AgeRepository,
+        test_entity: Entity,
+        test_identifier: Identifier,
+        test_has_identifier_relationship: HasIdentifier,
+    ) -> None:
+        """Test basic entity creation with minimal data."""
+        # Act
+        result = await age_repository.create_entity(
+            test_entity, test_identifier, test_has_identifier_relationship
+        )
+
+        # Assert
+        assert isinstance(result, dict)
+        assert "entity" in result
+        assert "identifier" in result
+        assert "relationship" in result
+
+        returned_entity = result["entity"]
+        returned_identifier = result["identifier"]
+        returned_relationship = result["relationship"]
+
+        assert isinstance(returned_entity, Entity)
+        assert isinstance(returned_identifier, Identifier)
+        assert isinstance(returned_relationship, HasIdentifier)
+
+        assert returned_entity.id == test_entity.id
+        assert returned_entity.metadata == test_entity.metadata
+        assert returned_identifier.value == test_identifier.value
+        assert returned_identifier.type == test_identifier.type
+        assert (
+            returned_relationship.is_primary
+            == test_has_identifier_relationship.is_primary
+        )
+
+        # Verify by finding it
+        found = await age_repository.find_entity_by_identifier(
+            test_identifier.value, test_identifier.type
+        )
+        assert found is not None
+        assert found["entity"].id == test_entity.id
+
+    @pytest.mark.asyncio
+    async def test_create_entity_is_idempotent(
+        self,
+        age_repository: AgeRepository,
+        test_entity: Entity,
+        test_identifier: Identifier,
+        test_has_identifier_relationship: HasIdentifier,
+    ) -> None:
+        """Test that create_entity is idempotent."""
+        # Create it once
+        first_result = await age_repository.create_entity(
+            test_entity, test_identifier, test_has_identifier_relationship
+        )
+        assert first_result["entity"].id == test_entity.id
+
+        # Try to create it again with a different entity object but same identifier
+        second_entity = Entity()
+        second_relationship = HasIdentifier(
+            from_entity_id=second_entity.id,
+            to_identifier_value=test_identifier.value,
+        )
+        second_result = await age_repository.create_entity(
+            second_entity, test_identifier, second_relationship
+        )
+
+        # Assert it returned the first entity
+        assert second_result["entity"].id == first_result["entity"].id
+        assert second_result["entity"].id == test_entity.id
+
+
+class TestFindEntityByIdentifier:
+    """Integration tests for AgeRepository.find_entity_by_identifier method."""
+
+    @pytest.mark.asyncio
+    async def test_find_entity_by_identifier(
+        self,
+        age_repository: AgeRepository,
+        test_entity: Entity,
+        test_identifier: Identifier,
+        test_has_identifier_relationship: HasIdentifier,
+    ) -> None:
+        """Test finding an entity by its identifier value and type."""
+        # Arrange: Create an entity first
+        await age_repository.create_entity(
+            test_entity, test_identifier, test_has_identifier_relationship
+        )
+
+        # Act
+        found_result = await age_repository.find_entity_by_identifier(
+            test_identifier.value, test_identifier.type
+        )
+
+        # Assert
+        assert found_result is not None
+        found_entity = found_result["entity"]
+        found_identifier = found_result["identifier"]["identifier"]
+        found_rel = found_result["identifier"]["relationship"]
+
+        assert found_entity.id == test_entity.id
+        assert found_identifier.value == test_identifier.value
+        assert found_rel.from_entity_id == test_entity.id
+
+    @pytest.mark.asyncio
+    async def test_find_entity_by_identifier_not_found(
+        self,
+        age_repository: AgeRepository,
+    ) -> None:
+        """Test finding a non-existent entity."""
+        found_result = await age_repository.find_entity_by_identifier(
+            "nonexistent@example.com", "email"
+        )
+        assert found_result is None
+
+
+class TestFindEntityById:
+    """Integration tests for AgeRepository.find_entity_by_id method."""
+
+    @pytest.mark.asyncio
+    async def test_find_entity_by_id(
+        self,
+        age_repository: AgeRepository,
+        test_entity: Entity,
+        test_identifier: Identifier,
+        test_has_identifier_relationship: HasIdentifier,
+    ) -> None:
+        """Test finding an entity by its ID."""
+        # Arrange
+        await age_repository.create_entity(
+            test_entity, test_identifier, test_has_identifier_relationship
+        )
+
+        # Act
+        found_result = await age_repository.find_entity_by_id(str(test_entity.id))
+
+        # Assert
+        assert found_result is not None
+        assert found_result["entity"].id == test_entity.id
+        assert found_result["identifier"] is not None
+        assert found_result["identifier"]["identifier"].value == test_identifier.value
+
+    @pytest.mark.asyncio
+    async def test_find_entity_by_id_not_found(
+        self,
+        age_repository: AgeRepository,
+    ) -> None:
+        """Test finding a non-existent entity by ID."""
+        found_result = await age_repository.find_entity_by_id(str(uuid.uuid4()))
+        assert found_result is None
+
+
+class TestDeleteEntityById:
+    """Integration tests for AgeRepository.delete_entity_by_id method."""
+
+    @pytest.mark.asyncio
+    async def test_delete_entity_by_id(
+        self,
+        age_repository: AgeRepository,
+        test_entity: Entity,
+        test_identifier: Identifier,
+        test_has_identifier_relationship: HasIdentifier,
+    ) -> None:
+        """Test deleting an entity by its ID."""
+        # Arrange
+        _ = await age_repository.create_entity(
+            test_entity, test_identifier, test_has_identifier_relationship
+        )
+        # Act
+        delete_result = await age_repository.delete_entity_by_id(str(test_entity.id))
+
+        # Assert
+        assert delete_result is True
+        found_after = await age_repository.find_entity_by_id(str(test_entity.id))
+        assert found_after is None
+
+    @pytest.mark.asyncio
+    async def test_delete_entity_by_id_not_found(
+        self,
+        age_repository: AgeRepository,
+    ) -> None:
+        """Test deleting a non-existent entity."""
+        delete_result = await age_repository.delete_entity_by_id(str(uuid.uuid4()))
+        assert delete_result is False
+
+    @pytest.mark.asyncio
+    async def test_delete_entity_cascades_to_unique_identifier(
+        self,
+        age_repository: AgeRepository,
+        test_entity: Entity,
+        test_identifier: Identifier,
+        test_has_identifier_relationship: HasIdentifier,
+    ) -> None:
+        """Test that deleting an entity also deletes its unique identifier."""
+        # Arrange: Create entity with identifier
+        _ = await age_repository.create_entity(
+            test_entity, test_identifier, test_has_identifier_relationship
+        )
+
+        # Verify identifier exists
+        found_before = await age_repository.find_entity_by_identifier(
+            test_identifier.value, test_identifier.type
+        )
+        assert found_before is not None
+
+        # Act: Delete the entity
+        delete_result = await age_repository.delete_entity_by_id(str(test_entity.id))
+        assert delete_result is True
+
+        # Assert: Identifier should also be deleted since it was only used by this entity
+        found_after = await age_repository.find_entity_by_identifier(
+            test_identifier.value, test_identifier.type
+        )
+        assert found_after is None
+
+    @pytest.mark.asyncio
+    async def test_delete_entity_does_not_affect_other_entities(
+        self,
+        age_repository: AgeRepository,
+        test_entity: Entity,
+        test_identifier: Identifier,
+        test_has_identifier_relationship: HasIdentifier,
+    ) -> None:
+        """Test that deleting one entity doesn't affect other entities with different identifiers."""
+        # Arrange: Create first entity
+        _ = await age_repository.create_entity(
+            test_entity, test_identifier, test_has_identifier_relationship
+        )
+
+        # Create second entity with different identifier
+        second_entity = Entity()
+        second_identifier = Identifier(
+            value=f"second.{uuid.uuid4()}@example.com", type="email"
+        )
+        second_relationship = HasIdentifier(
+            from_entity_id=second_entity.id,
+            to_identifier_value=second_identifier.value,
+        )
+        _ = await age_repository.create_entity(
+            second_entity, second_identifier, second_relationship
+        )
+
+        # Act: Delete the first entity
+        delete_result = await age_repository.delete_entity_by_id(str(test_entity.id))
+        assert delete_result is True
+
+        # Assert: Second entity should still exist
+        found_second = await age_repository.find_entity_by_identifier(
+            second_identifier.value, second_identifier.type
+        )
+        assert found_second is not None
+        assert found_second["entity"].id == second_entity.id
+
+        # And first entity should be gone
+        found_first = await age_repository.find_entity_by_identifier(
+            test_identifier.value, test_identifier.type
+        )
+        assert found_first is None
+
+    @pytest.mark.asyncio
+    async def test_delete_entity_cascades_to_unique_facts(
+        self,
+        age_repository: AgeRepository,
+        test_entity: Entity,
+        test_identifier: Identifier,
+        test_has_identifier_relationship: HasIdentifier,
+        test_fact: Fact,
+        test_source: Source,
+    ) -> None:
+        """Test that deleting an entity also deletes its unique facts and sources."""
+        # Arrange: Create entity with fact and source
+        _ = await age_repository.create_entity(
+            test_entity, test_identifier, test_has_identifier_relationship
+        )
+        _ = await age_repository.add_fact_to_entity(
+            entity_id=str(test_entity.id),
+            fact=test_fact,
+            source=test_source,
+            verb="lives_in",
+        )
+
+        # Verify fact exists
+        assert test_fact.fact_id is not None
+        fact_before = await age_repository.find_fact_by_id(test_fact.fact_id)
+        assert fact_before is not None
+
+        # Act: Delete the entity
+        delete_result = await age_repository.delete_entity_by_id(str(test_entity.id))
+        assert delete_result is True
+
+        # Assert: Fact should also be deleted since it was only used by this entity
+        fact_after = await age_repository.find_fact_by_id(test_fact.fact_id)
+        assert fact_after is None
+
+    @pytest.mark.asyncio
+    async def test_delete_entity_preserves_shared_facts(
+        self,
+        age_repository: AgeRepository,
+        test_entity: Entity,
+        test_identifier: Identifier,
+        test_has_identifier_relationship: HasIdentifier,
+        test_fact: Fact,
+        test_source: Source,
+    ) -> None:
+        """Test that deleting an entity preserves facts shared with other entities."""
+        # Arrange: Create first entity with fact
+        _ = await age_repository.create_entity(
+            test_entity, test_identifier, test_has_identifier_relationship
+        )
+        _ = await age_repository.add_fact_to_entity(
+            entity_id=str(test_entity.id),
+            fact=test_fact,
+            source=test_source,
+            verb="lives_in",
+        )
+
+        # Create second entity and add the same fact to it
+        second_entity = Entity()
+        second_identifier = Identifier(
+            value=f"second.{uuid.uuid4()}@example.com", type="email"
+        )
+        second_relationship = HasIdentifier(
+            from_entity_id=second_entity.id,
+            to_identifier_value=second_identifier.value,
+        )
+        _ = await age_repository.create_entity(
+            second_entity, second_identifier, second_relationship
+        )
+        _ = await age_repository.add_fact_to_entity(
+            entity_id=str(second_entity.id),
+            fact=test_fact,  # Same fact
+            source=test_source,  # Same source
+            verb="works_in",  # Different verb
+        )
+
+        # Act: Delete the first entity
+        delete_result = await age_repository.delete_entity_by_id(str(test_entity.id))
+        assert delete_result is True
+
+        # Assert: Fact should still exist because it's used by the second entity
+        assert test_fact.fact_id is not None
+        fact_after = await age_repository.find_fact_by_id(test_fact.fact_id)
+        assert fact_after is not None
+
+        # And the second entity should still have the fact
+        second_entity_found = await age_repository.find_entity_by_id(
+            str(second_entity.id)
+        )
+        assert second_entity_found is not None
+        assert len(second_entity_found["facts_with_sources"]) == 1
+        assert (
+            second_entity_found["facts_with_sources"][0]["fact"].fact_id
+            == test_fact.fact_id
+        )
+
+
+class TestAddFactToEntity:
+    """Integration tests for AgeRepository.add_fact_to_entity method."""
+
+    @pytest.mark.asyncio
+    async def test_add_fact_to_entity_basic(
+        self,
+        age_repository: AgeRepository,
+        test_entity: Entity,
+        test_identifier: Identifier,
+        test_has_identifier_relationship: HasIdentifier,
+        test_fact: Fact,
+        test_source: Source,
+    ) -> None:
+        """Test basic fact addition to an entity."""
+        # Arrange
+        _ = await age_repository.create_entity(
+            test_entity, test_identifier, test_has_identifier_relationship
+        )
+
+        # Act
+        result = await age_repository.add_fact_to_entity(
+            entity_id=str(test_entity.id),
+            fact=test_fact,
+            source=test_source,
+            verb="lives_in",
+            confidence_score=0.9,
+        )
+
+        # Assert
+        assert result["fact"].name == test_fact.name
+        assert result["source"].content == test_source.content
+        assert result["has_fact_relationship"].verb == "lives_in"
+        assert result["has_fact_relationship"].confidence_score == 0.9
+
+        # Verify
+        found = await age_repository.find_entity_by_id(str(test_entity.id))
+        assert found is not None
+        assert len(found["facts_with_sources"]) == 1
+        assert found["facts_with_sources"][0]["fact"].name == test_fact.name
+
+    @pytest.mark.asyncio
+    async def test_add_fact_to_entity_is_idempotent(
+        self,
+        age_repository: AgeRepository,
+        test_entity: Entity,
+        test_identifier: Identifier,
+        test_has_identifier_relationship: HasIdentifier,
+        test_fact: Fact,
+        test_source: Source,
+    ) -> None:
+        """Test that adding the same fact is idempotent."""
+        # Arrange
+        _ = await age_repository.create_entity(
+            test_entity, test_identifier, test_has_identifier_relationship
+        )
+        # Act
+        _ = await age_repository.add_fact_to_entity(
+            entity_id=str(test_entity.id),
+            fact=test_fact,
+            source=test_source,
+            verb="lives_in",
+        )
+        _ = await age_repository.add_fact_to_entity(
+            entity_id=str(test_entity.id),
+            fact=test_fact,
+            source=test_source,
+            verb="lives_in",
+        )
+        # Assert
+        found = await age_repository.find_entity_by_id(str(test_entity.id))
+        assert found is not None
+        assert len(found["facts_with_sources"]) == 1
+
+
+class TestFindFactById:
+    """Integration tests for AgeRepository.find_fact_by_id method."""
+
+    @pytest.mark.asyncio
+    async def test_find_fact_by_id(
+        self,
+        age_repository: AgeRepository,
+        test_entity: Entity,
+        test_identifier: Identifier,
+        test_has_identifier_relationship: HasIdentifier,
+        test_fact: Fact,
+        test_source: Source,
+    ) -> None:
+        """Test finding a fact by its fact_id."""
+        # Arrange
+        await age_repository.create_entity(
+            test_entity, test_identifier, test_has_identifier_relationship
+        )
+        await age_repository.add_fact_to_entity(
+            entity_id=str(test_entity.id),
+            fact=test_fact,
+            source=test_source,
+            verb="lives_in",
+        )
+
+        # Act
+        assert test_fact.fact_id is not None
+        found = await age_repository.find_fact_by_id(test_fact.fact_id)
+
+        # Assert
+        assert found is not None
+        assert found["fact"].fact_id == test_fact.fact_id
+        assert found["source"] is not None
+        assert found["source"].id == test_source.id
+
+    @pytest.mark.asyncio
+    async def test_find_fact_by_id_not_found(
+        self,
+        age_repository: AgeRepository,
+    ) -> None:
+        """Test finding a non-existent fact."""
+        found = await age_repository.find_fact_by_id("non:existent")
+        assert found is None
+</file>
+
+<file path="apps/api/tests/features/graph/services/test_langchain_fact_extractor.py">
+"""Integration tests for the LangChainFactExtractor service.
+
+These tests actually call the Gemini LLM API, so they require:
+- GOOGLE_API_KEY environment variable to be set
+- Internet connection for API calls
+"""
+
+from unittest.mock import patch
+
+import pytest
+
+from app.features.graph.dtos.knowledge_dto import ExtractedFactDto, IdentifierDto
+from app.features.graph.services.langchain_fact_extractor import LangChainFactExtractor
+
+
+class TestLangChainFactExtractor:
+    """Test suite for LangChainFactExtractor integration with Gemini API."""
+
+    @pytest.fixture
+    def extractor(self) -> LangChainFactExtractor:
+        """Create a LangChainFactExtractor instance for testing."""
+        return LangChainFactExtractor()
+
+    def test_initialization_without_api_key(self):
+        """Test that initialization fails when GOOGLE_API_KEY is not set."""
+        from app.core.settings import Settings
+
+        # Mock the Settings class to return a mock with no google_api_key
+        mock_settings = Settings()
+        mock_settings.google_api_key = None
+
+        with patch(
+            "app.features.graph.services.langchain_fact_extractor.Settings",
+            return_value=mock_settings,
+        ):
+            # Should raise ValueError
+            with pytest.raises(
+                ValueError, match="GOOGLE_API_KEY environment variable not set"
+            ):
+                LangChainFactExtractor()  # pyright: ignore[reportUnusedCallResult]
+
+    @pytest.mark.asyncio
+    async def test_extract_facts_basic_person_info(
+        self, extractor: LangChainFactExtractor
+    ):
+        """Test fact extraction with basic person information."""
+        content = "John Doe lives in Paris and works as a Software Engineer at Google."
+        entity_identifier = IdentifierDto(type="email", value="john.doe@example.com")
+
+        facts = await extractor.extract_facts(content, entity_identifier)
+
+        # Verify response structure
+        assert isinstance(facts, list)
+        assert len(facts) > 0  # Should extract at least some facts
+
+        for fact in facts:
+            assert isinstance(fact, ExtractedFactDto)
+
+            # Verify data types
+            assert isinstance(fact.name, str)
+            assert isinstance(fact.type, str)
+            assert isinstance(fact.verb, str)
+            assert isinstance(fact.confidence_score, (int, float))
+
+            # Verify confidence score range
+            assert 0.0 <= fact.confidence_score <= 1.0
+
+            # Verify non-empty strings
+            assert fact.name.strip()
+            assert fact.type.strip()
+            assert fact.verb.strip()
+
+    @pytest.mark.asyncio
+    async def test_extract_facts_company_info(self, extractor: LangChainFactExtractor):
+        """Test fact extraction with company information."""
+        content = "Apple Inc. is headquartered in Cupertino, California and was founded in 1976."
+        entity_identifier = IdentifierDto(type="username", value="AppleInc")
+
+        facts = await extractor.extract_facts(content, entity_identifier)
+
+        assert isinstance(facts, list)
+        assert len(facts) > 0
+
+        # Check that relevant facts are extracted
+        fact_names = [fact.name for fact in facts]
+        assert any(
+            location in fact_name
+            for fact_name in fact_names
+            for location in ["Cupertino", "California"]
+        )
+
+        # Verify all facts have required structure
+        for fact in facts:
+            assert isinstance(fact, ExtractedFactDto)
+            assert fact.name
+            assert fact.type
+            assert fact.verb
+            assert 0.0 <= fact.confidence_score <= 1.0
+
+    @pytest.mark.asyncio
+    async def test_extract_facts_empty_content(self, extractor: LangChainFactExtractor):
+        """Test fact extraction with minimal/empty content."""
+        content = "This is a test entity with minimal information."
+        entity_identifier = IdentifierDto(type="username", value="test-entity-123")
+
+        facts = await extractor.extract_facts(content, entity_identifier)
+
+        # Should still return a list (possibly empty)
+        assert isinstance(facts, list)
+        # With the new prompt, this should ideally return no facts.
+        assert len(facts) == 0
+
+    @pytest.mark.asyncio
+    async def test_extract_facts_from_conversational_turn_hobby(
+        self, extractor: LangChainFactExtractor
+    ):
+        """Test fact extraction from a conversational turn about a hobby."""
+        content = "I really enjoy hiking on weekends."
+        entity_identifier = IdentifierDto(type="email", value="john.doe@example.com")
+
+        facts = await extractor.extract_facts(content, entity_identifier)
+
+        assert isinstance(facts, list)
+        assert len(facts) > 0
+
+        fact_names = {str(fact.name).lower() for fact in facts}
+        assert "hiking" in fact_names
+
+        # Check for a hobby-related fact
+        hobby_fact_found = False
+        for fact in facts:
+            if str(fact.name).lower() == "hiking":
+                assert str(fact.type).lower() in ["hobby", "activity"]
+                assert str(fact.verb).lower() in ["enjoys", "likes"]
+                hobby_fact_found = True
+        assert hobby_fact_found, "Hobby fact about hiking not found"
+
+    @pytest.mark.asyncio
+    async def test_extract_facts_from_conversational_turn_sentiment(
+        self, extractor: LangChainFactExtractor
+    ):
+        """Test extracting sentiment as a fact."""
+        content = "I don't like Mondays."
+        entity_identifier = IdentifierDto(type="username", value="user123")
+
+        facts = await extractor.extract_facts(content, entity_identifier)
+
+        assert isinstance(facts, list)
+        assert len(facts) > 0
+
+        fact_names = {str(fact.name).lower() for fact in facts}
+        assert "mondays" in fact_names
+
+        # Check for a sentiment-related fact
+        sentiment_fact_found = False
+        for fact in facts:
+            if str(fact.name).lower() == "mondays":
+                assert str(fact.verb).lower() in ["dislikes", "does_not_like"]
+                sentiment_fact_found = True
+        assert sentiment_fact_found, "Sentiment fact about Mondays not found"
+
+    @pytest.mark.asyncio
+    async def test_extract_facts_with_conversational_history(
+        self, extractor: LangChainFactExtractor
+    ):
+        """Test fact extraction from a conversation in Portuguese."""
+        history = [
+            "ai: Entendido, Mariele. Focar no trabalho para destravar as outras áreas é uma visão estratégica.\n\nQuem vai conduzir esse pilar é o Flávio Augusto, que tem uma experiência gigante em construir negócios e gerar riqueza.\n\nMe diga, o que exatamente no seu trabalho você sente que precisa de mais clareza ou direção nesse momento?"
+        ]
+        content = "De tomar a decisão correta em uma empresa nova que eu e meu marido vamos abrir. A forma certa de iniciar este novo negócio"
+        entity_identifier = IdentifierDto(type="email", value="mariele@example.com")
+
+        facts = await extractor.extract_facts(
+            content, entity_identifier, history=history
+        )
+
+        assert isinstance(facts, list)
+        assert len(facts) > 0
+
+        # Check that the standardization is working
+        for fact in facts:
+            # 'name' can be in Portuguese
+            assert isinstance(fact.name, str)
+
+            # 'type' and 'verb' must be in English. A simple check is to see if they are ASCII.
+            assert str(fact.type).isascii()
+            assert str(fact.verb).isascii()
+
+            # Check for core concepts in name
+            name_lower = str(fact.name).lower()
+            assert "empresa" in name_lower or "negócio" in name_lower
+
+        # Verify all facts have required structure
+        for fact in facts:
+            assert isinstance(fact, ExtractedFactDto)
+            assert fact.name
+            assert fact.type
+            assert fact.verb
+            assert 0.0 <= fact.confidence_score <= 1.0
+</file>
+
+<file path="apps/api/tests/features/graph/usecases/test_assimilate_knowledge_usecase_integration.py">
+"""Integration tests for AssimilateKnowledgeUseCaseImpl using real dependencies.
+
+This module provides integration tests for the AssimilateKnowledgeUseCaseImpl
+using the actual production implementations of ArcadedbRepository and LangChainFactExtractor.
+"""
+
+import uuid
+
+import asyncpg
+import pytest
+
+from app.db.postgres.connection import get_db_pool, reset_db_pool
+from app.features.graph.dtos.knowledge_dto import (
+    AssimilateKnowledgeRequest,
+    AssimilateKnowledgeResponse,
+    IdentifierDto,
+)
+from app.features.graph.repositories.age_repository import AgeRepository
+from app.features.graph.services.langchain_fact_extractor import LangChainFactExtractor
+from app.features.graph.usecases.assimilate_knowledge_usecase import (
+    AssimilateKnowledgeUseCaseImpl,
+)
+
+
+@pytest.fixture(autouse=True)
+async def reset_db_connection():
+    """Reset database connection and clear data before each test."""
+    await reset_db_pool()
+
+    # Clear all data from the graph to ensure clean state
+    pool = await get_db_pool()
+    age_repo = AgeRepository(pool)
+
+    try:
+        await age_repo.clear_all_data()
+    except Exception:
+        pass  # Ignore errors if graph is already empty
+
+
+@pytest.fixture
+async def postgres_pool() -> asyncpg.Pool:
+    """PostgreSQL connection pool for integration tests."""
+    return await get_db_pool()
+
+
+@pytest.fixture
+async def age_repository(postgres_pool: asyncpg.Pool) -> AgeRepository:
+    """Fixture to get an AgeRepository instance."""
+    return AgeRepository(postgres_pool)
+
+
+@pytest.fixture
+def langchain_fact_extractor() -> LangChainFactExtractor:
+    """LangChainFactExtractor instance for testing."""
+    return LangChainFactExtractor()
+
+
+@pytest.fixture
+async def assimilate_knowledge_usecase(
+    age_repository: AgeRepository,
+    langchain_fact_extractor: LangChainFactExtractor,
+) -> AssimilateKnowledgeUseCaseImpl:
+    """AssimilateKnowledgeUseCaseImpl instance for testing."""
+    return AssimilateKnowledgeUseCaseImpl(
+        repository=age_repository, fact_extractor=langchain_fact_extractor
+    )
+
+
+@pytest.fixture
+def test_identifier() -> IdentifierDto:
+    """Test identifier payload for integration testing."""
+    return IdentifierDto(
+        value=f"test.integration.{uuid.uuid4()}@example.com", type="email"
+    )
+
+
+@pytest.fixture
+def test_content() -> str:
+    """Test content for fact extraction."""
+    return "I live in Paris and work as a Software Engineer. I really enjoy hiking on weekends."
+
+
+class TestAssimilateKnowledgeUseCaseIntegration:
+    """Integration tests for AssimilateKnowledgeUseCaseImpl.execute method."""
+
+    @pytest.mark.asyncio
+    async def test_assimilate_knowledge_basic(
+        self,
+        assimilate_knowledge_usecase: AssimilateKnowledgeUseCaseImpl,
+        test_identifier: IdentifierDto,
+        test_content: str,
+    ) -> None:
+        """Test basic knowledge assimilation flow with fact extraction."""
+
+        # Act
+        request = AssimilateKnowledgeRequest(
+            identifier=test_identifier,
+            content=test_content,
+        )
+
+        result: AssimilateKnowledgeResponse = (
+            await assimilate_knowledge_usecase.execute(request)
+        )
+        print(f"{result=}")
+
+        # Assert
+        assert isinstance(result, AssimilateKnowledgeResponse)
+        assert result.entity is not None
+        assert result.source is not None
+        assert result.assimilated_facts is not None
+
+        # Verify entity was created with correct ID
+        assert result.entity.id is not None
+        assert isinstance(result.entity.metadata, dict)
+
+        # Verify source was created correctly
+        assert result.source.id is not None
+        assert result.source.content == test_content
+        assert result.source.timestamp is not None  # Should be auto-generated
+
+        # Verify facts were extracted and assimilated
+        # The exact facts depend on the LLM output, but we expect some facts
+        assert len(result.assimilated_facts) > 0
+
+        # Check structure of assimilated facts
+        for assimilated_fact in result.assimilated_facts:
+            assert assimilated_fact.fact is not None
+            assert assimilated_fact.fact.name is not None
+            assert assimilated_fact.fact.type is not None
+            assert assimilated_fact.fact.fact_id is not None
+            assert assimilated_fact.relationship is not None
+            assert assimilated_fact.relationship.verb is not None
+            assert 0.0 <= assimilated_fact.relationship.confidence_score <= 1.0
+            assert assimilated_fact.relationship.created_at is not None
+
+    @pytest.mark.asyncio
+    async def test_assimilate_knowledge_creates_new_entity(
+        self,
+        assimilate_knowledge_usecase: AssimilateKnowledgeUseCaseImpl,
+        test_identifier: IdentifierDto,
+        test_content: str,
+    ) -> None:
+        """Test that assimilate knowledge creates a new entity when identifier doesn't exist."""
+
+        # Act
+        request = AssimilateKnowledgeRequest(
+            identifier=test_identifier,
+            content=test_content,
+        )
+
+        result = await assimilate_knowledge_usecase.execute(request)
+
+        # Assert
+        assert result.entity is not None
+        assert result.entity.id is not None
+
+        # Verify the entity can be found in the database
+        found_entity = (
+            await assimilate_knowledge_usecase.repository.find_entity_by_identifier(
+                test_identifier.value, test_identifier.type
+            )
+        )
+        assert found_entity is not None
+        assert found_entity["entity"].id == result.entity.id
+
+    @pytest.mark.asyncio
+    async def test_assimilate_knowledge_reuses_existing_entity(
+        self,
+        assimilate_knowledge_usecase: AssimilateKnowledgeUseCaseImpl,
+        test_identifier: IdentifierDto,
+        test_content: str,
+    ) -> None:
+        """Test that assimilate knowledge reuses existing entity when identifier already exists."""
+
+        # First, create an entity with the identifier
+        first_request = AssimilateKnowledgeRequest(
+            identifier=test_identifier,
+            content="Initial content about the entity.",
+        )
+
+        first_result = await assimilate_knowledge_usecase.execute(first_request)
+        first_entity_id = first_result.entity.id
+
+        # Now assimilate more knowledge with the same identifier
+        second_request = AssimilateKnowledgeRequest(
+            identifier=test_identifier,
+            content=test_content,
+        )
+
+        second_result = await assimilate_knowledge_usecase.execute(second_request)
+
+        # Assert that the same entity was reused
+        assert second_result.entity.id == first_entity_id
+
+        # Verify both sets of facts are associated with the same entity
+        found_entity = await assimilate_knowledge_usecase.repository.find_entity_by_id(
+            str(first_entity_id)
+        )
+        assert found_entity is not None
+
+        # Should have facts from both assimilation calls
+        facts_with_sources = found_entity["facts_with_sources"]
+        assert len(facts_with_sources) > 0
+
+    @pytest.mark.asyncio
+    async def test_assimilate_knowledge_with_history(
+        self,
+        assimilate_knowledge_usecase: AssimilateKnowledgeUseCaseImpl,
+        test_identifier: IdentifierDto,
+    ) -> None:
+        """Test knowledge assimilation with conversation history for context."""
+
+        history = [
+            "Hello, I'm John and I'm 25 years old.",
+            "I moved to Paris last year.",
+        ]
+
+        current_content = "I work as a software engineer now."
+
+        # Act
+        request = AssimilateKnowledgeRequest(
+            identifier=test_identifier,
+            content=current_content,
+            history=history,
+        )
+
+        result = await assimilate_knowledge_usecase.execute(request)
+
+        # Assert
+        assert result.entity is not None
+        assert result.source is not None
+        assert len(result.assimilated_facts) > 0
+
+        # The fact extractor should use the history for better context
+        # We can't predict exact facts, but ensure the process completes successfully
+
+    @pytest.mark.asyncio
+    async def test_assimilate_knowledge_no_facts_extracted(
+        self,
+        assimilate_knowledge_usecase: AssimilateKnowledgeUseCaseImpl,
+        test_identifier: IdentifierDto,
+    ) -> None:
+        """Test knowledge assimilation when no facts can be extracted from content."""
+
+        # Content that should not yield any facts
+        content = (
+            "This is just a generic message with no specific information about me."
+        )
+
+        # Act
+        request = AssimilateKnowledgeRequest(
+            identifier=test_identifier,
+            content=content,
+        )
+
+        result = await assimilate_knowledge_usecase.execute(request)
+
+        # Assert
+        assert result.entity is not None
+        assert result.source is not None
+        # The fact extractor might still extract some facts, or it might return empty
+        # We just verify the process completes without error
+        assert isinstance(result.assimilated_facts, list)
+
+    @pytest.mark.asyncio
+    async def test_assimilate_knowledge_multiple_facts(
+        self,
+        assimilate_knowledge_usecase: AssimilateKnowledgeUseCaseImpl,
+        test_identifier: IdentifierDto,
+    ) -> None:
+        """Test assimilation of content that should yield multiple facts."""
+
+        # Content designed to yield multiple distinct facts about the entity
+        content = """I live in San Francisco, California.
+        I work as a Senior Product Manager at a tech company. I graduated from Stanford University
+        with a degree in Computer Science. I speak English, Spanish, and French fluently.
+        My hobbies include photography, hiking, and playing the piano."""
+
+        # Act
+        request = AssimilateKnowledgeRequest(
+            identifier=test_identifier,
+            content=content,
+        )
+
+        result = await assimilate_knowledge_usecase.execute(request)
+        print(f"---> result: {result}")
+
+        # Assert
+        assert result.entity is not None
+        assert result.source is not None
+
+        # Should extract multiple facts
+        assert len(result.assimilated_facts) > 1
+
+        # Verify all facts have proper structure
+        fact_types: set[str] = set()
+        for assimilated_fact in result.assimilated_facts:
+            assert assimilated_fact.fact.name
+            assert assimilated_fact.fact.type
+            assert assimilated_fact.fact.fact_id
+            assert assimilated_fact.relationship.verb
+            assert 0.0 <= assimilated_fact.relationship.confidence_score <= 1.0
+            fact_types.add(assimilated_fact.fact.type)
+
+        # Should have variety in fact types
+        assert len(fact_types) > 1
+
+    @pytest.mark.asyncio
+    async def test_assimilate_knowledge_different_languages(
+        self,
+        assimilate_knowledge_usecase: AssimilateKnowledgeUseCaseImpl,
+        test_identifier: IdentifierDto,
+    ) -> None:
+        """Test knowledge assimilation with content in different languages."""
+
+        # Test with Spanish content
+        spanish_content = "Me llamo María García. Vivo en Barcelona y trabajo como profesora de matemáticas."
+
+        request = AssimilateKnowledgeRequest(
+            identifier=test_identifier,
+            content=spanish_content,
+        )
+
+        result = await assimilate_knowledge_usecase.execute(request)
+        print(f"---> result: {result}")
+
+        # Assert
+        assert result.entity is not None
+        assert result.source is not None
+        assert len(result.assimilated_facts) > 0
+
+        # Fact names should be in original language, types and verbs in English
+        for assimilated_fact in result.assimilated_facts:
+            assert assimilated_fact.fact.name  # Could be in Spanish
+            assert assimilated_fact.fact.type  # Should be in English
+            assert assimilated_fact.relationship.verb  # Should be in English
+</file>
+
+<file path="apps/api/tests/features/graph/usecases/test_get_entity_usecase_integration.py">
+"""Integration tests for GetEntityUseCaseImpl using real dependencies.
+
+This module provides integration tests for the GetEntityUseCaseImpl
+using the actual production implementation of ArcadedbRepository.
+"""
+
+import uuid
+from datetime import datetime
+
+import asyncpg
+import pytest
+
+from app.db.postgres.connection import get_db_pool, reset_db_pool
+from app.features.graph.dtos.knowledge_dto import (
+    AssimilateKnowledgeRequest,
+    GetEntityResponse,
+    IdentifierDto,
+)
+from app.features.graph.repositories.age_repository import AgeRepository
+from app.features.graph.services.langchain_fact_extractor import LangChainFactExtractor
+from app.features.graph.usecases.assimilate_knowledge_usecase import (
+    AssimilateKnowledgeUseCaseImpl,
+)
+from app.features.graph.usecases.get_entity_usecase import GetEntityUseCaseImpl
+
+
+@pytest.fixture(autouse=True)
+async def reset_db_connection():
+    """Reset database connection and clear data before each test."""
+    await reset_db_pool()
+
+    # Clear all data from the graph to ensure clean state
+    pool = await get_db_pool()
+    age_repo = AgeRepository(pool)
+
+    try:
+        await age_repo.clear_all_data()
+    except Exception:
+        pass  # Ignore errors if graph is already empty
+
+
+@pytest.fixture
+async def postgres_pool() -> asyncpg.Pool:
+    """PostgreSQL connection pool for integration tests."""
+    return await get_db_pool()
+
+
+@pytest.fixture
+async def age_repository(postgres_pool: asyncpg.Pool) -> AgeRepository:
+    """Fixture to get an AgeRepository instance."""
+    return AgeRepository(postgres_pool)
+
+
+@pytest.fixture
+def langchain_fact_extractor() -> LangChainFactExtractor:
+    """LangChainFactExtractor instance for testing."""
+    return LangChainFactExtractor()
+
+
+@pytest.fixture
+async def assimilate_knowledge_usecase(
+    age_repository: AgeRepository,
+    langchain_fact_extractor: LangChainFactExtractor,
+) -> AssimilateKnowledgeUseCaseImpl:
+    """AssimilateKnowledgeUseCaseImpl instance for setting up test data."""
+    return AssimilateKnowledgeUseCaseImpl(
+        repository=age_repository, fact_extractor=langchain_fact_extractor
+    )
+
+
+@pytest.fixture
+async def get_entity_usecase(
+    age_repository: AgeRepository,
+) -> GetEntityUseCaseImpl:
+    """GetEntityUseCaseImpl instance for testing."""
+    return GetEntityUseCaseImpl(repository=age_repository)
+
+
+@pytest.fixture
+def test_identifier() -> IdentifierDto:
+    """Test identifier payload for integration testing."""
+    return IdentifierDto(
+        value=f"test.integration.{uuid.uuid4()}@example.com", type="email"
+    )
+
+
+@pytest.fixture
+def test_content() -> str:
+    """Test content for fact extraction."""
+    return "I live in Paris and work as a Software Engineer. I really enjoy hiking on weekends."
+
+
+class TestGetEntityUseCaseIntegration:
+    """Integration tests for GetEntityUseCaseImpl.execute method."""
+
+    @pytest.mark.asyncio
+    async def test_get_entity_existing_entity(
+        self,
+        get_entity_usecase: GetEntityUseCaseImpl,
+        assimilate_knowledge_usecase: AssimilateKnowledgeUseCaseImpl,
+        test_identifier: IdentifierDto,
+        test_content: str,
+    ) -> None:
+        """Test retrieving an existing entity by identifier."""
+
+        # First, create an entity with facts using assimilate knowledge
+        assimilate_request = AssimilateKnowledgeRequest(
+            identifier=test_identifier,
+            content=test_content,
+        )
+        _ = await assimilate_knowledge_usecase.execute(assimilate_request)
+
+        # Now retrieve the entity using get entity use case
+        result: GetEntityResponse = await get_entity_usecase.execute(
+            identifier_value=test_identifier.value, identifier_type=test_identifier.type
+        )
+        print(f"{result=}")
+
+        # Assert
+        assert isinstance(result, GetEntityResponse)
+        assert result.entity is not None
+        assert result.identifier is not None
+        assert result.facts is not None
+
+        # Verify entity details
+        assert result.entity.id is not None
+        assert isinstance(result.entity.metadata, dict)
+
+        # Verify identifier details
+        assert result.identifier.identifier.value == test_identifier.value
+        assert result.identifier.identifier.type == test_identifier.type
+        assert result.identifier.relationship.is_primary is True
+        assert result.identifier.relationship.created_at is not None
+
+        # Verify facts were included (should have facts from assimilation)
+        assert len(result.facts) > 0
+
+        # Check structure of facts with sources
+        for fact_with_source in result.facts:
+            assert fact_with_source.fact is not None
+            assert fact_with_source.fact.name is not None
+            assert fact_with_source.fact.type is not None
+            assert fact_with_source.fact.fact_id is not None
+            assert fact_with_source.relationship is not None
+            assert fact_with_source.relationship.verb is not None
+            assert 0.0 <= fact_with_source.relationship.confidence_score <= 1.0
+            assert fact_with_source.relationship.created_at is not None
+            # Source should always be present for facts created through assimilation
+            assert fact_with_source.source is not None
+            assert fact_with_source.source.id is not None
+            assert fact_with_source.source.content is not None
+            assert fact_with_source.source.timestamp is not None
+            assert isinstance(fact_with_source.source.timestamp, datetime)
+
+    @pytest.mark.asyncio
+    async def test_get_entity_with_multiple_facts(
+        self,
+        get_entity_usecase: GetEntityUseCaseImpl,
+        assimilate_knowledge_usecase: AssimilateKnowledgeUseCaseImpl,
+        test_identifier: IdentifierDto,
+    ) -> None:
+        """Test retrieving an entity with multiple facts from multiple assimilations."""
+
+        # First assimilation
+        first_content = "I live in Paris and work as a Software Engineer."
+        first_request = AssimilateKnowledgeRequest(
+            identifier=test_identifier,
+            content=first_content,
+        )
+        _ = await assimilate_knowledge_usecase.execute(first_request)
+
+        # Second assimilation with same entity
+        second_content = "I enjoy hiking and photography as hobbies."
+        second_request = AssimilateKnowledgeRequest(
+            identifier=test_identifier,
+            content=second_content,
+        )
+        _ = await assimilate_knowledge_usecase.execute(second_request)
+
+        # Retrieve the entity
+        result: GetEntityResponse = await get_entity_usecase.execute(
+            identifier_value=test_identifier.value, identifier_type=test_identifier.type
+        )
+
+        # Assert
+        assert result.entity is not None
+        assert len(result.facts) > 1  # Should have facts from both assimilations
+
+        # Verify all facts have proper structure
+        fact_names: set[str] = set()
+        for fact_with_source in result.facts:
+            assert fact_with_source.fact.name
+            assert fact_with_source.fact.type
+            assert fact_with_source.fact.fact_id
+            assert fact_with_source.relationship.verb
+            # Source should always be present for facts created through assimilation
+            assert fact_with_source.source is not None
+            assert fact_with_source.source.id is not None
+            assert fact_with_source.source.content is not None
+            assert fact_with_source.source.timestamp is not None
+            assert isinstance(fact_with_source.source.timestamp, datetime)
+            fact_names.add(fact_with_source.fact.name)
+
+        # Should have multiple distinct facts
+        assert len(fact_names) > 1
+
+    @pytest.mark.asyncio
+    async def test_get_entity_not_found(
+        self,
+        get_entity_usecase: GetEntityUseCaseImpl,
+    ) -> None:
+        """Test that retrieving a non-existent entity raises HTTPException."""
+
+        from fastapi import HTTPException
+
+        # Try to get an entity that doesn't exist
+        with pytest.raises(HTTPException) as exc_info:
+            _ = await get_entity_usecase.execute(
+                identifier_value="nonexistent@example.com", identifier_type="email"
+            )
+
+        # Assert
+        assert exc_info.value.status_code == 404
+        assert "not found" in str(exc_info.value.detail).lower()
+
+    @pytest.mark.asyncio
+    async def test_get_entity_different_identifier_types(
+        self,
+        get_entity_usecase: GetEntityUseCaseImpl,
+        assimilate_knowledge_usecase: AssimilateKnowledgeUseCaseImpl,
+        test_content: str,
+    ) -> None:
+        """Test retrieving entities with different identifier types."""
+
+        # Create entity with phone identifier
+        phone_identifier = IdentifierDto(
+            value=f"+1234567890{uuid.uuid4().hex[:6]}", type="phone"
+        )
+        phone_request = AssimilateKnowledgeRequest(
+            identifier=phone_identifier,
+            content=test_content,
+        )
+        _ = await assimilate_knowledge_usecase.execute(phone_request)
+
+        # Retrieve by phone identifier
+        result: GetEntityResponse = await get_entity_usecase.execute(
+            identifier_value=phone_identifier.value,
+            identifier_type=phone_identifier.type,
+        )
+
+        # Assert
+        assert result.entity is not None
+        assert result.identifier.identifier.value == phone_identifier.value
+        assert result.identifier.identifier.type == phone_identifier.type
+        assert len(result.facts) > 0
+
+    @pytest.mark.asyncio
+    async def test_get_entity_entity_with_no_facts(
+        self,
+        get_entity_usecase: GetEntityUseCaseImpl,
+        age_repository: AgeRepository,
+        test_identifier: IdentifierDto,
+    ) -> None:
+        """Test retrieving an entity that exists but has no associated facts."""
+
+        # Create entity manually without facts
+        from app.features.graph.models import Entity, HasIdentifier, Identifier
+
+        entity = Entity(id=uuid.uuid4())  # Will use default timestamp
+        identifier = Identifier(value=test_identifier.value, type=test_identifier.type)
+        relationship = HasIdentifier(
+            from_entity_id=entity.id,
+            to_identifier_value=identifier.value,
+            is_primary=True,
+        )  # Will use default timestamp
+
+        _ = await age_repository.create_entity(entity, identifier, relationship)
+
+        # Retrieve the entity
+        result: GetEntityResponse = await get_entity_usecase.execute(
+            identifier_value=test_identifier.value, identifier_type=test_identifier.type
+        )
+
+        # Assert
+        assert result.entity is not None
+        assert result.identifier is not None
+        assert result.facts == []  # Should be empty list, not None
+
+    @pytest.mark.asyncio
+    async def test_get_entity_with_primary_identifier_selection(
+        self,
+        get_entity_usecase: GetEntityUseCaseImpl,
+        age_repository: AgeRepository,
+        test_identifier: IdentifierDto,
+    ) -> None:
+        """Test that when an entity has multiple identifiers, the primary one is returned."""
+
+        # Create entity with multiple identifiers
+        from app.features.graph.models import Entity, HasIdentifier, Identifier
+
+        entity = Entity(id=uuid.uuid4())
+        primary_identifier = Identifier(
+            value=test_identifier.value, type=test_identifier.type
+        )
+        primary_relationship = HasIdentifier(
+            from_entity_id=entity.id,
+            to_identifier_value=primary_identifier.value,
+            is_primary=True,
+        )
+
+        # Create the entity with primary identifier
+        _ = await age_repository.create_entity(
+            entity, primary_identifier, primary_relationship
+        )
+
+        # Add a secondary identifier manually
+        secondary_identifier = Identifier(
+            value=f"secondary.{uuid.uuid4().hex[:8]}@example.com", type="email"
+        )
+        secondary_relationship = HasIdentifier(
+            from_entity_id=entity.id,
+            to_identifier_value=secondary_identifier.value,
+            is_primary=False,
+        )
+
+        # Add secondary identifier using the repository method
+        # We need to create a new entity instance for the secondary identifier
+        secondary_entity = Entity(id=entity.id)  # Same entity
+        _ = await age_repository.create_entity(
+            secondary_entity, secondary_identifier, secondary_relationship
+        )
+
+        # Retrieve the entity by primary identifier
+        result: GetEntityResponse = await get_entity_usecase.execute(
+            identifier_value=test_identifier.value, identifier_type=test_identifier.type
+        )
+
+        # Assert that the primary identifier is returned
+        assert result.identifier.identifier.value == test_identifier.value
+        assert result.identifier.identifier.type == test_identifier.type
+        assert result.identifier.relationship.is_primary is True
+</file>
+
+<file path="apps/api/package.json">
+{
+  "name": "api",
+  "scripts": {
+    "dev": "uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000",
+    "lint": "uv run ruff check . && uv run ruff format .",
+    "test": "uv run pytest"
+  }
+}
+</file>
+
+<file path="apps/api/pyproject.toml">
+[project]
+name = "nous"
+version = "0.1.0"
+description = "FastAPI application with modular architecture"
+authors = [
+    {name = "Your Name", email = "your.email@example.com"}
+]
+readme = "README.md"
+requires-python = ">=3.12"
+
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "python-multipart>=0.0.12",
+    "pydantic>=2.10.0",
+    "pydantic-settings>=2.6.0",
+    "email-validator>=2.2.0",
+    "python-jose[cryptography]>=3.3.0",
+    "passlib[bcrypt]>=1.7.4",
+    "fastapi-cli>=0.0.8",
+    "httpx>=0.28.1",
+    "langchain>=0.3.27",
+    "langchain-core>=0.3.76",
+    "langchain-google-genai>=2.1.12",
+    "asyncpg>=0.30.0",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.12.9",
+    "pre-commit>=4.0.0",
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.24.0",
+    "httpx>=0.28.0",
+    "pytest-cov>=7.0.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+asyncio_mode = "auto"
+addopts = "-v --tb=short"
+
+[tool.ruff]
+# Same as Black
+line-length = 88
+indent-width = 4
+
+# Assume Python 3.12
+target-version = "py312"
+
+[tool.ruff.lint]
+
+# Allow fix for all enabled rules (when `--fix`) is provided.
+fixable = ["ALL"]
+unfixable = []
+
+[tool.ruff.format]
+# Like Black, use double quotes for strings.
+quote-style = "double"
+
+# Like Black, indent with spaces, rather than tabs.
+indent-style = "space"
+
+# Like Black, respect magic trailing commas.
+skip-magic-trailing-comma = false
+
+# Like Black, automatically detect the appropriate line ending.
+line-ending = "auto"
+
+[tool.ruff.lint.per-file-ignores]
+# Tests can use magic values, assertions, and relative imports
+"**/test_*.py" = [
+    "PLR2004",
+    "S101",
+    "TID252",
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+</file>
+
+<file path="apps/api/README.md">
+# Nous - FastAPI Modular Architecture
+
+A FastAPI application built with a modular, feature-based architecture supporting PostgreSQL AGE Graph Database.
+
+## Architecture
+
+This project follows the modular architecture defined in [Project-architecture](docs/project_architecture.md), with tests properly separated from application code in a dedicated `tests/` directory.
+
+## Project Structure
+
+```plaintext
+/nous-api/
+├── app/                          # Application source code
+│   ├── main.py                    # FastAPI app instance
+│   ├── core/                      # App-wide concerns
+│   │   ├── security.py           # Authentication & security
+│   │   └── settings.py           # Configuration
+│   ├── db/                       # Database connections
+│   │   ├── postgres/             # PostgreSQL AGE connection
+│   └── features/                 # Feature modules
+│       └── graph/                # Graph feature
+│           ├── models/           # Domain models
+│           ├── repositories/     # Data access layer
+│           ├── routes/           # API endpoints
+│           └── usecases/         # Business logic
+├── tests/                        # Test suite (mirrors app structure)
+│   ├── core/
+│   │   └── test_security.py      # Security tests
+│   ├── db/
+│   │   └── graph/
+│   │       └── test_graph.py     # Graph database tests
+│   └── features/
+│       └── graph/
+│           └── repositories/
+│               └── test_entity_repository_integration.py
+└── pyproject.toml                # Dependencies & config
+```
+
+## Features
+
+- ✅ **Modular Architecture**: Feature-based organization
+- ✅ **Graph Database Support**: PostgreSQL AGE Graph Database
+- ✅ **Database Integration**: PostgreSQL AGE accessed via native SQL queries
+- ✅ **Authentication**: JWT-based auth with password hashing
+- ✅ **Test Suite**: Comprehensive test coverage with separated test directory
+- ✅ **Modern Python**: Type hints, async/await, Pydantic v2, SQLModel
+- ✅ **Development Tools**: Ruff linting/formatting, basedpyright type checking, pytest
+
+## Getting Started
+
+### Prerequisites
+
+- Python 3.12+
+- PostgreSQL with AGE extension (required, for graph database features)
+- `uv` package manager
+
+### Installation
+
+1. **Clone and setup**:
+
+   ```bash
+   git clone <repository>
+   cd nous-api
+   ```
+
+2. **Install dependencies using uv**:
+
+   ```bash
+   uv sync
+   ```
+
+3. **Set up environment variables**:
+   ```bash
+   cp .env.example .env
+   # Edit .env with your database credentials
+   ```
+
+### Running the Application
+
+**Development server (recommended)**:
+
+```bash
+uv run fastapi dev app/main.py
+```
+
+**Alternative methods**:
+
+```bash
+# Using uvicorn directly
+uv run uvicorn app.main:app --reload
+
+# Using the main module
+uv run python -m app.main
+```
+
+The API will be available at:
+
+- **API**: http://localhost:8000
+- **Docs**: http://localhost:8000/docs
+- **Health**: http://localhost:8000/health
+
+### Testing
+
+Run all tests:
+
+```bash
+uv run pytest tests/
+```
+
+Run tests with coverage:
+
+```bash
+uv run pytest tests/ --cov=app --cov-report=html
+```
+
+Run specific test file:
+
+```bash
+uv run pytest tests/core/test_security.py -v
+```
+
+#### Integration Tests
+
+Run integration tests for EntityRepository (uses real PostgreSQL AGE database):
+
+```bash
+# Run all integration tests for entity repository
+uv run python -m pytest tests/features/graph/repositories/entity_repository/test_entity_repository_create_entity_integration.py -v
+
+# Run specific integration test with detailed output
+uv run python -m pytest tests/features/graph/repositories/entity_repository/test_entity_repository_create_entity_integration.py::TestCreateEntityIntegration::test_create_entity_basic -v -s
+
+# Run integration tests with coverage
+uv run python -m pytest tests/features/graph/repositories/entity_repository/test_entity_repository_create_entity_integration.py --cov=app.features.graph.repositories.entity
+```
+
+**Note**: Integration tests connect to your actual PostgreSQL AGE database, so ensure your database is running and properly configured in your environment variables.
+
+### Development Tools
+
+**Format and lint code**:
+
+```bash
+uv run ruff format app/
+uv run ruff check app/ tests/
+```
+
+**Fix linting issues automatically**:
+
+```bash
+uv run ruff check app/ tests/ --fix
+```
+
+**Type checking**:
+
+```bash
+uv run basedpyright app/ tests/
+```
+
+## API Endpoints
+
+### Authentication
+
+- `POST /api/v1/auth/token` - Login and get access token
+
+### Users
+
+- `POST /api/v1/users/` - Create new user
+- `GET /api/v1/users/me` - Get current user info
+- `GET /api/v1/users/` - List users (authenticated)
+- `GET /api/v1/users/{user_id}` - Get user by ID
+- `PUT /api/v1/users/{user_id}` - Update user
+- `DELETE /api/v1/users/{user_id}` - Delete user
+- `POST /api/v1/users/{user_id}/friends/{friend_id}` - Add friend
+- `GET /api/v1/users/{user_id}/friends` - Get user's friends
+
+### Health
+
+- `GET /health` - Health check
+
+## Database Setup
+
+### PostgreSQL AGE Graph Database
+
+1. **Setup PostgreSQL with AGE extension** (required):
+
+   The application uses PostgreSQL with the AGE extension for graph database functionality.
+
+   ```bash
+   # Install PostgreSQL and AGE extension (see compose/postgres/ for Docker setup)
+   # Or use a PostgreSQL service with AGE extension installed
+   ```
+
+2. **Update connection settings in `.env`**:
+   ```env
+   POSTGRES_USER=admin
+   POSTGRES_PASSWORD=supersecretpassword
+   POSTGRES_HOST=localhost
+   POSTGRES_PORT=5432
+   POSTGRES_DB=multimodel_db
+   AGE_GRAPH_NAME=nous
+   ```
+
+## Development
+
+### Adding New Features
+
+1. **Create feature directory**:
+
+   ```bash
+   mkdir -p app/features/your_feature
+   ```
+
+2. **Add the standard files**:
+
+   - `router.py` - API endpoints
+   - `service.py` - Business logic
+   - `schemas.py` - Pydantic models
+   - `models.py` - SQLModel database models
+   - `graph_models.py` - PostgreSQL AGE models (if needed)
+
+3. **Add corresponding tests in `tests/` directory**:
+
+   Create the test directory structure:
+
+   ```bash
+   mkdir -p tests/features/your_feature
+   ```
+
+   Add test files:
+
+   - `tests/features/your_feature/test_router.py`
+   - `tests/features/your_feature/test_service.py`
+
+4. **Include router in main app**:
+   ```python
+   from app.features.your_feature.router import router
+   app.include_router(router, prefix="/api/v1")
+   ```
+
+### Environment Variables
+
+All configuration is handled through environment variables. See `.env.example` for available options.
+
+## Contributing
+
+1. Follow the naming conventions in [docs/naming_convention.md](docs/naming_convention.md)
+2. Write tests for new features in the `tests/` directory (mirroring the `app/` structure)
+3. Use type hints for all functions
+4. Follow the modular architecture patterns
+5. Use `uv` for dependency management
+</file>
+
+<file path=".gitignore">
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+#  Usually these files are written by a python script from a template
+#  before PyInstaller builds the exe, so as to inject date/other infos into it.
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# Translations
+*.mo
+*.pot
+
+# Django stuff:
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+
+# Flask stuff:
+instance/
+.webassets-cache
+
+# Scrapy stuff:
+.scrapy
+
+# Sphinx documentation
+docs/_build/
+
+# PyBuilder
+.pybuilder/
+target/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
+
+# pyenv
+#   For a library or package, you might want to ignore these files since the code is
+#   intended to run in multiple environments; otherwise, check them in:
+# .python-version
+
+# pipenv
+#   According to pypa/pipenv#598, it is recommended to include Pipfile.lock in version control.
+#   However, in case of collaboration, if having platform-specific dependencies or dependencies
+#   having no cross-platform support, pipenv may install dependencies that don't work, or not
+#   install all needed dependencies.
+#Pipfile.lock
+
+# poetry
+#   Similar to Pipfile.lock, it is generally recommended to include poetry.lock in version control.
+#   This is especially recommended for binary packages to ensure reproducibility, and is more
+#   commonly ignored for libraries.
+#   https://python-poetry.org/docs/basic-usage/#commit-your-poetrylock-file-to-version-control
+#poetry.lock
+
+# pdm
+#   Similar to Pipfile.lock, it is generally recommended to include pdm.lock in version control.
+#pdm.lock
+#   pdm stores project-wide configurations in .pdm.toml, but it is recommended to not include it
+#   in version control.
+#   https://pdm.fming.dev/#use-with-ide
+.pdm.toml
+
+# PEP 582; used by e.g. github.com/David-OConnor/pyflow and github.com/pdm-project/pdm
+__pypackages__/
+
+# Celery stuff
+celerybeat-schedule
+celerybeat.pid
+
+# SageMath parsed files
+*.sage.py
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Spyder project settings
+.spyderproject
+.spyproject
+
+# Rope project settings
+.ropeproject
+
+# mkdocs documentation
+/site
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# pytype static type analyzer
+.pytype/
+
+# Cython debug symbols
+cython_debug/
+
+# PyCharm
+#  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
+#  be added to the global gitignore or merged into this project gitignore.  For a PyCharm
+#  project, it is generally recommended to include the .idea directory and its contents
+#  in version control. However, specific files and directories within .idea might need
+#  to be ignored based on project requirements.
+.idea/
+
+# VS Code
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+!.vscode/*.code-snippets
+
+# Local History for Visual Studio Code
+.history/
+
+# Built Visual Studio Code Extensions
+*.vsix
+
+# UV package manager
+.uv/
+
+# FastAPI specific
+.env.local
+.env.production
+.env.staging
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+instance/
+
+# Logs
+logs/
+*.log
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+
+# nyc test coverage
+.nyc_output
+
+# Grunt intermediate storage (https://gruntjs.com/creating-plugins#storing-task-files)
+.grunt
+
+# Bower dependency directory (https://bower.io/)
+bower_components
+
+# node_modules (if using any Node.js tools)
+node_modules/
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Optional stylelint cache
+.stylelintcache
+
+# Microbundle cache
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# parcel-bundler cache (https://parceljs.org/)
+.cache
+.parcel-cache
+
+# Next.js build output
+.next
+
+# Nuxt.js build / generate output
+.nuxt
+dist
+
+# Storybook build outputs
+.out
+.storybook-out
+storybook-static
+
+# Temporary folders
+tmp/
+temp/
+
+# Editor directories and files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# OS generated files
+*.swp
+*.swo
+*~
+
+# Pre-commit hooks
+.pre-commit-config.yaml
+
+# Alembic migrations (uncomment if you want to ignore migration files)
+# alembic/versions/*.py
+
+# Local development overrides
+docker-compose.override.yml
+.env.override
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# Generated documentation
+docs/build/
+
+# Test artifacts
+.testmondata
+
+# Profiling data
+*.prof
+</file>
+
+<file path="package.json">
+{
+  "name": "nous-monorepo",
+  "private": true,
+  "packageManager": "pnpm@9.6.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jwandekoken/nous.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/jwandekoken/nous/issues"
+  },
+  "homepage": "https://github.com/jwandekoken/nous#readme",
+  "devDependencies": {
+    "turbo": "^2.5.8"
+  }
+}
+</file>
+
+<file path="pnpm-workspace.yaml">
+packages:
+  # all packages in subdirs of apps/
+  - "apps/*"
+</file>
+
+<file path="turbo.json">
+{
+  "$schema": "https://turbo.build/schema.json",
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": [".next/**", "!.next/cache/**", "dist/**"]
+    },
+    "test": {
+      "outputs": ["coverage/**"]
+    },
+    "lint": {},
+    "dev": {
+      "cache": false,
+      "persistent": true
+    }
+  }
+}
+</file>
+
+</files>
