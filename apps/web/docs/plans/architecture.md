@@ -68,7 +68,7 @@ Here is the proposed folder structure:
 
 You asked specifically about bootstrapping. This happens in two main places: `main.ts` and `router/index.ts`.
 
-#### 1\. Configure `main.ts` (The Entry Point)
+#### 1. Configure `main.ts` (The Entry Point)
 
 Your `main.ts` should be lean. Its job is to create the Vue app instance and "plug in" your core modules like the router and state management.
 
@@ -91,7 +91,7 @@ app.use(router); // Use the router
 app.mount("#app");
 ```
 
-#### 2\. Set Up Modular Routing
+#### 2. Set Up Modular Routing
 
 To keep your routing clean, each feature defines its own routes. The main router file then combines them.
 
