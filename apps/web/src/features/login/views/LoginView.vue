@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import { ref } from "vue";
+import { useRouter } from "vue-router";
 import Card from "primevue/card";
 import InputText from "primevue/inputtext";
 import Password from "primevue/password";
 import Button from "primevue/button";
 import Message from "primevue/message";
+
+const router = useRouter();
 
 // Reactive data
 const email = ref("");
@@ -32,8 +35,11 @@ const handleLogin = async () => {
     // Simulate API call
     await new Promise((resolve) => setTimeout(resolve, 2000));
 
-    // For now, just show success message
-    alert("Login successful! (This is a placeholder)");
+    // Mock successful login - set authentication state
+    localStorage.setItem("isLoggedIn", "true");
+
+    // Redirect to home after successful login
+    router.push("/");
   } catch (error) {
     errorMessage.value = "Login failed. Please try again.";
   } finally {
@@ -70,6 +76,7 @@ const handleLogin = async () => {
               id="password"
               v-model="password"
               placeholder="Enter your password"
+              inputClass="w-full"
               class="w-full"
               :class="{ 'p-invalid': errorMessage }"
               :feedback="false"
