@@ -1,11 +1,16 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import { useRouter } from "vue-router";
-import Card from "primevue/card";
-import InputText from "primevue/inputtext";
-import Password from "primevue/password";
-import Button from "primevue/button";
-import Message from "primevue/message";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const router = useRouter();
 
@@ -49,54 +54,50 @@ const handleLogin = async () => {
 </script>
 
 <template>
-  <div class="flex justify-center items-center min-h-screen p-8">
+  <div class="flex justify-center items-center min-h-screen bg-background p-8">
     <Card class="w-full max-w-sm">
-      <template #title>
-        <h2>Welcome Back</h2>
-      </template>
-
-      <template #content>
+      <CardHeader>
+        <CardTitle>Welcome Back</CardTitle>
+        <CardDescription>Enter your credentials to sign in.</CardDescription>
+      </CardHeader>
+      <CardContent>
         <form @submit.prevent="handleLogin" class="flex flex-col gap-6">
           <div class="flex flex-col gap-2">
             <label for="email">Email</label>
-            <InputText
+            <Input
               id="email"
               v-model="email"
               type="email"
               placeholder="Enter your email"
               class="w-full"
-              :class="{ 'p-invalid': errorMessage }"
               required
             />
           </div>
 
           <div class="flex flex-col gap-2">
             <label for="password">Password</label>
-            <Password
+            <Input
               id="password"
               v-model="password"
+              type="password"
               placeholder="Enter your password"
-              inputClass="w-full"
               class="w-full"
-              :class="{ 'p-invalid': errorMessage }"
-              :feedback="false"
-              toggleMask
               required
             />
           </div>
 
-          <Message v-if="errorMessage" severity="error" :closable="false">
-            {{ errorMessage }}
-          </Message>
+          <Alert v-if="errorMessage" variant="destructive">
+            <AlertDescription>
+              {{ errorMessage }}
+            </AlertDescription>
+          </Alert>
 
-          <Button
-            type="submit"
-            label="Sign In"
-            :loading="loading"
-            size="large"
-          />
+          <Button type="submit" :disabled="loading" size="lg">
+            <span v-if="loading">Signing in...</span>
+            <span v-else>Sign In</span>
+          </Button>
         </form>
-      </template>
+      </CardContent>
     </Card>
   </div>
 </template>
