@@ -1,20 +1,23 @@
 import type { RouteRecordRaw } from "vue-router";
 
-// Lazy-load the view components for better performance
-const EntitySearchView = () => import("./views/EntitySearchView.vue");
-const EntityDetailView = () => import("./views/EntityDetailView.vue");
+// Mock authentication - replace with real auth logic later
+const isAuthenticated = () => {
+  // Mock: check localStorage or return false for demo
+  return localStorage.getItem("isLoggedIn") === "true";
+};
 
 export const graphRoutes: RouteRecordRaw[] = [
   {
-    path: "/graph/search",
-    name: "EntitySearch",
-    component: EntitySearchView,
-  },
-  {
-    // Example with dynamic segment for entity ID
-    path: "/graph/entity/:id",
-    name: "EntityDetail",
-    component: EntityDetailView,
-    props: true, // Pass route params as component props
+    path: "/",
+    name: "Home",
+    component: () => import("./views/HomeView.vue"),
+    beforeEnter: (_to, _from, next) => {
+      // Redirect to login if not authenticated
+      if (!isAuthenticated()) {
+        next("/login");
+      } else {
+        next();
+      }
+    },
   },
 ];
