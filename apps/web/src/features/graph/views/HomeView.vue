@@ -82,7 +82,7 @@ const handleSearch = async () => {
               id="search-type"
               v-model="searchType"
               placeholder="e.g., email, name, phone"
-              class="w-full"
+              class="w-full text-foreground"
             />
           </div>
 
@@ -97,7 +97,7 @@ const handleSearch = async () => {
               id="search-value"
               v-model="searchValue"
               placeholder="Enter search value"
-              class="w-full"
+              class="w-full text-foreground"
             />
           </div>
 

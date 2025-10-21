@@ -288,3 +288,5 @@ docs/build/
 
 # Profiling data
 *.prof
+
+.pnpm-store
