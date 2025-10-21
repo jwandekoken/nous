@@ -30,7 +30,7 @@ importers:
         version: 0.546.0(vue@3.5.22)
       reka-ui:
         specifier: ^2.5.1
-        version: 2.5.1(typescript@5.9.3)(vue@3.5.22)
+        version: 2.6.0(typescript@5.9.3)(vue@3.5.22)
       tailwind-merge:
         specifier: ^3.3.1
         version: 3.3.1
@@ -958,8 +958,8 @@ packages:
       picocolors: 1.1.1
       source-map-js: 1.2.1
 
-  /reka-ui@2.5.1(typescript@5.9.3)(vue@3.5.22):
-    resolution: {integrity: sha512-QJGB3q21wQ1Kw28HhhNDpjfFe8qpePX1gK4FTBRd68XTh9aEnhR5bTJnlV0jxi8FBPh0xivZBeNFUc3jiGx7mQ==}
+  /reka-ui@2.6.0(typescript@5.9.3)(vue@3.5.22):
+    resolution: {integrity: sha512-NrGMKrABD97l890mFS3TNUzB0BLUfbL3hh0NjcJRIUSUljb288bx3Mzo31nOyUcdiiW0HqFGXJwyCBh9cWgb0w==}
     peerDependencies:
       vue: '>= 3.2.0'
     dependencies:

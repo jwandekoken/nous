@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
 import { Navigation } from "@/components/layout/navigation";
+import { useFindEntityByIdentifier } from "@/features/graph/api/graphApi";
 
 // Reactive data for search functionality
 const searchType = ref("");
@@ -21,16 +22,22 @@ const handleSearch = async () => {
   isSearching.value = true;
 
   try {
-    // TODO: Implement actual search logic
     console.log("Searching for entity:", {
       type: searchType.value,
       value: searchValue.value,
     });
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    // Call the API using the composable
+    const searchResult = useFindEntityByIdentifier({
+      type: searchType.value,
+      value: searchValue.value,
+    });
 
-    // TODO: Handle search results
+    // Execute the request
+    await searchResult.execute();
+
+    // Log the response data
+    console.log("Entity search result:", searchResult.data.value);
   } catch (error) {
     console.error("Search failed:", error);
   } finally {

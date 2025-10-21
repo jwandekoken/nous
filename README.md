@@ -12,7 +12,7 @@ This project is managed as a **polyglot (Python + TypeScript) monorepo** using *
 
 Before you begin, ensure you have the following tools installed:
 
-1.  **Node.js**: (LTS version recommended).
+1.  **Node.js**: Version `22.12.0` or higher is required. We recommend using a version manager like [nvm](https://github.com/nvm-sh/nvm) to easily switch between Node.js versions.
 2.  **pnpm**: The recommended way to install is via `corepack` (which comes with Node.js):
     ```bash
     corepack enable
@@ -30,7 +30,7 @@ Before you begin, ensure you have the following tools installed:
 To get your environment ready, run these commands from the root (`nous/`) directory:
 
 1.  **Install Node.js Dependencies:**
-    This will install `turbo` and any other root dependencies, and also link your workspaces (`apps/api` and `apps/web`).
+    This command installs all Node.js dependencies for the entire monorepo, including `turbo` at the root and all dependencies for each application inside `apps/` (like `vite` for `web`). It also links the workspace packages together.
 
     ```bash
     pnpm install
