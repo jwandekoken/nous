@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import { ref } from "vue";
-import { useRouter } from "vue-router";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
-const router = useRouter();
+import { Navigation } from "@/components/layout/navigation";
 
 // Reactive data for search functionality
 const searchType = ref("");
@@ -38,39 +37,11 @@ const handleSearch = async () => {
     isSearching.value = false;
   }
 };
-
-const handleLogout = () => {
-  // Clear authentication state
-  localStorage.removeItem("isLoggedIn");
-
-  // Redirect to login page
-  router.push("/login");
-};
 </script>
 
 <template>
   <div class="min-h-screen bg-background">
-    <!-- Navigation Header -->
-    <header class="bg-card shadow-sm border-b border-border">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex justify-between items-center h-16">
-          <!-- Logo/Brand -->
-          <div class="flex items-center">
-            <h1 class="text-xl font-semibold text-card-foreground">Nous</h1>
-          </div>
-
-          <!-- Logout Button -->
-          <Button
-            @click="handleLogout"
-            variant="outline"
-            size="sm"
-            class="text-muted-foreground hover:text-foreground"
-          >
-            Logout
-          </Button>
-        </div>
-      </div>
-    </header>
+    <Navigation />
 
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div class="mb-8 lg:mb-12">
