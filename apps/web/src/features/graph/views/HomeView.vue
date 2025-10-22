@@ -24,7 +24,6 @@ const {
   data: entityData,
   isFetching: isSearching,
   error: searchError,
-  execute: executeSearch,
 } = useFindEntityByIdentifier(searchParams);
 
 // --- Search Logic ---
@@ -39,8 +38,8 @@ const handleSearch = () => {
     value: searchValueInput.value.trim(),
   };
 
-  // Execute the search
-  executeSearch();
+  // Note: No manual executeSearch() call needed - the composable handles
+  // reactive fetching when searchParams change
 };
 
 // --- Cytoscape Data Transformation ---
