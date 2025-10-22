@@ -25,6 +25,9 @@ const {
   isFetching: isSearching,
   error: searchError,
 } = useFindEntityByIdentifier(searchParams);
+watch(entityData, (newValue) => {
+  console.log("entityData has changed to:", newValue);
+});
 
 // --- Search Logic ---
 const handleSearch = () => {
@@ -167,8 +170,9 @@ onMounted(() => {
         {
           selector: "node",
           style: {
-            "background-color": "#666",
+            "background-color": "#999",
             label: "data(label)",
+            color: "#ffffff",
             "text-valign": "center",
             "text-halign": "center",
             "font-size": "10px",
@@ -184,11 +188,12 @@ onMounted(() => {
           selector: "edge",
           style: {
             width: 2,
-            "line-color": "#ccc",
-            "target-arrow-color": "#ccc",
+            "line-color": "#bbb",
+            "target-arrow-color": "#bbb",
             "target-arrow-shape": "triangle",
             "curve-style": "bezier",
             label: "data(label)",
+            color: "#f5c842",
             "font-size": "8px",
             "text-rotation": "autorotate",
             "text-margin-y": -10,
