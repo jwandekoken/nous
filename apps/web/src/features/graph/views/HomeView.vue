@@ -24,6 +24,7 @@ const {
   data: entityData,
   isFetching: isSearching,
   error: searchError,
+  execute: executeSearch,
 } = useFindEntityByIdentifier(searchParams);
 watch(entityData, (newValue) => {
   console.log("entityData has changed to:", newValue);
@@ -41,8 +42,8 @@ const handleSearch = () => {
     value: searchValueInput.value.trim(),
   };
 
-  // Note: No manual executeSearch() call needed - the composable handles
-  // reactive fetching when searchParams change
+  // Force a refetch even if parameters haven't changed
+  executeSearch();
 };
 
 // --- Cytoscape Data Transformation ---

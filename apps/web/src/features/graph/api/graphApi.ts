@@ -26,7 +26,7 @@ export const useFindEntityByIdentifier = (
 
   // The full reactive useFetch object is returned.
   return useApiFetch(url, {
-    refetch: true,
+    refetch: false, // Disable automatic refetching when URL changes
     immediate: false, // Don't execute immediately, let consumers control execution
   })
     .get()
