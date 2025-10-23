@@ -9,6 +9,11 @@ from sqlalchemy.exc import IntegrityError
 
 from app.features.auth.dtos import CreateApiKeyRequest, CreateApiKeyResponse
 from app.features.auth.models import ApiKey
+from app.features.auth.usecases.create_api_key_usecase.errors import (
+    ApiKeyCreationFailedError,
+    ApiKeyNameAlreadyExistsError,
+    ValidationError,
+)
 
 
 class PasswordHasher(Protocol):
@@ -49,11 +54,13 @@ class CreateApiKeyUseCaseImpl:
             Response with the created API key details
 
         Raises:
-            ValueError: If validation fails or creation fails
+            ValidationError: If API key name length is invalid
+            ApiKeyNameAlreadyExistsError: If API key name already exists for this tenant
+            ApiKeyCreationFailedError: If API key creation fails for unexpected reasons
         """
         # Validate input
         if len(request.name) < 3 or len(request.name) > 50:
-            raise ValueError("API key name must be between 3 and 50 characters")
+            raise ValidationError("API key name must be between 3 and 50 characters")
 
         async with self.get_auth_db_session() as session:
             async with session.begin():
@@ -85,12 +92,10 @@ class CreateApiKeyUseCaseImpl:
 
                 except IntegrityError as e:
                     await session.rollback()
-                    raise ValueError(
-                        "API key name already exists for this tenant"
-                    ) from e
+                    raise ApiKeyNameAlreadyExistsError() from e
                 except Exception as e:
                     await session.rollback()
-                    raise ValueError("Failed to create API key") from e
+                    raise ApiKeyCreationFailedError() from e
 
     def _generate_api_key(self) -> tuple[str, str]:
         """Generate a secure API key with prefix for identification.

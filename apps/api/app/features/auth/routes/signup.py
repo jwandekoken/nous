@@ -8,7 +8,14 @@ from app.core.security import pwd_context
 from app.db.postgres.auth_session import get_auth_db_session
 from app.db.postgres.graph_connection import get_graph_db_pool
 from app.features.auth.dtos import SignupRequest, SignupResponse
-from app.features.auth.usecases import SignupTenantUseCaseImpl
+from app.features.auth.usecases.signup_tenant_usecase import (
+    PasswordTooShortError,
+    SignupFailedError,
+    SignupTenantUseCaseImpl,
+    TenantAlreadyExistsError,
+    TenantNameInvalidCharactersError,
+    ValidationError,
+)
 
 
 class PasswordHasherImpl:
@@ -53,29 +60,28 @@ async def signup_tenant(
     """
     try:
         return await use_case.execute(request)
-    except ValueError as e:
-        if "Tenant name must be between 3 and 50 characters" in str(e):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=str(e),
-            )
-        elif "Tenant name can only contain" in str(e):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=str(e),
-            )
-        elif "Password must be at least 8 characters" in str(e):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=str(e),
-            )
-        elif "already exists" in str(e):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=str(e),
-            )
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=str(e),
-            )
+    except TenantNameInvalidCharactersError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+    except PasswordTooShortError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+    except ValidationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+    except TenantAlreadyExistsError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+    except SignupFailedError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        )

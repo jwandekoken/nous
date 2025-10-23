@@ -8,7 +8,12 @@ from fastapi.security import OAuth2PasswordRequestForm
 from app.core.security import create_access_token, verify_password
 from app.db.postgres.auth_session import get_auth_db_session
 from app.features.auth.dtos import LoginResponse
-from app.features.auth.usecases import LoginUseCaseImpl
+from app.features.auth.usecases.login_usecase import (
+    AccountDisabledError,
+    AccountLockedError,
+    InvalidCredentialsError,
+    LoginUseCaseImpl,
+)
 
 
 class PasswordVerifierImpl:
@@ -55,27 +60,21 @@ async def login_for_access_token(
     """Authenticate user and return JWT access token."""
     try:
         return await use_case.execute(form_data.username, form_data.password)
-    except ValueError as e:
-        if "Incorrect email or password" in str(e):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail=str(e),
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-        elif "Account is temporarily locked" in str(e):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail=str(e),
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-        elif "Account is disabled" in str(e):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail=str(e),
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=str(e),
-            )
+    except InvalidCredentialsError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(e),
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    except AccountLockedError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(e),
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    except AccountDisabledError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(e),
+            headers={"WWW-Authenticate": "Bearer"},
+        )

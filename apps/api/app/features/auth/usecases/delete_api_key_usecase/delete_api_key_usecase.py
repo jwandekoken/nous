@@ -3,6 +3,11 @@
 from uuid import UUID
 
 from app.features.auth.models import ApiKey
+from app.features.auth.usecases.delete_api_key_usecase.errors import (
+    ApiKeyAccessDeniedError,
+    ApiKeyNotFoundError,
+    InvalidApiKeyIdFormatError,
+)
 
 
 class DeleteApiKeyUseCaseImpl:
@@ -27,23 +32,25 @@ class DeleteApiKeyUseCaseImpl:
             Success message
 
         Raises:
-            ValueError: If API key not found or access denied
+            InvalidApiKeyIdFormatError: If API key ID format is invalid
+            ApiKeyNotFoundError: If API key not found
+            ApiKeyAccessDeniedError: If API key doesn't belong to the tenant
         """
         try:
             uuid_obj = UUID(api_key_id)
         except ValueError as e:
-            raise ValueError("Invalid API key ID format") from e
+            raise InvalidApiKeyIdFormatError() from e
 
         async with self.get_auth_db_session() as session:
             async with session.begin():
                 api_key = await session.get(ApiKey, uuid_obj)
 
                 if not api_key:
-                    raise ValueError("API key not found")
+                    raise ApiKeyNotFoundError()
 
                 # Ensure the API key belongs to the current tenant
                 if api_key.tenant_id != tenant_id:
-                    raise ValueError("Access denied")
+                    raise ApiKeyAccessDeniedError()
 
                 session.delete(api_key)
 

@@ -7,7 +7,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.features.auth.dtos import SignupRequest, SignupResponse
 from app.features.auth.models import Tenant, User
-from app.features.auth.usecases.errors import (
+from app.features.auth.usecases.signup_tenant_usecase.errors import (
     PasswordTooShortError,
     SignupFailedError,
     TenantAlreadyExistsError,

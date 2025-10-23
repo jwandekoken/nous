@@ -17,6 +17,16 @@ from app.features.auth.usecases import (
     DeleteApiKeyUseCaseImpl,
     ListApiKeysUseCaseImpl,
 )
+from app.features.auth.usecases.create_api_key_usecase import (
+    ApiKeyCreationFailedError,
+    ApiKeyNameAlreadyExistsError,
+    ValidationError,
+)
+from app.features.auth.usecases.delete_api_key_usecase import (
+    ApiKeyAccessDeniedError,
+    ApiKeyNotFoundError,
+    InvalidApiKeyIdFormatError,
+)
 
 
 class PasswordHasherImpl:
@@ -83,22 +93,21 @@ async def create_api_key(
     """Create a new API key for programmatic access."""
     try:
         return await use_case.execute(request, current_user.tenant_id)
-    except ValueError as e:
-        if "API key name must be between 3 and 50 characters" in str(e):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=str(e),
-            )
-        elif "already exists" in str(e):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=str(e),
-            )
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=str(e),
-            )
+    except ValidationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+    except ApiKeyNameAlreadyExistsError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+    except ApiKeyCreationFailedError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        )
 
 
 @router.get("/api-keys", response_model=ListApiKeysResponse)
@@ -119,15 +128,9 @@ async def delete_api_key(
     """Delete an API key."""
     try:
         return await use_case.execute(api_key_id, current_user.tenant_id)
-    except ValueError as e:
-        if "Invalid API key ID format" in str(e):
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-        elif "API key not found" in str(e):
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-        elif "Access denied" in str(e):
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=str(e),
-            )
+    except InvalidApiKeyIdFormatError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except ApiKeyNotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except ApiKeyAccessDeniedError as e:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))

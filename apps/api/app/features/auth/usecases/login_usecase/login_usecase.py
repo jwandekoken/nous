@@ -7,6 +7,11 @@ from sqlalchemy import select
 
 from app.features.auth.dtos import LoginResponse
 from app.features.auth.models import User
+from app.features.auth.usecases.login_usecase.errors import (
+    AccountDisabledError,
+    AccountLockedError,
+    InvalidCredentialsError,
+)
 
 
 class PasswordVerifier(Protocol):
@@ -58,7 +63,9 @@ class LoginUseCaseImpl:
             Response with access token
 
         Raises:
-            ValueError: If authentication fails or account is locked/disabled
+            InvalidCredentialsError: If email or password is incorrect
+            AccountLockedError: If account is temporarily locked due to failed login attempts
+            AccountDisabledError: If account is disabled
         """
         async with self.get_auth_db_session() as session:
             # Find user by email
@@ -68,17 +75,15 @@ class LoginUseCaseImpl:
             if not user or not self.password_verifier.verify(
                 password, user.hashed_password
             ):
-                raise ValueError("Incorrect email or password")
+                raise InvalidCredentialsError()
 
             # Check if account is locked
             if user.locked_until and user.locked_until > datetime.now(UTC):
-                raise ValueError(
-                    "Account is temporarily locked due to failed login attempts"
-                )
+                raise AccountLockedError()
 
             # Check if user is active
             if not user.is_active:
-                raise ValueError("Account is disabled")
+                raise AccountDisabledError()
 
             # Reset failed login attempts and update user
             user.failed_login_attempts = 0
