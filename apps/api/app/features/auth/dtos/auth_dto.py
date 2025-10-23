@@ -21,6 +21,13 @@ class SignupResponse(BaseModel):
     user_id: str
 
 
+class LoginRequest(BaseModel):
+    """Request model for user login."""
+
+    email: str
+    password: str
+
+
 class LoginResponse(BaseModel):
     """Response model for successful login."""
 

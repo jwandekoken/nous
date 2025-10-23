@@ -3,11 +3,10 @@
 from typing import Any, Protocol
 
 from fastapi import APIRouter, Depends
-from fastapi.security import OAuth2PasswordRequestForm
 
 from app.core.authentication import create_access_token, verify_password
 from app.db.postgres.auth_session import get_auth_db_session
-from app.features.auth.dtos import LoginResponse
+from app.features.auth.dtos.auth_dto import LoginRequest, LoginResponse
 from app.features.auth.usecases.login_usecase import LoginUseCaseImpl
 
 
@@ -47,10 +46,10 @@ class LoginUseCase(Protocol):
 router = APIRouter()
 
 
-@router.post("/token", response_model=LoginResponse)
+@router.post("/login", response_model=LoginResponse)
 async def login_for_access_token(
-    form_data: OAuth2PasswordRequestForm = Depends(),
+    login_data: LoginRequest,
     use_case: LoginUseCase = Depends(get_login_use_case),
 ) -> LoginResponse:
     """Authenticate user and return JWT access token."""
-    return await use_case.execute(form_data.username, form_data.password)
+    return await use_case.execute(login_data.email, login_data.password)

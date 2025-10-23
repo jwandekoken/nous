@@ -9,6 +9,7 @@ from .auth_dto import (
     CreateApiKeyRequest,
     CreateApiKeyResponse,
     ListApiKeysResponse,
+    LoginRequest,
     LoginResponse,
     SignupRequest,
     SignupResponse,
@@ -17,6 +18,7 @@ from .auth_dto import (
 __all__ = [
     "SignupRequest",
     "SignupResponse",
+    "LoginRequest",
     "LoginResponse",
     "CreateApiKeyRequest",
     "CreateApiKeyResponse",
