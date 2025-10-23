@@ -1,6 +1,6 @@
 """Use case for signing up a new tenant with user and graph database."""
 
-from typing import Any, Protocol
+from typing import Protocol
 from uuid import uuid4
 
 from sqlalchemy.exc import IntegrityError
@@ -14,30 +14,6 @@ class PasswordHasher(Protocol):
 
     def hash(self, secret: str | bytes, **kwargs) -> str:
         """Hash a password or secret."""
-        ...
-
-
-class GraphDatabasePool(Protocol):
-    """Protocol for graph database pool operations."""
-
-    async def acquire(self):
-        """Acquire a connection from the pool."""
-        ...
-
-    async def __aenter__(self):
-        """Enter async context manager."""
-        return self
-
-    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any):
-        """Exit async context manager."""
-        ...
-
-
-class GraphDatabaseConnection(Protocol):
-    """Protocol for graph database connection operations."""
-
-    async def execute(self, query: str, *args: Any) -> None:
-        """Execute a query."""
         ...
 
 
