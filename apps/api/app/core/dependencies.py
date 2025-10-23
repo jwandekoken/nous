@@ -8,7 +8,7 @@ from fastapi.security import APIKeyHeader
 from pydantic import BaseModel
 from sqlalchemy import and_, or_, select
 
-from app.core.security import AuthenticatedUser, get_current_user, pwd_context
+from app.core.authentication import AuthenticatedUser, get_current_user, pwd_context
 from app.db.postgres.auth_session import get_db_session
 from app.features.auth.models import ApiKey, Tenant
 

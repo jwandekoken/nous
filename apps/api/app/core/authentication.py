@@ -1,4 +1,4 @@
-"""Security utilities for authentication and authorization."""
+"""Authentication utilities for JWT token validation and user retrieval."""
 
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
@@ -10,19 +10,29 @@ from passlib.context import CryptContext
 from pydantic import BaseModel
 
 from app.core.settings import get_settings
+from app.features.auth.models import UserRole
 
 # Password hashing - using pbkdf2_sha256 as fallback since bcrypt has issues
 pwd_context = CryptContext(schemes=["pbkdf2_sha256", "bcrypt"], deprecated="auto")
 
-# JWT token scheme
 security = HTTPBearer()
 
 
-class AuthenticatedUser(BaseModel):
-    """Authenticated user with tenant information."""
+def verify_token(token: str) -> dict[str, str | int]:
+    """Verify and decode a JWT token."""
+    settings = get_settings()
 
-    user_id: UUID
-    tenant_id: UUID
+    try:
+        payload = jwt.decode(
+            token, settings.secret_key, algorithms=[settings.algorithm]
+        )
+        return payload
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -60,21 +70,12 @@ def create_access_token(
     return encoded_jwt
 
 
-def verify_token(token: str) -> dict[str, str | int]:
-    """Verify and decode a JWT token."""
-    settings = get_settings()
+class AuthenticatedUser(BaseModel):
+    """Authenticated user with tenant information."""
 
-    try:
-        payload = jwt.decode(
-            token, settings.secret_key, algorithms=[settings.algorithm]
-        )
-        return payload
-    except JWTError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Could not validate credentials",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+    user_id: UUID
+    tenant_id: UUID | None  # <-- Make nullable
+    role: UserRole  # <-- Add this
 
 
 async def get_current_user(
@@ -85,22 +86,25 @@ async def get_current_user(
     payload = verify_token(token)
 
     user_id = payload.get("sub")
-    tenant_id = payload.get("tenant_id")
+    tenant_id = payload.get("tenant_id")  # This can be None
+    role_str = payload.get("role")
 
-    if user_id is None or tenant_id is None:
+    if user_id is None or role_str is None:  # tenant_id can be None, but role cannot
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token missing required user or tenant information",
+            detail="Token missing required user or role information",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
     try:
         return AuthenticatedUser(
-            user_id=UUID(str(user_id)), tenant_id=UUID(str(tenant_id))
+            user_id=UUID(str(user_id)),
+            tenant_id=UUID(str(tenant_id)) if tenant_id else None,
+            role=UserRole(role_str),  # <-- Validate and cast role
         )
     except ValueError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid user or tenant ID format",
+            detail="Invalid user, tenant, or role format in token",
             headers={"WWW-Authenticate": "Bearer"},
         )

@@ -4,7 +4,8 @@ from typing import Protocol
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from app.core.security import pwd_context
+from app.core.authentication import AuthenticatedUser, pwd_context
+from app.core.authorization import is_super_admin
 from app.db.postgres.auth_session import get_auth_db_session
 from app.db.postgres.graph_connection import get_graph_db_pool
 from app.features.auth.dtos import SignupRequest, SignupResponse
@@ -46,10 +47,11 @@ class SignupTenantUseCase(Protocol):
 router = APIRouter()
 
 
-@router.post("/signup", response_model=SignupResponse)
-async def signup_tenant(
+@router.post("/create_tenant", response_model=SignupResponse)
+async def create_tenant(
     request: SignupRequest,
     use_case: SignupTenantUseCase = Depends(get_signup_tenant_use_case),
+    _: AuthenticatedUser = Depends(is_super_admin),
 ) -> SignupResponse:
     """Create a new tenant with an initial user and AGE graph.
 

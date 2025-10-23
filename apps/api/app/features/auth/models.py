@@ -1,9 +1,11 @@
 """Database models for authentication and authorization."""
 
+import enum
 import uuid
 from datetime import datetime
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
@@ -13,6 +15,14 @@ class Base(DeclarativeBase):
     """Base class for all database models."""
 
     pass
+
+
+class UserRole(enum.Enum):
+    """Defines the roles a user can have."""
+
+    SUPER_ADMIN = "super_admin"
+    TENANT_ADMIN = "tenant_admin"
+    TENANT_USER = "tenant_user"
 
 
 class Tenant(Base):
@@ -50,9 +60,18 @@ class User(Base):
     )
     email: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
-    tenant_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("tenant.id"), nullable=False
+    # SUPER_ADMINs are not tied to a single tenant
+    tenant_id: Mapped[uuid.UUID | None] = mapped_column(  # <-- Make nullable
+        UUID(as_uuid=True),
+        ForeignKey("tenant.id"),
+        nullable=True,  # <-- Make nullable
     )
+
+    # --- Add the role column ---
+    role: Mapped[UserRole] = mapped_column(
+        SAEnum(UserRole), nullable=False, default=UserRole.TENANT_USER
+    )
+
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     failed_login_attempts: Mapped[int] = mapped_column(
         Integer, default=0, nullable=False
@@ -65,7 +84,10 @@ class User(Base):
     )
 
     # Relationships
-    tenant: Mapped["Tenant"] = relationship(back_populates="users")
+    # --- Make tenant relationship optional ---
+    tenant: Mapped[Tenant | None] = relationship(
+        back_populates="users"
+    )  # <-- Make nullable
 
 
 class ApiKey(Base):

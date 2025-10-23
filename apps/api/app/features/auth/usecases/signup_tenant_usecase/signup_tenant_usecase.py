@@ -6,7 +6,7 @@ from uuid import uuid4
 from sqlalchemy.exc import IntegrityError
 
 from app.features.auth.dtos import SignupRequest, SignupResponse
-from app.features.auth.models import Tenant, User
+from app.features.auth.models import Tenant, User, UserRole
 from app.features.auth.usecases.signup_tenant_usecase.errors import (
     PasswordTooShortError,
     SignupFailedError,
@@ -89,6 +89,7 @@ class SignupTenantUseCaseImpl:
                         email=request.email,
                         hashed_password=hashed_password,
                         tenant_id=tenant.id,
+                        role=UserRole.TENANT_ADMIN,  # <-- Set role to TENANT_ADMIN
                     )
                     session.add(user)
                     await session.flush()

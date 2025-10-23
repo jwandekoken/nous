@@ -5,7 +5,7 @@ from typing import Any, Protocol
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 
-from app.core.security import create_access_token, verify_password
+from app.core.authentication import create_access_token, verify_password
 from app.db.postgres.auth_session import get_auth_db_session
 from app.features.auth.dtos import LoginResponse
 from app.features.auth.usecases.login_usecase import (

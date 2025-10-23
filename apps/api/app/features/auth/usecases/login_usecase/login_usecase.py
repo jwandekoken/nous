@@ -92,8 +92,16 @@ class LoginUseCaseImpl:
 
             # Create access token with tenant info
             access_token_expires = timedelta(minutes=30)  # 30 minutes
+
+            # Convert tenant_id to string only if it exists
+            tenant_id_str = str(user.tenant_id) if user.tenant_id else None
+
             access_token = self.token_creator(
-                data={"sub": str(user.id), "tenant_id": str(user.tenant_id)},
+                data={
+                    "sub": str(user.id),
+                    "tenant_id": tenant_id_str,  # <-- This can be None
+                    "role": user.role.value,  # <-- Add this
+                },
                 expires_delta=access_token_expires,
             )
 

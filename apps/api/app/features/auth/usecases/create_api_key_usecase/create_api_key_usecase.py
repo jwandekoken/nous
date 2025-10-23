@@ -2,11 +2,11 @@
 
 import secrets
 from datetime import UTC, datetime, timedelta
-from typing import Protocol
 from uuid import UUID
 
 from sqlalchemy.exc import IntegrityError
 
+from app.core.authentication import get_password_hash
 from app.features.auth.dtos import CreateApiKeyRequest, CreateApiKeyResponse
 from app.features.auth.models import ApiKey
 from app.features.auth.usecases.create_api_key_usecase.errors import (
@@ -16,29 +16,18 @@ from app.features.auth.usecases.create_api_key_usecase.errors import (
 )
 
 
-class PasswordHasher(Protocol):
-    """Protocol for password hashing operations."""
-
-    def hash(self, secret: str | bytes, **kwargs) -> str:
-        """Hash a password or API key."""
-        ...
-
-
 class CreateApiKeyUseCaseImpl:
     """Implementation of the create API key use case."""
 
     def __init__(
         self,
-        password_hasher: PasswordHasher,
         get_db_session,
     ):
         """Initialize the use case with dependencies.
 
         Args:
-            password_hasher: Service for hashing API keys
             get_db_session: Function to get database session
         """
-        self.password_hasher = password_hasher
         self.get_auth_db_session = get_db_session
 
     async def execute(
@@ -62,31 +51,33 @@ class CreateApiKeyUseCaseImpl:
         if len(request.name) < 3 or len(request.name) > 50:
             raise ValidationError("API key name must be between 3 and 50 characters")
 
+        # Generate a secure key
+        full_key, key_prefix = self._generate_api_key()
+
+        # Hash the key for storage
+        hashed_key = get_password_hash(full_key)
+
         async with self.get_auth_db_session() as session:
             async with session.begin():
                 try:
-                    # Generate API key
-                    full_key, prefix = self._generate_api_key()
-                    hashed_key = self.password_hasher.hash(full_key)
-
                     # Create API key record
-                    api_key = ApiKey(
+                    api_key_obj = ApiKey(
                         name=request.name,
-                        key_prefix=prefix,
+                        key_prefix=key_prefix,
                         hashed_key=hashed_key,
                         tenant_id=tenant_id,
                         expires_at=datetime.now(UTC)
                         + timedelta(days=365),  # 1 year expiry
                     )
-                    session.add(api_key)
-                    await session.commit()
+                    session.add(api_key_obj)
+                    await session.flush()
 
                     return CreateApiKeyResponse(
                         message="API key created successfully",
                         api_key=full_key,  # Return the plaintext key once
-                        key_prefix=prefix,
-                        expires_at=api_key.expires_at.isoformat()
-                        if api_key.expires_at
+                        key_prefix=key_prefix,
+                        expires_at=api_key_obj.expires_at.isoformat()
+                        if api_key_obj.expires_at
                         else None,
                     )
 

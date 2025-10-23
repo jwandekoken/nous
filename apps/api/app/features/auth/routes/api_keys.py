@@ -5,7 +5,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from app.core.security import AuthenticatedUser, get_current_user, pwd_context
+from app.core.authentication import AuthenticatedUser, get_current_user
 from app.db.postgres.auth_session import get_auth_db_session
 from app.features.auth.dtos import (
     CreateApiKeyRequest,
@@ -29,20 +29,9 @@ from app.features.auth.usecases.delete_api_key_usecase import (
 )
 
 
-class PasswordHasherImpl:
-    """Wrapper for password hashing to match protocol."""
-
-    def hash(self, secret: str | bytes, **kwargs) -> str:
-        """Hash a password or secret."""
-        return pwd_context.hash(secret, **kwargs)
-
-
 async def get_create_api_key_use_case():
     """Dependency injection for the create API key use case."""
-    return CreateApiKeyUseCaseImpl(
-        password_hasher=PasswordHasherImpl(),
-        get_db_session=get_auth_db_session,
-    )
+    return CreateApiKeyUseCaseImpl(get_db_session=get_auth_db_session)
 
 
 async def get_list_api_keys_use_case():
@@ -91,6 +80,11 @@ async def create_api_key(
     use_case: CreateApiKeyUseCase = Depends(get_create_api_key_use_case),
 ) -> CreateApiKeyResponse:
     """Create a new API key for programmatic access."""
+    if current_user.tenant_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User must be associated with a tenant to create API keys",
+        )
     try:
         return await use_case.execute(request, current_user.tenant_id)
     except ValidationError as e:
@@ -116,6 +110,11 @@ async def list_api_keys(
     use_case: ListApiKeysUseCase = Depends(get_list_api_keys_use_case),
 ) -> ListApiKeysResponse:
     """List all API keys for the current tenant."""
+    if current_user.tenant_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User must be associated with a tenant to list API keys",
+        )
     return await use_case.execute(current_user.tenant_id)
 
 
@@ -126,6 +125,11 @@ async def delete_api_key(
     use_case: DeleteApiKeyUseCase = Depends(get_delete_api_key_use_case),
 ) -> dict[str, str]:
     """Delete an API key."""
+    if current_user.tenant_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User must be associated with a tenant to delete API keys",
+        )
     try:
         return await use_case.execute(api_key_id, current_user.tenant_id)
     except InvalidApiKeyIdFormatError as e:
