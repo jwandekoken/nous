@@ -21,7 +21,7 @@ class Base(DeclarativeBase):
 class Tenant(Base):
     """Tenant model representing isolated organizations."""
 
-    __tablename__ = "tenant"
+    __tablename__ = "tenants"
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
@@ -46,7 +46,7 @@ class Tenant(Base):
 class User(Base):
     """User model for authentication."""
 
-    __tablename__ = "user"
+    __tablename__ = "users"
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
@@ -56,7 +56,7 @@ class User(Base):
     # SUPER_ADMINs are not tied to a single tenant
     tenant_id: Mapped[uuid.UUID | None] = mapped_column(  # <-- Make nullable
         UUID(as_uuid=True),
-        ForeignKey("tenant.id"),
+        ForeignKey("tenants.id"),
         nullable=True,  # <-- Make nullable
     )
 
@@ -86,7 +86,7 @@ class User(Base):
 class ApiKey(Base):
     """API key model for programmatic access."""
 
-    __tablename__ = "api_key"
+    __tablename__ = "api_keys"
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
@@ -95,7 +95,7 @@ class ApiKey(Base):
     key_prefix: Mapped[str] = mapped_column(String(10), nullable=False, unique=True)
     hashed_key: Mapped[str] = mapped_column(String(255), nullable=False)
     tenant_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("tenant.id"), nullable=False
+        UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()

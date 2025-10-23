@@ -64,3 +64,54 @@ uv run alembic current
 # Show the history of migrations
 uv run alembic history
 ```
+
+## Starting Migrations from Scratch
+
+If you need to completely reset your migrations and start fresh (e.g., after major model changes or during development), follow these steps:
+
+### Option 1: Complete Reset (Recommended for Development)
+
+```bash
+# 1. Remove all existing migration files
+rm -f migrations/versions/*.py
+
+# 2. Clean the database (drop existing tables and types)
+# Connect to your database and run:
+# DROP TABLE IF EXISTS users, api_keys, tenants, alembic_version CASCADE;
+# DROP TYPE IF EXISTS userrole CASCADE;
+
+# 3. Generate fresh migration from current models
+uv run alembic revision --autogenerate -m "Fresh migration from models"
+
+# 4. Apply the migration
+uv run alembic upgrade head
+```
+
+### Option 2: Reset with Docker (If using Docker Compose)
+
+If you're using the provided Docker setup for PostgreSQL:
+
+```bash
+# 1. Stop the database container
+docker compose -f compose/postgres/docker-compose.yml down
+
+# 2. Remove the database volume (WARNING: This deletes all data!)
+docker volume rm nous_postgres-data
+
+# 3. Remove migration files
+rm -f migrations/versions/*.py
+
+# 4. Restart the database
+docker compose -f compose/postgres/docker-compose.yml up -d
+
+# 5. Generate and apply fresh migrations
+uv run alembic revision --autogenerate -m "Fresh migration from models"
+uv run alembic upgrade head
+```
+
+### ⚠️ Important Notes
+
+- **Data Loss**: Both options will permanently delete all data in your database
+- **Review Generated Migrations**: Always inspect the generated migration files before applying them
+- **Backup First**: If you have important data, back it up before resetting
+- **Team Coordination**: If working in a team, coordinate resets to avoid conflicts
