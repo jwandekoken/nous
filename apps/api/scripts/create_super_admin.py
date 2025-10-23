@@ -1,20 +1,18 @@
+import argparse
 import asyncio
-import getpass
 import uuid
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 from app.core.authentication import get_password_hash
+from app.core.schemas import UserRole
 from app.core.settings import get_settings
-from app.features.auth.models import Base, User, UserRole
+from app.features.auth.models import Base, User
 
 
-async def create_super_admin():
+async def create_super_admin(email, password):
     """Creates the first super admin user."""
-    email = input("Enter email for super admin: ")
-    password = getpass.getpass("Enter password for super admin: ")
-
     if not email or not password:
         print("Email and password cannot be empty.")
         return
@@ -49,4 +47,11 @@ async def create_super_admin():
 
 
 if __name__ == "__main__":
-    asyncio.run(create_super_admin())
+    parser = argparse.ArgumentParser(description="Create a super admin user.")
+    parser.add_argument("--email", required=True, help="Email for the super admin.")
+    parser.add_argument(
+        "--password", required=True, help="Password for the super admin."
+    )
+    args = parser.parse_args()
+
+    asyncio.run(create_super_admin(args.email, args.password))

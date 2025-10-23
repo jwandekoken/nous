@@ -5,7 +5,8 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from app.core.authentication import AuthenticatedUser, get_current_user
+from app.core.authentication import get_current_user
+from app.core.schemas import AuthenticatedUser
 from app.db.postgres.auth_session import get_auth_db_session
 from app.features.auth.dtos import (
     CreateApiKeyRequest,

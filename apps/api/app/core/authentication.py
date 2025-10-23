@@ -7,13 +7,12 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-from pydantic import BaseModel
 
+from app.core.schemas import AuthenticatedUser, UserRole
 from app.core.settings import get_settings
-from app.features.auth.models import UserRole
 
-# Password hashing - using pbkdf2_sha256 as fallback since bcrypt has issues
-pwd_context = CryptContext(schemes=["pbkdf2_sha256", "bcrypt"], deprecated="auto")
+# Password hashing - using argon2 as bcrypt has issues.
+pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 
 security = HTTPBearer()
 
@@ -42,10 +41,6 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 def get_password_hash(password: str) -> str:
     """Hash a password."""
-    # bcrypt has a 72 byte limit, truncate if necessary
-    password_bytes = password.encode("utf-8")
-    if len(password_bytes) > 72:
-        password = password[:72]  # Truncate to 72 characters
     return pwd_context.hash(password)
 
 
@@ -68,14 +63,6 @@ def create_access_token(
         to_encode, settings.secret_key, algorithm=settings.algorithm
     )
     return encoded_jwt
-
-
-class AuthenticatedUser(BaseModel):
-    """Authenticated user with tenant information."""
-
-    user_id: UUID
-    tenant_id: UUID | None  # <-- Make nullable
-    role: UserRole  # <-- Add this
 
 
 async def get_current_user(

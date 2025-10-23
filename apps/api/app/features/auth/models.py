@@ -1,6 +1,5 @@
 """Database models for authentication and authorization."""
 
-import enum
 import uuid
 from datetime import datetime
 
@@ -10,19 +9,13 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
+from app.core.schemas import UserRole
+
 
 class Base(DeclarativeBase):
     """Base class for all database models."""
 
     pass
-
-
-class UserRole(enum.Enum):
-    """Defines the roles a user can have."""
-
-    SUPER_ADMIN = "super_admin"
-    TENANT_ADMIN = "tenant_admin"
-    TENANT_USER = "tenant_user"
 
 
 class Tenant(Base):
