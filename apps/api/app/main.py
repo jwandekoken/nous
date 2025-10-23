@@ -25,7 +25,7 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
     # Initialize database connections
     init_db_session()
     print("Auth database session initialized.")
-    await get_db_pool()
+    _ = await get_db_pool()
     print("Graph database connection pool created.")
 
     yield

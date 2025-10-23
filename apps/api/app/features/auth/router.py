@@ -6,7 +6,6 @@ from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
-from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
@@ -20,64 +19,16 @@ from app.core.security import (
 )
 from app.db.postgres.auth_session import get_db_session
 from app.db.postgres.graph_connection import get_db_pool
+from app.features.auth.dtos import (
+    ApiKeyInfo,
+    CreateApiKeyRequest,
+    CreateApiKeyResponse,
+    ListApiKeysResponse,
+    LoginResponse,
+    SignupRequest,
+    SignupResponse,
+)
 from app.features.auth.models import ApiKey, Tenant, User
-
-
-# Pydantic models for API requests/responses
-class SignupRequest(BaseModel):
-    """Request model for tenant signup."""
-
-    name: str
-    email: str
-    password: str
-
-
-class SignupResponse(BaseModel):
-    """Response model for successful signup."""
-
-    message: str
-    tenant_id: str
-    user_id: str
-
-
-class LoginResponse(BaseModel):
-    """Response model for successful login."""
-
-    access_token: str
-    token_type: str = "bearer"
-    expires_in: int
-
-
-class CreateApiKeyRequest(BaseModel):
-    """Request model for creating an API key."""
-
-    name: str
-
-
-class CreateApiKeyResponse(BaseModel):
-    """Response model for successful API key creation."""
-
-    message: str
-    api_key: str
-    key_prefix: str
-    expires_at: str | None
-
-
-class ApiKeyInfo(BaseModel):
-    """Information about an API key."""
-
-    id: str
-    name: str
-    key_prefix: str
-    created_at: datetime
-    expires_at: datetime | None
-    last_used_at: datetime | None
-
-
-class ListApiKeysResponse(BaseModel):
-    """Response model for listing API keys."""
-
-    api_keys: list[ApiKeyInfo]
 
 
 def generate_api_key() -> tuple[str, str]:
@@ -303,13 +254,10 @@ async def list_api_keys(
     """List all API keys for the current tenant."""
 
     async with get_db_session() as session:
-        api_keys = (
-            await session.execute(
-                select(ApiKey).where(ApiKey.tenant_id == current_user.tenant_id)
-            )
-            .scalars()
-            .all()
+        result = await session.execute(
+            select(ApiKey).where(ApiKey.tenant_id == current_user.tenant_id)
         )
+        api_keys = result.scalars().all()
 
         api_key_infos = [
             ApiKeyInfo(
