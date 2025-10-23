@@ -19,30 +19,6 @@ class PasswordHasher(Protocol):
         ...
 
 
-class DatabaseSession(Protocol):
-    """Protocol for database session operations."""
-
-    async def __aenter__(self):
-        """Enter async context manager."""
-        ...
-
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        """Exit async context manager."""
-        ...
-
-    def add(self, instance) -> None:
-        """Add an instance to the session."""
-        ...
-
-    async def commit(self) -> None:
-        """Commit the transaction."""
-        ...
-
-    async def rollback(self) -> None:
-        """Rollback the transaction."""
-        ...
-
-
 class CreateApiKeyUseCaseImpl:
     """Implementation of the create API key use case."""
 

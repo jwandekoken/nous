@@ -1,28 +1,11 @@
 """Use case for listing API keys."""
 
-from typing import Protocol
 from uuid import UUID
 
 from sqlalchemy import select
 
 from app.features.auth.dtos import ApiKeyInfo, ListApiKeysResponse
 from app.features.auth.models import ApiKey
-
-
-class DatabaseSession(Protocol):
-    """Protocol for database session operations."""
-
-    async def __aenter__(self):
-        """Enter async context manager."""
-        ...
-
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        """Exit async context manager."""
-        ...
-
-    async def execute(self, query):
-        """Execute a query."""
-        ...
 
 
 class ListApiKeysUseCaseImpl:

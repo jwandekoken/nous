@@ -17,34 +17,6 @@ class PasswordHasher(Protocol):
         ...
 
 
-class DatabaseSession(Protocol):
-    """Protocol for database session operations."""
-
-    async def __aenter__(self):
-        """Enter async context manager."""
-        ...
-
-    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any):
-        """Exit async context manager."""
-        ...
-
-    def add(self, instance: Any) -> None:
-        """Add an instance to the session."""
-        ...
-
-    async def flush(self) -> None:
-        """Flush pending changes."""
-        ...
-
-    async def commit(self) -> None:
-        """Commit the transaction."""
-        ...
-
-    async def rollback(self) -> None:
-        """Rollback the transaction."""
-        ...
-
-
 class GraphDatabasePool(Protocol):
     """Protocol for graph database pool operations."""
 

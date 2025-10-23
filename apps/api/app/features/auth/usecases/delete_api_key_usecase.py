@@ -1,29 +1,8 @@
 """Use case for deleting API keys."""
 
-from typing import Protocol
 from uuid import UUID
 
 from app.features.auth.models import ApiKey
-
-
-class DatabaseSession(Protocol):
-    """Protocol for database session operations."""
-
-    async def __aenter__(self):
-        """Enter async context manager."""
-        ...
-
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        """Exit async context manager."""
-        ...
-
-    async def get(self, model_class, instance_id):
-        """Get an instance by ID."""
-        ...
-
-    def delete(self, instance) -> None:
-        """Delete an instance from the session."""
-        ...
 
 
 class DeleteApiKeyUseCaseImpl:
