@@ -49,6 +49,11 @@ async def db_session(async_engine: AsyncEngine) -> AsyncGenerator[AsyncSession, 
 async def postgres_pool() -> AsyncGenerator[asyncpg.Pool, None]:
     """Provide a connection pool and ensure it's closed after the test."""
     pool = await get_graph_db_pool()
+    # Set up AGE extension for testing
+    async with pool.acquire() as conn:
+        await conn.execute("CREATE EXTENSION IF NOT EXISTS age;")
+        await conn.execute("LOAD 'age';")
+        await conn.execute("SET search_path = ag_catalog, '$user', public;")
     yield pool
     await close_graph_db_pool()
 
@@ -111,6 +116,7 @@ class TestSignupTenantUseCase:
 
         # Verify graph creation
         async with postgres_pool.acquire() as conn:
+            await conn.execute("SET search_path = ag_catalog, '$user', public;")
             graph_exists = await conn.fetchval(
                 "SELECT 1 FROM ag_graph WHERE name = $1;", tenant.age_graph_name
             )
