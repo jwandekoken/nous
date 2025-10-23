@@ -45,7 +45,7 @@ class LoginUseCaseImpl:
         """
         self.password_verifier = password_verifier
         self.token_creator = token_creator
-        self.get_db_session = get_db_session
+        self.get_auth_db_session = get_db_session
 
     async def execute(self, email: str, password: str) -> LoginResponse:
         """Authenticate user and return JWT access token.
@@ -60,7 +60,7 @@ class LoginUseCaseImpl:
         Raises:
             ValueError: If authentication fails or account is locked/disabled
         """
-        async with self.get_db_session() as session:
+        async with self.get_auth_db_session() as session:
             # Find user by email
             result = await session.execute(select(User).where(User.email == email))
             user = result.scalar_one_or_none()

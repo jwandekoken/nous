@@ -14,7 +14,7 @@ class DeleteApiKeyUseCaseImpl:
         Args:
             get_db_session: Function to get database session
         """
-        self.get_db_session = get_db_session
+        self.get_auth_db_session = get_db_session
 
     async def execute(self, api_key_id: str, tenant_id: UUID) -> dict[str, str]:
         """Delete an API key.
@@ -34,7 +34,7 @@ class DeleteApiKeyUseCaseImpl:
         except ValueError as e:
             raise ValueError("Invalid API key ID format") from e
 
-        async with self.get_db_session() as session:
+        async with self.get_auth_db_session() as session:
             async with session.begin():
                 api_key = await session.get(ApiKey, uuid_obj)
 

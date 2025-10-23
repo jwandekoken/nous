@@ -34,7 +34,7 @@ class CreateApiKeyUseCaseImpl:
             get_db_session: Function to get database session
         """
         self.password_hasher = password_hasher
-        self.get_db_session = get_db_session
+        self.get_auth_db_session = get_db_session
 
     async def execute(
         self, request: CreateApiKeyRequest, tenant_id: UUID
@@ -55,7 +55,7 @@ class CreateApiKeyUseCaseImpl:
         if len(request.name) < 3 or len(request.name) > 50:
             raise ValueError("API key name must be between 3 and 50 characters")
 
-        async with self.get_db_session() as session:
+        async with self.get_auth_db_session() as session:
             async with session.begin():
                 try:
                     # Generate API key

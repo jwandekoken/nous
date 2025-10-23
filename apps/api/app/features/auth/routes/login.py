@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 
 from app.core.security import create_access_token, verify_password
-from app.db.postgres.auth_session import get_db_session
+from app.db.postgres.auth_session import get_auth_db_session
 from app.features.auth.dtos import LoginResponse
 from app.features.auth.usecases import LoginUseCaseImpl
 
@@ -32,7 +32,7 @@ async def get_login_use_case():
     return LoginUseCaseImpl(
         password_verifier=PasswordVerifierImpl(),
         token_creator=TokenCreatorImpl(),
-        get_db_session=get_db_session,
+        get_db_session=get_auth_db_session,
     )
 
 

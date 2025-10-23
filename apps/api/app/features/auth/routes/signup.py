@@ -5,8 +5,8 @@ from typing import Protocol
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.core.security import pwd_context
-from app.db.postgres.auth_session import get_db_session
-from app.db.postgres.graph_connection import get_db_pool
+from app.db.postgres.auth_session import get_auth_db_session
+from app.db.postgres.graph_connection import get_graph_db_pool
 from app.features.auth.dtos import SignupRequest, SignupResponse
 from app.features.auth.usecases import SignupTenantUseCaseImpl
 
@@ -23,8 +23,8 @@ async def get_signup_tenant_use_case():
     """Dependency injection for the signup tenant use case."""
     return SignupTenantUseCaseImpl(
         password_hasher=PasswordHasherImpl(),
-        get_db_session=get_db_session,
-        get_db_pool=get_db_pool,
+        get_db_session=get_auth_db_session,
+        get_db_pool=get_graph_db_pool,
     )
 
 

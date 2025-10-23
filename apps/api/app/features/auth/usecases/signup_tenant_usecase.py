@@ -34,8 +34,8 @@ class SignupTenantUseCaseImpl:
             get_db_pool: Function to get graph database pool
         """
         self.password_hasher = password_hasher
-        self.get_db_session = get_db_session
-        self.get_db_pool = get_db_pool
+        self.get_auth_db_session = get_db_session
+        self.get_graph_db_pool = get_db_pool
 
     async def execute(self, request: SignupRequest) -> SignupResponse:
         """Create a new tenant with an initial user and AGE graph.
@@ -61,7 +61,7 @@ class SignupTenantUseCaseImpl:
         if len(request.password) < 8:
             raise ValueError("Password must be at least 8 characters long")
 
-        async with self.get_db_session() as session:
+        async with self.get_auth_db_session() as session:
             async with session.begin():
                 try:
                     # Generate unique graph name
@@ -85,7 +85,7 @@ class SignupTenantUseCaseImpl:
                     await session.flush()
 
                     # Create AGE graph
-                    pool = await self.get_db_pool()
+                    pool = await self.get_graph_db_pool()
                     async with pool.acquire() as conn:
                         await conn.execute("LOAD 'age';")
                         await conn.execute(

@@ -10,7 +10,7 @@ from datetime import datetime
 import asyncpg
 import pytest
 
-from app.db.postgres.graph_connection import get_db_pool, reset_db_pool
+from app.db.postgres.graph_connection import get_graph_db_pool, reset_db_pool
 from app.features.graph.dtos.knowledge_dto import (
     AssimilateKnowledgeRequest,
     GetEntityResponse,
@@ -30,7 +30,7 @@ async def reset_db_connection():
     await reset_db_pool()
 
     # Create test graph if it doesn't exist
-    pool = await get_db_pool()
+    pool = await get_graph_db_pool()
     async with pool.acquire() as conn:
         await conn.execute("CREATE EXTENSION IF NOT EXISTS age;")
         await conn.execute("LOAD 'age';")
@@ -54,7 +54,7 @@ async def reset_db_connection():
 @pytest.fixture
 async def postgres_pool() -> asyncpg.Pool:
     """PostgreSQL connection pool for integration tests."""
-    return await get_db_pool()
+    return await get_graph_db_pool()
 
 
 @pytest.fixture

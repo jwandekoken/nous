@@ -5,7 +5,7 @@ from typing import Protocol
 from fastapi import APIRouter, Depends
 
 from app.core.dependencies import TenantInfo, get_tenant_info
-from app.db.postgres.graph_connection import get_db_pool
+from app.db.postgres.graph_connection import get_graph_db_pool
 from app.features.graph.dtos.knowledge_dto import (
     AssimilateKnowledgeRequest,
     AssimilateKnowledgeResponse,
@@ -51,7 +51,7 @@ async def get_assimilate_knowledge_use_case(
 ) -> AssimilateKnowledgeUseCase:
     """Dependency injection for the assimilate knowledge use case."""
 
-    pool = await get_db_pool()
+    pool = await get_graph_db_pool()
     repository = AgeRepository(pool, graph_name=tenant_info.graph_name)
     return AssimilateKnowledgeUseCaseImpl(
         repository=repository, fact_extractor=_fact_extractor
@@ -63,7 +63,7 @@ async def get_get_entity_use_case(
 ) -> GetEntityUseCase:
     """Dependency injection for the get entity use case."""
 
-    pool = await get_db_pool()
+    pool = await get_graph_db_pool()
     repository = AgeRepository(pool, graph_name=tenant_info.graph_name)
     return GetEntityUseCaseImpl(repository=repository)
 

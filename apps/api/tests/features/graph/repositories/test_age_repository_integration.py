@@ -8,7 +8,10 @@ from typing import cast
 import asyncpg
 import pytest
 
-from app.db.postgres.graph_connection import close_db_pool, get_db_pool
+from app.db.postgres.graph_connection import (
+    close_graph_db_pool,
+    get_graph_db_pool,
+)
 from app.features.graph.models import Entity, Fact, HasIdentifier, Identifier, Source
 from app.features.graph.repositories.age_repository import AgeRepository
 
@@ -16,11 +19,11 @@ from app.features.graph.repositories.age_repository import AgeRepository
 @pytest.fixture
 async def postgres_pool() -> AsyncGenerator[asyncpg.Pool, None]:
     """Provides a connection pool and ensures it's closed after the test."""
-    pool = await get_db_pool()
+    pool = await get_graph_db_pool()
     try:
         yield pool
     finally:
-        await close_db_pool()
+        await close_graph_db_pool()
 
 
 @pytest.fixture

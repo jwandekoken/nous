@@ -6,7 +6,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.core.security import AuthenticatedUser, get_current_user, pwd_context
-from app.db.postgres.auth_session import get_db_session
+from app.db.postgres.auth_session import get_auth_db_session
 from app.features.auth.dtos import (
     CreateApiKeyRequest,
     CreateApiKeyResponse,
@@ -31,18 +31,18 @@ async def get_create_api_key_use_case():
     """Dependency injection for the create API key use case."""
     return CreateApiKeyUseCaseImpl(
         password_hasher=PasswordHasherImpl(),
-        get_db_session=get_db_session,
+        get_db_session=get_auth_db_session,
     )
 
 
 async def get_list_api_keys_use_case():
     """Dependency injection for the list API keys use case."""
-    return ListApiKeysUseCaseImpl(get_db_session=get_db_session)
+    return ListApiKeysUseCaseImpl(get_db_session=get_auth_db_session)
 
 
 async def get_delete_api_key_use_case():
     """Dependency injection for the delete API key use case."""
-    return DeleteApiKeyUseCaseImpl(get_db_session=get_db_session)
+    return DeleteApiKeyUseCaseImpl(get_db_session=get_auth_db_session)
 
 
 class CreateApiKeyUseCase(Protocol):
