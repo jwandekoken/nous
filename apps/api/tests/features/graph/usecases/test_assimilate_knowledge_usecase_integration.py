@@ -1,7 +1,7 @@
 """Integration tests for AssimilateKnowledgeUseCaseImpl using real dependencies.
 
 This module provides integration tests for the AssimilateKnowledgeUseCaseImpl
-using the actual production implementations of ArcadedbRepository and LangChainFactExtractor.
+using the actual production implementations of AgeRepository and LangChainFactExtractor.
 """
 
 import uuid
@@ -9,7 +9,6 @@ import uuid
 import asyncpg
 import pytest
 
-from app.db.postgres.graph_connection import get_graph_db_pool, reset_db_pool
 from app.features.graph.dtos.knowledge_dto import (
     AssimilateKnowledgeRequest,
     AssimilateKnowledgeResponse,
@@ -20,39 +19,6 @@ from app.features.graph.services.langchain_fact_extractor import LangChainFactEx
 from app.features.graph.usecases.assimilate_knowledge_usecase import (
     AssimilateKnowledgeUseCaseImpl,
 )
-
-
-@pytest.fixture(autouse=True)
-async def reset_db_connection():
-    """Reset database connection and clear data before each test."""
-    await reset_db_pool()
-
-    # Create test graph if it doesn't exist
-    pool = await get_graph_db_pool()
-    async with pool.acquire() as conn:
-        await conn.execute("CREATE EXTENSION IF NOT EXISTS age;")
-        await conn.execute("LOAD 'age';")
-        await conn.execute("SET search_path = ag_catalog, '$user', public;")
-
-        graph_exists = await conn.fetchval(
-            "SELECT 1 FROM ag_graph WHERE name = $1;", "test_graph"
-        )
-        if not graph_exists:
-            await conn.execute("SELECT create_graph('test_graph');")
-
-    # Clear all data from the graph to ensure clean state
-    age_repo = AgeRepository(pool, graph_name="test_graph")
-
-    try:
-        await age_repo.clear_all_data()
-    except Exception:
-        pass  # Ignore errors if graph is already empty
-
-
-@pytest.fixture
-async def postgres_pool() -> asyncpg.Pool:
-    """PostgreSQL connection pool for integration tests."""
-    return await get_graph_db_pool()
 
 
 @pytest.fixture

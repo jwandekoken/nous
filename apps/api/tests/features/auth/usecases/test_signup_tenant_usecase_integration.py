@@ -1,67 +1,15 @@
 """Integration tests for the SignupTenantUseCase."""
 
-from collections.abc import AsyncGenerator
-
 import asyncpg
 import pytest
-from sqlalchemy.ext.asyncio import (
-    AsyncEngine,
-    AsyncSession,
-    create_async_engine,
-)
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.authentication import pwd_context
-from app.core.settings import get_settings
-from app.db.postgres.graph_connection import (
-    close_graph_db_pool,
-    get_graph_db_pool,
-)
-from app.features.auth.models import Base
 from app.features.auth.usecases.signup_tenant_usecase import (
     PasswordHasher,
     SignupTenantUseCaseImpl,
 )
 
-
-# Fixtures for database connections and password hasher
-@pytest.fixture
-async def async_engine() -> AsyncGenerator[AsyncEngine, None]:
-    """Provide a SQLAlchemy async engine for the test session."""
-    settings = get_settings()
-    engine = create_async_engine(settings.database_url, echo=True)
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    yield engine
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
-    await engine.dispose()
-
-
-@pytest.fixture
-async def db_session(async_engine: AsyncEngine) -> AsyncGenerator[AsyncSession, None]:
-    """Provide a transactional database session for tests."""
-    async with AsyncSession(async_engine) as session:
-        yield session
-        await session.rollback()
-
-
-@pytest.fixture
-async def postgres_pool() -> AsyncGenerator[asyncpg.Pool, None]:
-    """Provide a connection pool and ensure it's closed after the test."""
-    pool = await get_graph_db_pool()
-    # Set up AGE extension for testing
-    async with pool.acquire() as conn:
-        await conn.execute("CREATE EXTENSION IF NOT EXISTS age;")
-        await conn.execute("LOAD 'age';")
-        await conn.execute("SET search_path = ag_catalog, '$user', public;")
-    yield pool
-    await close_graph_db_pool()
-
-
-@pytest.fixture
-def password_hasher() -> PasswordHasher:
-    """Provide a password hasher instance."""
-    return pwd_context
+# All fixtures are now provided by tests/conftest.py
 
 
 @pytest.mark.asyncio

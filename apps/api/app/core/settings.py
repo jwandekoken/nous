@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     app_name: str = Field(default="Nous API", description="Application name")
     app_version: str = Field(default="0.1.0", description="Application version")
     debug: bool = Field(default=False, description="Debug mode")
+    testing: bool = Field(default=False, description="Testing mode")
     host: str = Field(default="0.0.0.0", description="Host to bind to")
     port: int = Field(default=8000, description="Port to bind to")
 
@@ -53,15 +54,19 @@ class Settings(BaseSettings):
     postgres_db: str = Field(
         default="multimodel_db", description="PostgreSQL database name"
     )
+    test_postgres_db: str = Field(
+        default="multimodel_db_test", description="PostgreSQL test database name"
+    )
     age_graph_name: str = Field(default="nous", description="AGE graph name")
 
     # Database URL (computed property)
     @property
     def database_url(self) -> str:
         """Construct database URL from individual components."""
+        db_name = self.test_postgres_db if self.testing else self.postgres_db
         return (
             f"postgresql+asyncpg://{self.postgres_user}:{self.postgres_password}"
-            f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
+            f"@{self.postgres_host}:{self.postgres_port}/{db_name}"
         )
 
     # Google AI

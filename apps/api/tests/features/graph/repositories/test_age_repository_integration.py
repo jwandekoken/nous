@@ -1,59 +1,19 @@
 """Integration tests for AgeRepository using a real PostgreSQL/AGE connection."""
 
 import uuid
-from collections.abc import AsyncGenerator
 from datetime import datetime
-from typing import cast
 
 import asyncpg
 import pytest
 
-from app.db.postgres.graph_connection import (
-    close_graph_db_pool,
-    get_graph_db_pool,
-)
 from app.features.graph.models import Entity, Fact, HasIdentifier, Identifier, Source
 from app.features.graph.repositories.age_repository import AgeRepository
-
-
-@pytest.fixture
-async def postgres_pool() -> AsyncGenerator[asyncpg.Pool, None]:
-    """Provides a connection pool and ensures it's closed after the test."""
-    pool = await get_graph_db_pool()
-    try:
-        yield pool
-    finally:
-        await close_graph_db_pool()
 
 
 @pytest.fixture
 async def age_repository(postgres_pool: asyncpg.Pool) -> AgeRepository:
     """Fixture to get an AgeRepository instance."""
     return AgeRepository(postgres_pool, graph_name="test_graph")
-
-
-@pytest.fixture(autouse=True)
-async def clean_graph_db(postgres_pool: asyncpg.Pool) -> None:
-    """Clean all data from the AGE graph before each test."""
-    graph_name = "test_graph"
-
-    async with postgres_pool.acquire() as conn:
-        conn = cast(asyncpg.Connection, conn)
-        async with conn.transaction():
-            await conn.execute("CREATE EXTENSION IF NOT EXISTS age;")
-            await conn.execute("LOAD 'age';")
-            await conn.execute("SET search_path = ag_catalog, '$user', public;")
-
-            # Create graph if it doesn't exist
-            graph_exists = await conn.fetchval(
-                "SELECT 1 FROM ag_graph WHERE name = $1;", graph_name
-            )
-            if not graph_exists:
-                await conn.execute(f"SELECT create_graph('{graph_name}');")
-            # The VACUUM command is used to reclaim storage occupied by dead tuples. In this case, it is used to clean the graph.
-            await conn.execute(
-                f"SELECT * from ag_catalog.cypher('{graph_name}', $$ MATCH (n) DETACH DELETE n $$) as (v agtype);"
-            )
 
 
 @pytest.fixture
