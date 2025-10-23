@@ -7,7 +7,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.settings import get_settings
+from app.db.postgres.auth_session import init_db_session
 from app.db.postgres.graph_connection import close_db_pool, get_db_pool
+from app.features.auth.router import router as auth_router
 from app.features.graph.router import router as graph_router
 
 
@@ -19,8 +21,12 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
     # Startup
     settings = get_settings()
     print(f"Starting {settings.app_name} v{settings.app_version}")
+
+    # Initialize database connections
+    init_db_session()
+    print("Auth database session initialized.")
     await get_db_pool()
-    print("Database connection pool created.")
+    print("Graph database connection pool created.")
 
     yield
 
@@ -51,6 +57,7 @@ def create_app() -> FastAPI:
     )
 
     # Include routers
+    app.include_router(auth_router, prefix="/api/v1")
     app.include_router(graph_router, prefix="/api/v1")
 
     @app.get("/health")

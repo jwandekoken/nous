@@ -29,9 +29,21 @@ async def reset_db_connection():
     """Reset database connection and clear data before each test."""
     await reset_db_pool()
 
-    # Clear all data from the graph to ensure clean state
+    # Create test graph if it doesn't exist
     pool = await get_db_pool()
-    age_repo = AgeRepository(pool)
+    async with pool.acquire() as conn:
+        await conn.execute("CREATE EXTENSION IF NOT EXISTS age;")
+        await conn.execute("LOAD 'age';")
+        await conn.execute("SET search_path = ag_catalog, '$user', public;")
+
+        graph_exists = await conn.fetchval(
+            "SELECT 1 FROM ag_graph WHERE name = $1;", "test_graph"
+        )
+        if not graph_exists:
+            await conn.execute("SELECT create_graph('test_graph');")
+
+    # Clear all data from the graph to ensure clean state
+    age_repo = AgeRepository(pool, graph_name="test_graph")
 
     try:
         await age_repo.clear_all_data()
@@ -48,7 +60,7 @@ async def postgres_pool() -> asyncpg.Pool:
 @pytest.fixture
 async def age_repository(postgres_pool: asyncpg.Pool) -> AgeRepository:
     """Fixture to get an AgeRepository instance."""
-    return AgeRepository(postgres_pool)
+    return AgeRepository(postgres_pool, graph_name="test_graph")
 
 
 @pytest.fixture

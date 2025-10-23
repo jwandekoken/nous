@@ -11,8 +11,8 @@ from pydantic import BaseModel
 
 from app.core.settings import get_settings
 
-# Password hashing
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Password hashing - using pbkdf2_sha256 as fallback since bcrypt has issues
+pwd_context = CryptContext(schemes=["pbkdf2_sha256", "bcrypt"], deprecated="auto")
 
 # JWT token scheme
 security = HTTPBearer()
@@ -32,6 +32,10 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 def get_password_hash(password: str) -> str:
     """Hash a password."""
+    # bcrypt has a 72 byte limit, truncate if necessary
+    password_bytes = password.encode("utf-8")
+    if len(password_bytes) > 72:
+        password = password[:72]  # Truncate to 72 characters
     return pwd_context.hash(password)
 
 

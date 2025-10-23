@@ -4,6 +4,7 @@ from typing import Protocol
 
 from fastapi import APIRouter, Depends
 
+from app.core.dependencies import TenantInfo, get_tenant_info
 from app.db.postgres.graph_connection import get_db_pool
 from app.features.graph.dtos.knowledge_dto import (
     AssimilateKnowledgeRequest,
@@ -45,20 +46,26 @@ router = APIRouter(prefix="/graph", tags=["graph"])
 _fact_extractor = LangChainFactExtractor()
 
 
-async def get_assimilate_knowledge_use_case() -> AssimilateKnowledgeUseCase:
+async def get_assimilate_knowledge_use_case(
+    tenant_info: TenantInfo = Depends(get_tenant_info),
+) -> AssimilateKnowledgeUseCase:
     """Dependency injection for the assimilate knowledge use case."""
 
     pool = await get_db_pool()
+    repository = AgeRepository(pool, graph_name=tenant_info.graph_name)
     return AssimilateKnowledgeUseCaseImpl(
-        repository=AgeRepository(pool), fact_extractor=_fact_extractor
+        repository=repository, fact_extractor=_fact_extractor
     )
 
 
-async def get_get_entity_use_case() -> GetEntityUseCase:
+async def get_get_entity_use_case(
+    tenant_info: TenantInfo = Depends(get_tenant_info),
+) -> GetEntityUseCase:
     """Dependency injection for the get entity use case."""
 
     pool = await get_db_pool()
-    return GetEntityUseCaseImpl(repository=AgeRepository(pool))
+    repository = AgeRepository(pool, graph_name=tenant_info.graph_name)
+    return GetEntityUseCaseImpl(repository=repository)
 
 
 @router.post("/entities/assimilate", response_model=AssimilateKnowledgeResponse)
