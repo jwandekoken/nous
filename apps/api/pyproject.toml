@@ -23,6 +23,9 @@ dependencies = [
     "langchain-core>=0.3.76",
     "langchain-google-genai>=2.1.12",
     "asyncpg>=0.30.0",
+    "sqlalchemy>=2.0.44",
+    "alembic>=1.17.0",
+    "slowapi>=0.1.9",
 ]
 
 [dependency-groups]

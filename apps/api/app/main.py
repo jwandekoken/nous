@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.settings import get_settings
-from app.db.postgres.connection import close_db_pool, get_db_pool
+from app.db.postgres.graph_connection import close_db_pool, get_db_pool
 from app.features.graph.router import router as graph_router
 
 

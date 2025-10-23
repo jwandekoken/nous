@@ -4,7 +4,7 @@ from typing import Protocol
 
 from fastapi import APIRouter, Depends
 
-from app.db.postgres.connection import get_db_pool
+from app.db.postgres.graph_connection import get_db_pool
 from app.features.graph.dtos.knowledge_dto import (
     AssimilateKnowledgeRequest,
     AssimilateKnowledgeResponse,

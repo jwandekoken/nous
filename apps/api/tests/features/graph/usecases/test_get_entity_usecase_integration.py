@@ -10,7 +10,7 @@ from datetime import datetime
 import asyncpg
 import pytest
 
-from app.db.postgres.connection import get_db_pool, reset_db_pool
+from app.db.postgres.graph_connection import get_db_pool, reset_db_pool
 from app.features.graph.dtos.knowledge_dto import (
     AssimilateKnowledgeRequest,
     GetEntityResponse,

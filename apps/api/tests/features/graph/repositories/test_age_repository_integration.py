@@ -9,7 +9,7 @@ import asyncpg
 import pytest
 
 from app.core.settings import get_settings
-from app.db.postgres.connection import close_db_pool, get_db_pool
+from app.db.postgres.graph_connection import close_db_pool, get_db_pool
 from app.features.graph.models import Entity, Fact, HasIdentifier, Identifier, Source
 from app.features.graph.repositories.age_repository import AgeRepository
 

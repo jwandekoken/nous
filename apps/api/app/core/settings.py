@@ -55,6 +55,15 @@ class Settings(BaseSettings):
     )
     age_graph_name: str = Field(default="nous", description="AGE graph name")
 
+    # Database URL (computed property)
+    @property
+    def database_url(self) -> str:
+        """Construct database URL from individual components."""
+        return (
+            f"postgresql+asyncpg://{self.postgres_user}:{self.postgres_password}"
+            f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
+        )
+
     # Google AI
     google_api_key: str | None = Field(
         default=None, description="Google AI API key for Gemini model"

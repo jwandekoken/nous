@@ -1,0 +1,100 @@
+"""Database models for authentication and authorization."""
+
+from datetime import datetime
+from typing import List
+from uuid import UUID
+
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy.dialects.postgresql import UUID as PGUUID
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.sql import func
+
+
+class Base(DeclarativeBase):
+    """Base class for all database models."""
+
+    pass
+
+
+class Tenant(Base):
+    """Tenant model representing isolated organizations."""
+
+    __tablename__ = "tenant"
+
+    id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), primary_key=True, default=func.gen_random_uuid()
+    )
+    name: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
+    age_graph_name: Mapped[str] = mapped_column(
+        String(100), nullable=False, unique=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+    # Relationships
+    users: Mapped[List["User"]] = relationship(
+        back_populates="tenant", cascade="all, delete-orphan"
+    )
+    api_keys: Mapped[List["ApiKey"]] = relationship(
+        back_populates="tenant", cascade="all, delete-orphan"
+    )
+
+
+class User(Base):
+    """User model for authentication."""
+
+    __tablename__ = "user"
+
+    id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), primary_key=True, default=func.gen_random_uuid()
+    )
+    email: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
+    hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
+    tenant_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("tenant.id"), nullable=False
+    )
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    failed_login_attempts: Mapped[int] = mapped_column(
+        Integer, default=0, nullable=False
+    )
+    locked_until: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+    # Relationships
+    tenant: Mapped["Tenant"] = relationship(back_populates="users")
+
+
+class ApiKey(Base):
+    """API key model for programmatic access."""
+
+    __tablename__ = "api_key"
+
+    id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), primary_key=True, default=func.gen_random_uuid()
+    )
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    key_prefix: Mapped[str] = mapped_column(String(10), nullable=False, unique=True)
+    hashed_key: Mapped[str] = mapped_column(String(255), nullable=False)
+    tenant_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("tenant.id"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_used_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    # Relationships
+    tenant: Mapped["Tenant"] = relationship(back_populates="api_keys")
+
+    # Constraints
+    __table_args__ = (
+        UniqueConstraint("name", "tenant_id", name="unique_api_key_name_per_tenant"),
+    )

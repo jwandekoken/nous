@@ -1,4 +1,8 @@
-"""PostgreSQL database connection management."""
+"""PostgreSQL database connection management for graph operations.
+
+This module provides direct asyncpg connections for AGE graph operations and raw SQL queries.
+Used primarily by the graph features for Cypher queries and AGE-specific operations.
+"""
 
 import asyncpg
 
