@@ -1,11 +1,10 @@
 """Database models for authentication and authorization."""
 
+import uuid
 from datetime import datetime
-from typing import List
-from uuid import UUID
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, UniqueConstraint
-from sqlalchemy.dialects.postgresql import UUID as PGUUID
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -21,8 +20,8 @@ class Tenant(Base):
 
     __tablename__ = "tenant"
 
-    id: Mapped[UUID] = mapped_column(
-        PGUUID(as_uuid=True), primary_key=True, default=func.gen_random_uuid()
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
     age_graph_name: Mapped[str] = mapped_column(
@@ -33,10 +32,10 @@ class Tenant(Base):
     )
 
     # Relationships
-    users: Mapped[List["User"]] = relationship(
+    users: Mapped[list["User"]] = relationship(
         back_populates="tenant", cascade="all, delete-orphan"
     )
-    api_keys: Mapped[List["ApiKey"]] = relationship(
+    api_keys: Mapped[list["ApiKey"]] = relationship(
         back_populates="tenant", cascade="all, delete-orphan"
     )
 
@@ -46,13 +45,13 @@ class User(Base):
 
     __tablename__ = "user"
 
-    id: Mapped[UUID] = mapped_column(
-        PGUUID(as_uuid=True), primary_key=True, default=func.gen_random_uuid()
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     email: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
-    tenant_id: Mapped[UUID] = mapped_column(
-        PGUUID(as_uuid=True), ForeignKey("tenant.id"), nullable=False
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenant.id"), nullable=False
     )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     failed_login_attempts: Mapped[int] = mapped_column(
@@ -74,14 +73,14 @@ class ApiKey(Base):
 
     __tablename__ = "api_key"
 
-    id: Mapped[UUID] = mapped_column(
-        PGUUID(as_uuid=True), primary_key=True, default=func.gen_random_uuid()
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     key_prefix: Mapped[str] = mapped_column(String(10), nullable=False, unique=True)
     hashed_key: Mapped[str] = mapped_column(String(255), nullable=False)
-    tenant_id: Mapped[UUID] = mapped_column(
-        PGUUID(as_uuid=True), ForeignKey("tenant.id"), nullable=False
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenant.id"), nullable=False
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
