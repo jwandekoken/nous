@@ -4,16 +4,12 @@ import secrets
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
+from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
 
 from app.core.authentication import get_password_hash
 from app.features.auth.dtos import CreateApiKeyRequest, CreateApiKeyResponse
 from app.features.auth.models import ApiKey
-from app.features.auth.usecases.create_api_key_usecase.errors import (
-    ApiKeyCreationFailedError,
-    ApiKeyNameAlreadyExistsError,
-    ValidationError,
-)
 
 
 class CreateApiKeyUseCaseImpl:
@@ -43,13 +39,14 @@ class CreateApiKeyUseCaseImpl:
             Response with the created API key details
 
         Raises:
-            ValidationError: If API key name length is invalid
-            ApiKeyNameAlreadyExistsError: If API key name already exists for this tenant
-            ApiKeyCreationFailedError: If API key creation fails for unexpected reasons
+            HTTPException: With appropriate status codes for validation and creation errors
         """
         # Validate input
         if len(request.name) < 3 or len(request.name) > 50:
-            raise ValidationError("API key name must be between 3 and 50 characters")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="API key name must be between 3 and 50 characters",
+            )
 
         # Generate a secure key
         full_key, key_prefix = self._generate_api_key()
@@ -81,12 +78,18 @@ class CreateApiKeyUseCaseImpl:
                         else None,
                     )
 
-                except IntegrityError as e:
+                except IntegrityError:
                     await session.rollback()
-                    raise ApiKeyNameAlreadyExistsError() from e
-                except Exception as e:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="API key name already exists for this tenant",
+                    )
+                except Exception:
                     await session.rollback()
-                    raise ApiKeyCreationFailedError() from e
+                    raise HTTPException(
+                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        detail="Failed to create API key",
+                    )
 
     def _generate_api_key(self) -> tuple[str, str]:
         """Generate a secure API key with prefix for identification.

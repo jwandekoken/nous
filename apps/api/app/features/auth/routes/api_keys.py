@@ -12,21 +12,9 @@ from app.features.auth.dtos import (
     CreateApiKeyResponse,
     ListApiKeysResponse,
 )
-from app.features.auth.usecases import (
-    CreateApiKeyUseCaseImpl,
-    DeleteApiKeyUseCaseImpl,
-    ListApiKeysUseCaseImpl,
-)
-from app.features.auth.usecases.create_api_key_usecase import (
-    ApiKeyCreationFailedError,
-    ApiKeyNameAlreadyExistsError,
-    ValidationError,
-)
-from app.features.auth.usecases.delete_api_key_usecase import (
-    ApiKeyAccessDeniedError,
-    ApiKeyNotFoundError,
-    InvalidApiKeyIdFormatError,
-)
+from app.features.auth.usecases.create_api_key_usecase import CreateApiKeyUseCaseImpl
+from app.features.auth.usecases.delete_api_key_usecase import DeleteApiKeyUseCaseImpl
+from app.features.auth.usecases.list_api_keys_usecase import ListApiKeysUseCaseImpl
 
 
 async def get_create_api_key_use_case():
@@ -85,23 +73,7 @@ async def create_api_key(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="User must be associated with a tenant to create API keys",
         )
-    try:
-        return await use_case.execute(request, current_user.tenant_id)
-    except ValidationError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
-        )
-    except ApiKeyNameAlreadyExistsError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
-        )
-    except ApiKeyCreationFailedError as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        )
+    return await use_case.execute(request, current_user.tenant_id)
 
 
 @router.get("/api-keys", response_model=ListApiKeysResponse)
@@ -130,11 +102,4 @@ async def delete_api_key(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="User must be associated with a tenant to delete API keys",
         )
-    try:
-        return await use_case.execute(api_key_id, current_user.tenant_id)
-    except InvalidApiKeyIdFormatError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except ApiKeyNotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-    except ApiKeyAccessDeniedError as e:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
+    return await use_case.execute(api_key_id, current_user.tenant_id)

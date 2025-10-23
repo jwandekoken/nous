@@ -2,12 +2,9 @@
 
 from uuid import UUID
 
+from fastapi import HTTPException, status
+
 from app.features.auth.models import ApiKey
-from app.features.auth.usecases.delete_api_key_usecase.errors import (
-    ApiKeyAccessDeniedError,
-    ApiKeyNotFoundError,
-    InvalidApiKeyIdFormatError,
-)
 
 
 class DeleteApiKeyUseCaseImpl:
@@ -32,25 +29,31 @@ class DeleteApiKeyUseCaseImpl:
             Success message
 
         Raises:
-            InvalidApiKeyIdFormatError: If API key ID format is invalid
-            ApiKeyNotFoundError: If API key not found
-            ApiKeyAccessDeniedError: If API key doesn't belong to the tenant
+            HTTPException: With appropriate status codes for validation and access errors
         """
         try:
             uuid_obj = UUID(api_key_id)
-        except ValueError as e:
-            raise InvalidApiKeyIdFormatError() from e
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid API key ID format",
+            )
 
         async with self.get_auth_db_session() as session:
             async with session.begin():
                 api_key = await session.get(ApiKey, uuid_obj)
 
                 if not api_key:
-                    raise ApiKeyNotFoundError()
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail="API key not found",
+                    )
 
                 # Ensure the API key belongs to the current tenant
                 if api_key.tenant_id != tenant_id:
-                    raise ApiKeyAccessDeniedError()
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN, detail="Access denied"
+                    )
 
                 session.delete(api_key)
 

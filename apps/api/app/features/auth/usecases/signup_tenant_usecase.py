@@ -3,17 +3,11 @@
 from typing import Protocol
 from uuid import uuid4
 
+from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
 
 from app.features.auth.dtos import SignupRequest, SignupResponse
 from app.features.auth.models import Tenant, User, UserRole
-from app.features.auth.usecases.signup_tenant_usecase.errors import (
-    PasswordTooShortError,
-    SignupFailedError,
-    TenantAlreadyExistsError,
-    TenantNameInvalidCharactersError,
-    ValidationError,
-)
 
 
 class PasswordHasher(Protocol):
@@ -54,21 +48,26 @@ class SignupTenantUseCaseImpl:
             Response with success message and IDs
 
         Raises:
-            ValidationError: If tenant name length is invalid
-            TenantNameInvalidCharactersError: If tenant name contains invalid characters
-            PasswordTooShortError: If password is too short
-            TenantAlreadyExistsError: If tenant name or email already exists
-            SignupFailedError: If signup fails for unexpected reasons
+            HTTPException: With appropriate status codes for validation and creation errors
         """
         # Validate input
         if len(request.name) < 3 or len(request.name) > 50:
-            raise ValidationError("Tenant name must be between 3 and 50 characters")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Tenant name must be between 3 and 50 characters",
+            )
 
         if not request.name.replace("-", "").replace("_", "").isalnum():
-            raise TenantNameInvalidCharactersError()
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Tenant name can only contain alphanumeric characters, hyphens, and underscores",
+            )
 
         if len(request.password) < 8:
-            raise PasswordTooShortError()
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Password must be at least 8 characters long",
+            )
 
         async with self.get_auth_db_session() as session:
             async with session.begin():
@@ -109,14 +108,20 @@ class SignupTenantUseCaseImpl:
                         user_id=str(user.id),
                     )
 
-                except IntegrityError as e:
+                except IntegrityError:
                     await session.rollback()
-                    raise TenantAlreadyExistsError() from e
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Tenant name or email already exists",
+                    )
                 except Exception as e:
                     await session.rollback()
                     # Log the error (in production, use proper logging)
                     print(f"Signup error: {e}")
-                    raise SignupFailedError() from e
+                    raise HTTPException(
+                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        detail="Failed to create tenant",
+                    )
 
     def _generate_unique_graph_name(self) -> str:
         """Generate a unique graph name for a tenant."""

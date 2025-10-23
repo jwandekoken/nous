@@ -3,15 +3,11 @@
 from datetime import UTC, datetime, timedelta
 from typing import Any, Protocol
 
+from fastapi import HTTPException, status
 from sqlalchemy import select
 
 from app.features.auth.dtos import LoginResponse
 from app.features.auth.models import User
-from app.features.auth.usecases.login_usecase.errors import (
-    AccountDisabledError,
-    AccountLockedError,
-    InvalidCredentialsError,
-)
 
 
 class PasswordVerifier(Protocol):
@@ -63,9 +59,7 @@ class LoginUseCaseImpl:
             Response with access token
 
         Raises:
-            InvalidCredentialsError: If email or password is incorrect
-            AccountLockedError: If account is temporarily locked due to failed login attempts
-            AccountDisabledError: If account is disabled
+            HTTPException: With appropriate status codes for authentication errors
         """
         async with self.get_auth_db_session() as session:
             # Find user by email
@@ -75,15 +69,27 @@ class LoginUseCaseImpl:
             if not user or not self.password_verifier.verify(
                 password, user.hashed_password
             ):
-                raise InvalidCredentialsError()
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Incorrect email or password",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
 
             # Check if account is locked
             if user.locked_until and user.locked_until > datetime.now(UTC):
-                raise AccountLockedError()
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Account is temporarily locked due to failed login attempts",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
 
             # Check if user is active
             if not user.is_active:
-                raise AccountDisabledError()
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Account is disabled",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
 
             # Reset failed login attempts and update user
             user.failed_login_attempts = 0

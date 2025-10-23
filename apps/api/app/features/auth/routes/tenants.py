@@ -2,21 +2,14 @@
 
 from typing import Protocol
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends
 
 from app.core.authentication import AuthenticatedUser, pwd_context
 from app.core.authorization import is_super_admin
 from app.db.postgres.auth_session import get_auth_db_session
 from app.db.postgres.graph_connection import get_graph_db_pool
 from app.features.auth.dtos import SignupRequest, SignupResponse
-from app.features.auth.usecases.signup_tenant_usecase import (
-    PasswordTooShortError,
-    SignupFailedError,
-    SignupTenantUseCaseImpl,
-    TenantAlreadyExistsError,
-    TenantNameInvalidCharactersError,
-    ValidationError,
-)
+from app.features.auth.usecases.signup_tenant_usecase import SignupTenantUseCaseImpl
 
 
 class PasswordHasherImpl:
@@ -60,30 +53,4 @@ async def create_tenant(
     2. An initial user for the tenant
     3. A dedicated Apache AGE graph for the tenant
     """
-    try:
-        return await use_case.execute(request)
-    except TenantNameInvalidCharactersError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
-        )
-    except PasswordTooShortError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
-        )
-    except ValidationError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
-        )
-    except TenantAlreadyExistsError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
-        )
-    except SignupFailedError as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        )
+    return await use_case.execute(request)

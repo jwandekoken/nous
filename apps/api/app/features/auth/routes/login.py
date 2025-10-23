@@ -2,18 +2,13 @@
 
 from typing import Any, Protocol
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends
 from fastapi.security import OAuth2PasswordRequestForm
 
 from app.core.authentication import create_access_token, verify_password
 from app.db.postgres.auth_session import get_auth_db_session
 from app.features.auth.dtos import LoginResponse
-from app.features.auth.usecases.login_usecase import (
-    AccountDisabledError,
-    AccountLockedError,
-    InvalidCredentialsError,
-    LoginUseCaseImpl,
-)
+from app.features.auth.usecases.login_usecase import LoginUseCaseImpl
 
 
 class PasswordVerifierImpl:
@@ -58,23 +53,4 @@ async def login_for_access_token(
     use_case: LoginUseCase = Depends(get_login_use_case),
 ) -> LoginResponse:
     """Authenticate user and return JWT access token."""
-    try:
-        return await use_case.execute(form_data.username, form_data.password)
-    except InvalidCredentialsError as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=str(e),
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    except AccountLockedError as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=str(e),
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    except AccountDisabledError as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=str(e),
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+    return await use_case.execute(form_data.username, form_data.password)
