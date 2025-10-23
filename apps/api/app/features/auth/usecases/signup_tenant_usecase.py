@@ -1,10 +1,14 @@
 """Use case for signing up a new tenant with user and graph database."""
 
-from typing import Protocol
+from collections.abc import Awaitable
+from contextlib import AbstractAsyncContextManager
+from typing import Callable, Protocol
 from uuid import uuid4
 
+import asyncpg
 from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.features.auth.dtos import CreateTenantRequest, CreateTenantResponse
 from app.features.auth.models import Tenant, User, UserRole
@@ -24,8 +28,8 @@ class SignupTenantUseCaseImpl:
     def __init__(
         self,
         password_hasher: PasswordHasher,
-        get_db_session,
-        get_db_pool,
+        get_db_session: Callable[[], AbstractAsyncContextManager[AsyncSession]],
+        get_db_pool: Callable[[], Awaitable[asyncpg.Pool]],
     ):
         """Initialize the use case with dependencies.
 
