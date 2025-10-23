@@ -191,7 +191,11 @@ uv run basedpyright app/ tests/
    # Or use a PostgreSQL service with AGE extension installed
    ```
 
-2. **Update connection settings in `.env`**:
+2. **Database Migrations**:
+
+   This project uses Alembic for database schema management. See the [migration documentation](migrations/README.md) for detailed instructions on creating, applying, and managing database migrations.
+
+3. **Update connection settings in `.env`**:
    ```env
    POSTGRES_USER=admin
    POSTGRES_PASSWORD=supersecretpassword
