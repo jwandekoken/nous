@@ -2,10 +2,11 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.exc import IntegrityError
 
-from app.core.authentication import AuthenticatedUser, get_password_hash
+from app.core.authentication import get_password_hash
 from app.core.authorization import is_tenant_admin
+from app.core.schemas import AuthenticatedUser, UserRole
 from app.db.postgres.auth_session import get_auth_db_session
-from app.features.auth.models import User, UserRole
+from app.features.auth.models import User
 
 router = APIRouter()
 
@@ -26,7 +27,6 @@ class UserResponse(BaseModel):
 async def create_tenant_user(
     request: CreateUserRequest,
     admin_user: AuthenticatedUser = Depends(is_tenant_admin),
-    get_db_session_func=Depends(get_auth_db_session),
 ):
     """
     Allows a TENANT_ADMIN to create a new user within their own tenant.
@@ -48,7 +48,7 @@ async def create_tenant_user(
         role=request.role,
     )
 
-    async with get_db_session_func() as session:
+    async with get_auth_db_session() as session:
         try:
             session.add(new_user)
             await session.commit()
