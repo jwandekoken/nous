@@ -8,7 +8,7 @@ from app.core.authentication import AuthenticatedUser, pwd_context
 from app.core.authorization import is_super_admin
 from app.db.postgres.auth_session import get_auth_db_session
 from app.db.postgres.graph_connection import get_graph_db_pool
-from app.features.auth.dtos import SignupRequest, SignupResponse
+from app.features.auth.dtos import CreateTenantRequest, CreateTenantResponse
 from app.features.auth.usecases.signup_tenant_usecase import SignupTenantUseCaseImpl
 
 
@@ -32,7 +32,7 @@ async def get_signup_tenant_use_case():
 class SignupTenantUseCase(Protocol):
     """Protocol for the signup tenant use case."""
 
-    async def execute(self, request: SignupRequest) -> SignupResponse:
+    async def execute(self, request: CreateTenantRequest) -> CreateTenantResponse:
         """Create a new tenant with user and graph."""
         ...
 
@@ -40,12 +40,12 @@ class SignupTenantUseCase(Protocol):
 router = APIRouter()
 
 
-@router.post("/create_tenant", response_model=SignupResponse)
+@router.post("/create_tenant", response_model=CreateTenantResponse)
 async def create_tenant(
-    request: SignupRequest,
+    request: CreateTenantRequest,
     use_case: SignupTenantUseCase = Depends(get_signup_tenant_use_case),
     _: AuthenticatedUser = Depends(is_super_admin),
-) -> SignupResponse:
+) -> CreateTenantResponse:
     """Create a new tenant with an initial user and AGE graph.
 
     This endpoint creates:

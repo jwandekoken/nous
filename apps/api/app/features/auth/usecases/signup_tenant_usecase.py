@@ -6,7 +6,7 @@ from uuid import uuid4
 from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
 
-from app.features.auth.dtos import SignupRequest, SignupResponse
+from app.features.auth.dtos import CreateTenantRequest, CreateTenantResponse
 from app.features.auth.models import Tenant, User, UserRole
 
 
@@ -38,7 +38,7 @@ class SignupTenantUseCaseImpl:
         self.get_auth_db_session = get_db_session
         self.get_graph_db_pool = get_db_pool
 
-    async def execute(self, request: SignupRequest) -> SignupResponse:
+    async def execute(self, request: CreateTenantRequest) -> CreateTenantResponse:
         """Create a new tenant with an initial user and AGE graph.
 
         Args:
@@ -102,7 +102,7 @@ class SignupTenantUseCaseImpl:
                         )
                         await conn.execute("SELECT create_graph($1)", graph_name)
 
-                    return SignupResponse(
+                    return CreateTenantResponse(
                         message="Tenant created successfully",
                         tenant_id=str(tenant.id),
                         user_id=str(user.id),

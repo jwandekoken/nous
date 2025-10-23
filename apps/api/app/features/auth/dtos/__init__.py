@@ -8,16 +8,16 @@ from .auth_dto import (
     ApiKeyInfo,
     CreateApiKeyRequest,
     CreateApiKeyResponse,
+    CreateTenantRequest,
+    CreateTenantResponse,
     ListApiKeysResponse,
     LoginRequest,
     LoginResponse,
-    SignupRequest,
-    SignupResponse,
 )
 
 __all__ = [
-    "SignupRequest",
-    "SignupResponse",
+    "CreateTenantRequest",
+    "CreateTenantResponse",
     "LoginRequest",
     "LoginResponse",
     "CreateApiKeyRequest",

@@ -5,16 +5,16 @@ from datetime import datetime
 from pydantic import BaseModel
 
 
-class SignupRequest(BaseModel):
-    """Request model for tenant signup."""
+class CreateTenantRequest(BaseModel):
+    """Request model for tenant creation."""
 
     name: str
     email: str
     password: str
 
 
-class SignupResponse(BaseModel):
-    """Response model for successful signup."""
+class CreateTenantResponse(BaseModel):
+    """Response model for successful tenant creation."""
 
     message: str
     tenant_id: str
