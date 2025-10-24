@@ -6,16 +6,11 @@ from datetime import datetime
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
 from app.core.schemas import UserRole
-
-
-class Base(DeclarativeBase):
-    """Base class for all database models."""
-
-    pass
+from app.db.postgres.auth_session import Base
 
 
 class Tenant(Base):

@@ -10,6 +10,11 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 
 from app.core.settings import Settings
+from app.db.postgres.auth_session import Base
+
+# Import all models to ensure they are registered with Base.metadata
+# This allows Base.metadata.create_all() and Base.metadata.drop_all() to work properly
+from app.features.auth import models  # noqa: F401
 
 
 async def create_test_database(settings: Settings) -> None:
@@ -117,7 +122,6 @@ async def create_all_tables(engine: AsyncEngine) -> None:
     Args:
         engine: SQLAlchemy async engine
     """
-    from app.features.auth.models import Base
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
@@ -129,7 +133,6 @@ async def drop_all_tables(engine: AsyncEngine) -> None:
     Args:
         engine: SQLAlchemy async engine
     """
-    from app.features.auth.models import Base
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)

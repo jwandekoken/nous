@@ -7,6 +7,14 @@ from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
+# add your model's MetaData object here
+# for 'autogenerate' support
+from app.core.settings import get_settings
+from app.db.postgres.auth_session import Base
+
+# Import all models to ensure they are registered with Base.metadata
+from app.features.auth import models  # noqa: F401
+
 # Add parent directory to path to allow for package imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -19,10 +27,6 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# add your model's MetaData object here
-# for 'autogenerate' support
-from app.core.settings import get_settings
-from app.features.auth.models import Base
 
 target_metadata = Base.metadata
 
