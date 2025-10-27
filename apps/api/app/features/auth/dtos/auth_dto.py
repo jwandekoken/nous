@@ -4,6 +4,8 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
+from app.core.schemas import UserRole
+
 
 class CreateTenantRequest(BaseModel):
     """Request model for tenant creation."""
@@ -66,3 +68,20 @@ class ListApiKeysResponse(BaseModel):
     """Response model for listing API keys."""
 
     api_keys: list[ApiKeyInfo]
+
+
+class CreateUserRequest(BaseModel):
+    """Request model for creating a new user."""
+
+    email: str
+    password: str
+    role: UserRole
+
+
+class CreateUserResponse(BaseModel):
+    """Response model for successful user creation."""
+
+    message: str
+    user_id: str
+    email: str
+    role: UserRole
