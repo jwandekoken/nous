@@ -27,6 +27,7 @@ dependencies = [
     "alembic>=1.17.0",
     "slowapi>=0.1.9",
     "argon2-cffi>=25.1.0",
+    "greenlet>=3.0.0",
 ]
 
 [dependency-groups]
