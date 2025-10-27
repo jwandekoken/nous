@@ -5,6 +5,7 @@ from typing import Any, Protocol
 
 from fastapi import HTTPException, status
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.features.auth.dtos import LoginResponse
 from app.features.auth.models import User
@@ -62,9 +63,10 @@ class LoginUseCaseImpl:
             HTTPException: With appropriate status codes for authentication errors
         """
         async with self.get_auth_db_session() as session:
+            session: AsyncSession
             # Find user by email
             result = await session.execute(select(User).where(User.email == email))
-            user = result.scalar_one_or_none()
+            user: User | None = result.scalar_one_or_none()
 
             if not user or not self.password_verifier.verify(
                 password, user.hashed_password
