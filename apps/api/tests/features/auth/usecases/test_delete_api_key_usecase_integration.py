@@ -1,11 +1,14 @@
 """Integration tests for the DeleteApiKeyUseCase."""
 
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import pytest
 from fastapi import HTTPException
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.authentication import get_password_hash
 from app.core.schemas import UserRole
 from app.features.auth.models import ApiKey, Tenant, User
 from app.features.auth.usecases.delete_api_key_usecase import DeleteApiKeyUseCaseImpl
@@ -25,9 +28,6 @@ class TestDeleteApiKeyUseCase:
         """Test the successful deletion of an API key."""
 
         # Arrange - Create a tenant, user, and API key first
-        from datetime import UTC, datetime, timedelta
-
-        from app.core.authentication import get_password_hash
 
         async with db_session.begin():
             tenant = Tenant(name="test-tenant", age_graph_name="test_graph_123")
@@ -64,8 +64,6 @@ class TestDeleteApiKeyUseCase:
 
         # Verify database state - API key should be gone
         # Use a fresh query to avoid session cache issues
-        from sqlalchemy import text
-
         result = await db_session.execute(
             text("SELECT COUNT(*) FROM api_keys WHERE id = :id").bindparams(
                 id=api_key.id
@@ -143,9 +141,6 @@ class TestDeleteApiKeyUseCase:
         """Test that deleting an API key from a different tenant fails with 403."""
 
         # Arrange - Create two tenants and users, and API key for tenant1
-        from datetime import UTC, datetime, timedelta
-
-        from app.core.authentication import get_password_hash
 
         async with db_session.begin():
             tenant1 = Tenant(name="tenant1", age_graph_name="test_graph_101")
@@ -191,8 +186,6 @@ class TestDeleteApiKeyUseCase:
         assert "Access denied" in excinfo.value.detail
 
         # Verify API key still exists
-        from sqlalchemy import text
-
         result = await db_session.execute(
             text("SELECT COUNT(*) FROM api_keys WHERE id = :id").bindparams(
                 id=api_key_id
