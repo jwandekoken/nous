@@ -55,6 +55,6 @@ class DeleteApiKeyUseCaseImpl:
                         status_code=status.HTTP_403_FORBIDDEN, detail="Access denied"
                     )
 
-                session.delete(api_key)
+                await session.delete(api_key)
 
         return {"message": "API key deleted successfully"}
