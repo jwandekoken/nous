@@ -1,5 +1,6 @@
 """Authentication utilities for JWT token validation and user retrieval."""
 
+import secrets
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
@@ -13,6 +14,9 @@ from app.core.settings import get_settings
 
 # Password hashing - using argon2 as bcrypt has issues.
 pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
+
+# Refresh token hashing context - using argon2
+refresh_token_context = CryptContext(schemes=["argon2"], deprecated="auto")
 
 security = HTTPBearer()
 
@@ -95,3 +99,37 @@ async def get_current_user(
             detail="Invalid user, tenant, or role format in token",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+
+def create_refresh_token() -> str:
+    """Generate a cryptographically secure random refresh token.
+
+    Returns:
+        A 64-character hexadecimal string (256 bits of entropy)
+    """
+    return secrets.token_hex(32)
+
+
+def hash_refresh_token(token: str) -> str:
+    """Hash a refresh token for secure storage in database.
+
+    Args:
+        token: The plain refresh token to hash
+
+    Returns:
+        The hashed token
+    """
+    return refresh_token_context.hash(token)
+
+
+def verify_refresh_token(plain_token: str, hashed_token: str) -> bool:
+    """Verify a plain refresh token against its hash.
+
+    Args:
+        plain_token: The plain refresh token from the request
+        hashed_token: The hashed token from the database
+
+    Returns:
+        True if the token matches, False otherwise
+    """
+    return refresh_token_context.verify(plain_token, hashed_token)

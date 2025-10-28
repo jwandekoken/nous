@@ -4,11 +4,12 @@ from contextlib import asynccontextmanager
 
 import pytest
 from fastapi import HTTPException
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.authentication import pwd_context
+from app.core.authentication import pwd_context, refresh_token_context
 from app.features.auth.dtos.auth_dto import LoginRequest, LoginResponse
-from app.features.auth.models import Tenant, User
+from app.features.auth.models import RefreshToken, Tenant, User
 from app.features.auth.usecases.login_usecase import LoginUseCaseImpl
 
 
@@ -32,6 +33,23 @@ class TokenCreatorImpl:
         self.created_tokens.append(data)
         # Return a mock token for testing
         return f"mock_token_{len(self.created_tokens)}"
+
+
+class RefreshTokenCreatorImpl:
+    """Wrapper for refresh token creation to match protocol."""
+
+    def __init__(self):
+        self.created_tokens = []
+
+    def create(self) -> str:
+        """Create a refresh token."""
+        token = f"refresh_token_{len(self.created_tokens) + 1}"
+        self.created_tokens.append(token)
+        return token
+
+    def hash(self, token: str) -> str:
+        """Hash a refresh token."""
+        return refresh_token_context.hash(token)
 
 
 def create_session_factory(session):
@@ -73,9 +91,11 @@ class TestLoginUseCase:
 
         # Create use case
         token_creator = TokenCreatorImpl()
+        refresh_token_creator = RefreshTokenCreatorImpl()
         use_case = LoginUseCaseImpl(
             password_verifier=PasswordVerifierImpl(),
             token_creator=token_creator,
+            refresh_token_creator=refresh_token_creator,
             get_db_session=create_session_factory(db_session),
         )
 
@@ -90,6 +110,7 @@ class TestLoginUseCase:
         # Assert
         assert isinstance(response, LoginResponse)
         assert response.access_token.startswith("mock_token_")
+        assert response.refresh_token.startswith("refresh_token_")
         assert response.token_type == "bearer"
         assert response.expires_in == 1800  # 30 minutes in seconds
 
@@ -99,6 +120,18 @@ class TestLoginUseCase:
         assert token_data["sub"] == str(user.id)
         assert token_data["tenant_id"] == str(tenant.id)
         assert token_data["role"] == user.role.value
+
+        # Verify refresh token was created
+        assert len(refresh_token_creator.created_tokens) == 1
+
+        # Verify refresh token is stored in database
+        result = await db_session.execute(
+            select(RefreshToken).where(RefreshToken.user_id == user.id)
+        )
+        db_refresh_token = result.scalar_one_or_none()
+        assert db_refresh_token is not None
+        assert db_refresh_token.revoked is False
+        assert db_refresh_token.user_id == user.id
 
         # Verify user state was updated
         await db_session.refresh(user)
@@ -112,9 +145,11 @@ class TestLoginUseCase:
         """Test login with non-existent email."""
         # Arrange
         token_creator = TokenCreatorImpl()
+        refresh_token_creator = RefreshTokenCreatorImpl()
         use_case = LoginUseCaseImpl(
             password_verifier=PasswordVerifierImpl(),
             token_creator=token_creator,
+            refresh_token_creator=refresh_token_creator,
             get_db_session=create_session_factory(db_session),
         )
 
@@ -150,9 +185,11 @@ class TestLoginUseCase:
 
         # Create use case
         token_creator = TokenCreatorImpl()
+        refresh_token_creator = RefreshTokenCreatorImpl()
         use_case = LoginUseCaseImpl(
             password_verifier=PasswordVerifierImpl(),
             token_creator=token_creator,
+            refresh_token_creator=refresh_token_creator,
             get_db_session=create_session_factory(db_session),
         )
 
@@ -165,6 +202,7 @@ class TestLoginUseCase:
 
         # Verify no token was created
         assert len(token_creator.created_tokens) == 0
+        assert len(refresh_token_creator.created_tokens) == 0
 
     async def test_login_account_locked(
         self,
@@ -194,9 +232,11 @@ class TestLoginUseCase:
 
         # Create use case
         token_creator = TokenCreatorImpl()
+        refresh_token_creator = RefreshTokenCreatorImpl()
         use_case = LoginUseCaseImpl(
             password_verifier=PasswordVerifierImpl(),
             token_creator=token_creator,
+            refresh_token_creator=refresh_token_creator,
             get_db_session=create_session_factory(db_session),
         )
 
@@ -209,6 +249,7 @@ class TestLoginUseCase:
 
         # Verify no token was created
         assert len(token_creator.created_tokens) == 0
+        assert len(refresh_token_creator.created_tokens) == 0
 
     async def test_login_account_inactive(
         self,
@@ -235,9 +276,11 @@ class TestLoginUseCase:
 
         # Create use case
         token_creator = TokenCreatorImpl()
+        refresh_token_creator = RefreshTokenCreatorImpl()
         use_case = LoginUseCaseImpl(
             password_verifier=PasswordVerifierImpl(),
             token_creator=token_creator,
+            refresh_token_creator=refresh_token_creator,
             get_db_session=create_session_factory(db_session),
         )
 
@@ -250,6 +293,7 @@ class TestLoginUseCase:
 
         # Verify no token was created
         assert len(token_creator.created_tokens) == 0
+        assert len(refresh_token_creator.created_tokens) == 0
 
     async def test_login_resets_failed_attempts_on_success(
         self,
@@ -276,9 +320,11 @@ class TestLoginUseCase:
 
         # Create use case
         token_creator = TokenCreatorImpl()
+        refresh_token_creator = RefreshTokenCreatorImpl()
         use_case = LoginUseCaseImpl(
             password_verifier=PasswordVerifierImpl(),
             token_creator=token_creator,
+            refresh_token_creator=refresh_token_creator,
             get_db_session=create_session_factory(db_session),
         )
 

@@ -76,6 +76,9 @@ class User(Base):
     tenant: Mapped[Tenant | None] = relationship(
         back_populates="users"
     )  # <-- Make nullable
+    refresh_tokens: Mapped[list["RefreshToken"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
 
 
 class ApiKey(Base):
@@ -108,4 +111,34 @@ class ApiKey(Base):
     # Constraints
     __table_args__ = (
         UniqueConstraint("name", "tenant_id", name="unique_api_key_name_per_tenant"),
+    )
+
+
+class RefreshToken(Base):
+    """Refresh token model for session renewal."""
+
+    __tablename__ = "refresh_tokens"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    token_hash: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
+    )
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    revoked: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    replaced_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("refresh_tokens.id"), nullable=True
+    )
+
+    # Relationships
+    user: Mapped["User"] = relationship(back_populates="refresh_tokens")
+    replaced_by: Mapped["RefreshToken | None"] = relationship(
+        foreign_keys=[replaced_by_id], remote_side=[id]
     )

@@ -43,6 +43,9 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = Field(
         default=30, description="Access token expiration time in minutes"
     )
+    refresh_token_expire_days: int = Field(
+        default=30, description="Refresh token expiration time in days"
+    )
 
     # PostgreSQL Database
     postgres_user: str = Field(default="admin", description="PostgreSQL user")

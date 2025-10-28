@@ -15,6 +15,8 @@ from .auth_dto import (
     ListApiKeysResponse,
     LoginRequest,
     LoginResponse,
+    RefreshTokenRequest,
+    RefreshTokenResponse,
 )
 
 __all__ = [
@@ -24,6 +26,8 @@ __all__ = [
     "CreateUserResponse",
     "LoginRequest",
     "LoginResponse",
+    "RefreshTokenRequest",
+    "RefreshTokenResponse",
     "CreateApiKeyRequest",
     "CreateApiKeyResponse",
     "ApiKeyInfo",

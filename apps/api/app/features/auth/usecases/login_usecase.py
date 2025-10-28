@@ -8,8 +8,9 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.settings import get_settings
 from app.features.auth.dtos import LoginResponse
-from app.features.auth.models import User
+from app.features.auth.models import RefreshToken, User
 
 
 class PasswordVerifier(Protocol):
@@ -30,6 +31,18 @@ class TokenCreator(Protocol):
         ...
 
 
+class RefreshTokenCreator(Protocol):
+    """Protocol for refresh token creation operations."""
+
+    def create(self) -> str:
+        """Create a refresh token."""
+        ...
+
+    def hash(self, token: str) -> str:
+        """Hash a refresh token."""
+        ...
+
+
 class LoginUseCaseImpl:
     """Implementation of the login use case."""
 
@@ -37,6 +50,7 @@ class LoginUseCaseImpl:
         self,
         password_verifier: PasswordVerifier,
         token_creator: TokenCreator,
+        refresh_token_creator: RefreshTokenCreator,
         get_db_session: Callable[[], AbstractAsyncContextManager[AsyncSession]],
     ):
         """Initialize the use case with dependencies.
@@ -44,10 +58,12 @@ class LoginUseCaseImpl:
         Args:
             password_verifier: Service for verifying passwords
             token_creator: Service for creating access tokens
+            refresh_token_creator: Service for creating refresh tokens
             get_db_session: Function to get database session
         """
         self.password_verifier = password_verifier
         self.token_creator = token_creator
+        self.refresh_token_creator = refresh_token_creator
         self.get_auth_db_session = get_db_session
 
     async def execute(self, email: str, password: str) -> LoginResponse:
@@ -96,7 +112,6 @@ class LoginUseCaseImpl:
             # Reset failed login attempts and update user
             user.failed_login_attempts = 0
             user.locked_until = None
-            await session.commit()
 
             # Create access token with tenant info
             access_token_expires = timedelta(minutes=30)  # 30 minutes
@@ -113,8 +128,26 @@ class LoginUseCaseImpl:
                 expires_delta=access_token_expires,
             )
 
+            # Create and store refresh token
+            settings = get_settings()
+            refresh_token = self.refresh_token_creator.create()
+            refresh_token_hash = self.refresh_token_creator.hash(refresh_token)
+            refresh_token_expires = datetime.now(UTC) + timedelta(
+                days=settings.refresh_token_expire_days
+            )
+
+            db_refresh_token = RefreshToken(
+                token_hash=refresh_token_hash,
+                user_id=user.id,
+                expires_at=refresh_token_expires,
+                revoked=False,
+            )
+            session.add(db_refresh_token)
+            await session.commit()
+
             return LoginResponse(
                 access_token=access_token,
+                refresh_token=refresh_token,
                 token_type="bearer",
                 expires_in=int(access_token_expires.total_seconds()),
             )
