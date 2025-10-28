@@ -2,8 +2,12 @@
 
 import asyncpg
 import pytest
+from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
 
+from app.features.auth.dtos import CreateTenantRequest
+from app.features.auth.models import Tenant, User
 from app.features.auth.usecases.signup_tenant_usecase import (
     PasswordHasher,
     SignupTenantUseCaseImpl,
@@ -26,10 +30,9 @@ class TestSignupTenantUseCase:
         # Arrange
         use_case = SignupTenantUseCaseImpl(
             password_hasher=password_hasher,
-            get_db_session=lambda: db_session,  # type: ignore
-            get_db_pool=lambda: postgres_pool,  # type: ignore
+            get_db_session=lambda: db_session,
+            get_db_pool=lambda: postgres_pool,
         )
-        from app.features.auth.dtos import CreateTenantRequest
 
         request = CreateTenantRequest(
             name="test-tenant",
@@ -46,9 +49,6 @@ class TestSignupTenantUseCase:
         assert response.user_id is not None
 
         # Verify database state
-        from sqlalchemy.future import select
-
-        from app.features.auth.models import Tenant, User
 
         tenant = (
             await db_session.execute(select(Tenant).filter_by(id=response.tenant_id))
@@ -83,7 +83,6 @@ class TestSignupTenantUseCase:
             get_db_session=lambda: db_session,
             get_db_pool=lambda: postgres_pool,
         )
-        from app.features.auth.dtos import CreateTenantRequest
 
         request = CreateTenantRequest(
             name="test-tenant",
@@ -93,7 +92,6 @@ class TestSignupTenantUseCase:
         await use_case.execute(request)
 
         # Act & Assert
-        from fastapi import HTTPException
 
         with pytest.raises(HTTPException) as excinfo:
             await use_case.execute(request)
@@ -136,17 +134,15 @@ class TestSignupTenantUseCase:
         # Arrange
         use_case = SignupTenantUseCaseImpl(
             password_hasher=password_hasher,
-            get_db_session=lambda: db_session,  # type: ignore
-            get_db_pool=lambda: postgres_pool,  # type: ignore
+            get_db_session=lambda: db_session,
+            get_db_pool=lambda: postgres_pool,
         )
-        from app.features.auth.dtos import CreateTenantRequest
 
         request = CreateTenantRequest(
             name=name,
             email=email,
             password=password,
         )
-        from fastapi import HTTPException
 
         # Act & Assert
         with pytest.raises(HTTPException) as excinfo:

@@ -1,8 +1,11 @@
 """Use case for deleting API keys."""
 
+from contextlib import AbstractAsyncContextManager
+from typing import Callable
 from uuid import UUID
 
 from fastapi import HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.features.auth.models import ApiKey
 
@@ -10,7 +13,9 @@ from app.features.auth.models import ApiKey
 class DeleteApiKeyUseCaseImpl:
     """Implementation of the delete API key use case."""
 
-    def __init__(self, get_db_session):
+    def __init__(
+        self, get_db_session: Callable[[], AbstractAsyncContextManager[AsyncSession]]
+    ):
         """Initialize the use case with dependencies.
 
         Args:

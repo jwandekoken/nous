@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 
 import pytest
 from fastapi import HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.authentication import pwd_context
 from app.features.auth.dtos.auth_dto import LoginRequest, LoginResponse
@@ -49,7 +50,7 @@ class TestLoginUseCase:
 
     async def test_login_successful(
         self,
-        db_session,
+        db_session: AsyncSession,
         password_hasher,
     ):
         """Test successful user login."""

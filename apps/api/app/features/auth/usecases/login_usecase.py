@@ -1,7 +1,8 @@
 """Use case for user login and token generation."""
 
+from contextlib import AbstractAsyncContextManager
 from datetime import UTC, datetime, timedelta
-from typing import Any, Protocol
+from typing import Any, Callable, Protocol
 
 from fastapi import HTTPException, status
 from sqlalchemy import select
@@ -36,7 +37,7 @@ class LoginUseCaseImpl:
         self,
         password_verifier: PasswordVerifier,
         token_creator: TokenCreator,
-        get_db_session,
+        get_db_session: Callable[[], AbstractAsyncContextManager[AsyncSession]],
     ):
         """Initialize the use case with dependencies.
 
@@ -63,7 +64,6 @@ class LoginUseCaseImpl:
             HTTPException: With appropriate status codes for authentication errors
         """
         async with self.get_auth_db_session() as session:
-            session: AsyncSession
             # Find user by email
             result = await session.execute(select(User).where(User.email == email))
             user: User | None = result.scalar_one_or_none()

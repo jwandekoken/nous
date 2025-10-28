@@ -1,11 +1,14 @@
 """Use case for creating API keys."""
 
 import secrets
+from contextlib import AbstractAsyncContextManager
 from datetime import UTC, datetime, timedelta
+from typing import Callable
 from uuid import UUID
 
 from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.authentication import get_password_hash
 from app.features.auth.dtos import CreateApiKeyRequest, CreateApiKeyResponse
@@ -17,7 +20,7 @@ class CreateApiKeyUseCaseImpl:
 
     def __init__(
         self,
-        get_db_session,
+        get_db_session: Callable[[], AbstractAsyncContextManager[AsyncSession]],
     ):
         """Initialize the use case with dependencies.
 

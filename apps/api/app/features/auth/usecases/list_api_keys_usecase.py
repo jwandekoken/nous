@@ -1,8 +1,11 @@
 """Use case for listing API keys."""
 
+from contextlib import AbstractAsyncContextManager
+from typing import Callable
 from uuid import UUID
 
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.features.auth.dtos import ApiKeyInfo, ListApiKeysResponse
 from app.features.auth.models import ApiKey
@@ -11,7 +14,9 @@ from app.features.auth.models import ApiKey
 class ListApiKeysUseCaseImpl:
     """Implementation of the list API keys use case."""
 
-    def __init__(self, get_db_session):
+    def __init__(
+        self, get_db_session: Callable[[], AbstractAsyncContextManager[AsyncSession]]
+    ):
         """Initialize the use case with dependencies.
 
         Args:
