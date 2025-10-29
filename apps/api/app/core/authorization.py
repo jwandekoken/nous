@@ -11,6 +11,7 @@ from sqlalchemy import and_, or_, select
 from app.core.authentication import (
     AuthenticatedUser,
     get_current_user,
+    get_current_user_from_cookie,
     pwd_context,
 )
 from app.db.postgres.auth_session import get_auth_db_session
@@ -104,9 +105,9 @@ async def get_tenant_from_api_key(
 
 
 async def get_tenant_from_jwt(
-    user: AuthenticatedUser = Depends(get_current_user),
+    user: AuthenticatedUser = Depends(get_current_user_from_cookie),
 ) -> TenantInfo | None:
-    """Get tenant info from JWT authentication."""
+    """Get tenant info from JWT authentication (from cookie)."""
     if not user or not user.tenant_id:
         return None
 

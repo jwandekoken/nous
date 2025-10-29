@@ -4,7 +4,7 @@ import secrets
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Cookie, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -133,3 +133,41 @@ def verify_refresh_token(plain_token: str, hashed_token: str) -> bool:
         True if the token matches, False otherwise
     """
     return refresh_token_context.verify(plain_token, hashed_token)
+
+
+async def get_current_user_from_cookie(
+    access_token: str | None = Cookie(None, alias="access_token"),
+) -> AuthenticatedUser:
+    """Get current user from access token in HTTP-only cookie."""
+    if not access_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    payload = verify_token(access_token)
+
+    user_id = payload.get("sub")
+    tenant_id = payload.get("tenant_id")
+    role_str = payload.get("role")
+
+    if user_id is None or role_str is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token missing required user or role information",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    try:
+        return AuthenticatedUser(
+            user_id=UUID(str(user_id)),
+            tenant_id=UUID(str(tenant_id)) if tenant_id else None,
+            role=UserRole(role_str),
+        )
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid user, tenant, or role format in token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
