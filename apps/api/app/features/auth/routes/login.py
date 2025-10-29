@@ -58,16 +58,6 @@ class RefreshTokenVerifierImpl:
         return verify_refresh_token(plain_token, hashed_token)
 
 
-async def get_login_use_case():
-    """Dependency injection for the login use case."""
-    return LoginUseCaseImpl(
-        password_verifier=PasswordVerifierImpl(),
-        token_creator=TokenCreatorImpl(),
-        refresh_token_creator=RefreshTokenCreatorImpl(),
-        get_db_session=get_auth_db_session,
-    )
-
-
 class LoginUseCase(Protocol):
     """Protocol for the login use case."""
 
@@ -84,7 +74,17 @@ class RefreshTokenUseCase(Protocol):
         ...
 
 
-async def get_refresh_token_use_case():
+async def get_login_use_case() -> LoginUseCase:
+    """Dependency injection for the login use case."""
+    return LoginUseCaseImpl(
+        password_verifier=PasswordVerifierImpl(),
+        token_creator=TokenCreatorImpl(),
+        refresh_token_creator=RefreshTokenCreatorImpl(),
+        get_db_session=get_auth_db_session,
+    )
+
+
+async def get_refresh_token_use_case() -> RefreshTokenUseCase:
     """Dependency injection for the refresh token use case."""
     return RefreshTokenUseCaseImpl(
         token_creator=TokenCreatorImpl(),
