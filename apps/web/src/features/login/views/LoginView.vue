@@ -2,6 +2,7 @@
 import { ref } from "vue";
 import { useRouter } from "vue-router";
 import { useAuth } from "../composables/useAuth";
+import { toast } from "vue-sonner";
 import {
   Card,
   CardContent,
@@ -11,7 +12,6 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const router = useRouter();
 const { login, isLoading, error: authError } = useAuth();
@@ -19,16 +19,13 @@ const { login, isLoading, error: authError } = useAuth();
 // Form data
 const email = ref("");
 const password = ref("");
-const errorMessage = ref("");
 
 // Handle login submission
 const handleLogin = async () => {
   if (!email.value || !password.value) {
-    errorMessage.value = "Please fill in all fields";
+    toast.error("Please fill in all fields");
     return;
   }
-
-  errorMessage.value = "";
 
   const success = await login({
     email: email.value,
@@ -39,7 +36,7 @@ const handleLogin = async () => {
     console.log("Login successful, redirecting...");
     router.push("/");
   } else {
-    errorMessage.value = authError.value || "Invalid credentials";
+    toast.error(authError.value || "Invalid credentials");
   }
 };
 </script>
@@ -76,12 +73,6 @@ const handleLogin = async () => {
               required
             />
           </div>
-
-          <Alert v-if="errorMessage" variant="destructive">
-            <AlertDescription>
-              {{ errorMessage }}
-            </AlertDescription>
-          </Alert>
 
           <Button type="submit" :disabled="isLoading" size="lg">
             <span v-if="isLoading">Signing in...</span>

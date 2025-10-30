@@ -79,6 +79,7 @@ apps/
             delete_api_key_usecase.py
             list_api_keys_usecase.py
             login_usecase.py
+            refresh_token_usecase.py
             signup_tenant_usecase.py
           __init__.py
           models.py
@@ -128,6 +129,7 @@ apps/
     migrations/
       versions/
         17010deff34c_fresh_migration_from_models.py
+        e0b88fc02f98_add_refresh_tokens_table.py
       env.py
       README.md
       script.py.mako
@@ -146,6 +148,7 @@ apps/
             test_delete_api_key_usecase_integration.py
             test_list_api_keys_usecase_integration.py
             test_login_usecase_integration.py
+            test_refresh_token_usecase_integration.py
             test_signup_tenant_usecase_integration.py
         graph/
           repositories/
@@ -239,6 +242,8 @@ apps/
         login/
           components/
             .gitkeep
+          composables/
+            useAuth.ts
           views/
             LoginView.vue
           routes.ts
@@ -254,6 +259,8 @@ apps/
       App.vue
       main.ts
       style.css
+    .env.development
+    .env.example
     .gitignore
     components.json
     index.html
@@ -263,12 +270,14 @@ apps/
     tsconfig.json
     tsconfig.node.json
     vite.config.ts
+docs/
+  plans/
+    auth.md
 .gitignore
 package.json
 pnpm-workspace.yaml
 pyrightconfig.json
 README.md
-test_delete_api_key.py
 turbo.json
 </directory_structure>
 
@@ -679,6 +688,191 @@ class CreateUserUseCaseImpl:
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     detail="Failed to create user",
                 )
+</file>
+
+<file path="apps/api/app/features/auth/usecases/refresh_token_usecase.py">
+"""Use case for refreshing access tokens."""
+
+from contextlib import AbstractAsyncContextManager
+from datetime import UTC, datetime, timedelta
+from typing import Any, Callable, Protocol
+
+from fastapi import HTTPException, status
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.settings import get_settings
+from app.features.auth.dtos import RefreshTokenResponse
+from app.features.auth.models import RefreshToken, User
+
+
+class TokenCreator(Protocol):
+    """Protocol for JWT token creation operations."""
+
+    def __call__(
+        self, data: dict[str, Any], expires_delta: timedelta | None = None
+    ) -> str:
+        """Create an access token."""
+        ...
+
+
+class RefreshTokenCreator(Protocol):
+    """Protocol for refresh token creation operations."""
+
+    def create(self) -> str:
+        """Create a refresh token."""
+        ...
+
+    def hash(self, token: str) -> str:
+        """Hash a refresh token."""
+        ...
+
+
+class RefreshTokenVerifier(Protocol):
+    """Protocol for refresh token verification operations."""
+
+    def verify(self, plain_token: str, hashed_token: str) -> bool:
+        """Verify a refresh token against its hash."""
+        ...
+
+
+class RefreshTokenUseCaseImpl:
+    """Implementation of the refresh token use case."""
+
+    def __init__(
+        self,
+        token_creator: TokenCreator,
+        refresh_token_creator: RefreshTokenCreator,
+        refresh_token_verifier: RefreshTokenVerifier,
+        get_db_session: Callable[[], AbstractAsyncContextManager[AsyncSession]],
+    ):
+        """Initialize the use case with dependencies.
+
+        Args:
+            token_creator: Service for creating access tokens
+            refresh_token_creator: Service for creating refresh tokens
+            refresh_token_verifier: Service for verifying refresh tokens
+            get_db_session: Function to get database session
+        """
+        self.token_creator = token_creator
+        self.refresh_token_creator = refresh_token_creator
+        self.refresh_token_verifier = refresh_token_verifier
+        self.get_auth_db_session = get_db_session
+
+    async def execute(self, refresh_token: str) -> RefreshTokenResponse:
+        """Refresh access token using a valid refresh token.
+
+        Args:
+            refresh_token: The refresh token from the request
+
+        Returns:
+            Response with new access token and refresh token
+
+        Raises:
+            HTTPException: With appropriate status codes for validation errors
+        """
+        async with self.get_auth_db_session() as session:
+            # Find refresh token in database
+            result = await session.execute(
+                select(RefreshToken)
+                .where(RefreshToken.revoked == False)  # noqa: E712
+                .order_by(RefreshToken.created_at.desc())
+            )
+            db_tokens: list[RefreshToken] = list(result.scalars().all())
+
+            # Find matching token by verifying hash
+            db_refresh_token: RefreshToken | None = None
+            for token in db_tokens:
+                if self.refresh_token_verifier.verify(refresh_token, token.token_hash):
+                    db_refresh_token = token
+                    break
+
+            if not db_refresh_token:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid refresh token",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+
+            # Check if token is expired
+            if db_refresh_token.expires_at < datetime.now(UTC):
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Refresh token has expired",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+
+            # Get the associated user
+            user_result = await session.execute(
+                select(User).where(User.id == db_refresh_token.user_id)
+            )
+            user: User | None = user_result.scalar_one_or_none()
+
+            if not user:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="User not found",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+
+            # Check if user account is locked
+            if user.locked_until and user.locked_until > datetime.now(UTC):
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Account is temporarily locked",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+
+            # Check if user is active
+            if not user.is_active:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Account is disabled",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+
+            # Create new access token
+            access_token_expires = timedelta(minutes=30)
+            tenant_id_str = str(user.tenant_id) if user.tenant_id else None
+
+            access_token = self.token_creator(
+                data={
+                    "sub": str(user.id),
+                    "tenant_id": tenant_id_str,
+                    "role": user.role.value,
+                },
+                expires_delta=access_token_expires,
+            )
+
+            # Create new refresh token (token rotation)
+            settings = get_settings()
+            new_refresh_token = self.refresh_token_creator.create()
+            new_refresh_token_hash = self.refresh_token_creator.hash(new_refresh_token)
+            new_refresh_token_expires = datetime.now(UTC) + timedelta(
+                days=settings.refresh_token_expire_days
+            )
+
+            new_db_refresh_token = RefreshToken(
+                token_hash=new_refresh_token_hash,
+                user_id=user.id,
+                expires_at=new_refresh_token_expires,
+                revoked=False,
+            )
+            session.add(new_db_refresh_token)
+            await session.flush()  # Flush to get the new token's ID
+
+            # Revoke old refresh token and link to new one
+            db_refresh_token.revoked = True
+            db_refresh_token.replaced_by_id = new_db_refresh_token.id
+
+            await session.commit()
+
+            return RefreshTokenResponse(
+                access_token=access_token,
+                refresh_token=new_refresh_token,
+                token_type="bearer",
+                expires_in=int(access_token_expires.total_seconds()),
+            )
 </file>
 
 <file path="apps/api/app/features/auth/__init__.py">
@@ -2586,6 +2780,54 @@ def downgrade() -> None:
     # ### end Alembic commands ###
 </file>
 
+<file path="apps/api/migrations/versions/e0b88fc02f98_add_refresh_tokens_table.py">
+"""add_refresh_tokens_table
+
+Revision ID: e0b88fc02f98
+Revises: 17010deff34c
+Create Date: 2025-10-28 07:56:41.039932
+
+"""
+from typing import Sequence, Union
+
+from alembic import op
+import sqlalchemy as sa
+
+
+# revision identifiers, used by Alembic.
+revision: str = 'e0b88fc02f98'
+down_revision: Union[str, Sequence[str], None] = '17010deff34c'
+branch_labels: Union[str, Sequence[str], None] = None
+depends_on: Union[str, Sequence[str], None] = None
+
+
+def upgrade() -> None:
+    """Upgrade schema."""
+    # ### commands auto generated by Alembic - please adjust! ###
+    op.create_table('refresh_tokens',
+    sa.Column('id', sa.UUID(), nullable=False),
+    sa.Column('token_hash', sa.String(length=255), nullable=False),
+    sa.Column('user_id', sa.UUID(), nullable=False),
+    sa.Column('expires_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('revoked', sa.Boolean(), nullable=False),
+    sa.Column('replaced_by_id', sa.UUID(), nullable=True),
+    sa.ForeignKeyConstraint(['replaced_by_id'], ['refresh_tokens.id'], ),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_refresh_tokens_token_hash'), 'refresh_tokens', ['token_hash'], unique=False)
+    # ### end Alembic commands ###
+
+
+def downgrade() -> None:
+    """Downgrade schema."""
+    # ### commands auto generated by Alembic - please adjust! ###
+    op.drop_index(op.f('ix_refresh_tokens_token_hash'), table_name='refresh_tokens')
+    op.drop_table('refresh_tokens')
+    # ### end Alembic commands ###
+</file>
+
 <file path="apps/api/migrations/README.md">
 # Managing Database Migrations with Alembic
 
@@ -3312,27 +3554,20 @@ class TestListApiKeysUseCase:
         assert response2_names == {"tenant2-key-a", "tenant2-key-b"}
 </file>
 
-<file path="apps/api/tests/features/auth/usecases/test_login_usecase_integration.py">
-"""Integration tests for the LoginUseCase."""
+<file path="apps/api/tests/features/auth/usecases/test_refresh_token_usecase_integration.py">
+"""Integration tests for the RefreshTokenUseCase."""
 
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.authentication import pwd_context
-from app.features.auth.dtos.auth_dto import LoginRequest, LoginResponse
-from app.features.auth.models import Tenant, User
-from app.features.auth.usecases.login_usecase import LoginUseCaseImpl
-
-
-class PasswordVerifierImpl:
-    """Wrapper for password verification to match protocol."""
-
-    def verify(self, plain_password: str, hashed_password: str) -> bool:
-        """Verify a password against its hash."""
-        return pwd_context.verify(plain_password, hashed_password)
+from app.core.authentication import refresh_token_context
+from app.features.auth.dtos.auth_dto import RefreshTokenResponse
+from app.features.auth.models import RefreshToken, Tenant, User
+from app.features.auth.usecases.refresh_token_usecase import RefreshTokenUseCaseImpl
 
 
 class TokenCreatorImpl:
@@ -3346,7 +3581,32 @@ class TokenCreatorImpl:
         # Store the data for verification in tests
         self.created_tokens.append(data)
         # Return a mock token for testing
-        return f"mock_token_{len(self.created_tokens)}"
+        return f"mock_access_token_{len(self.created_tokens)}"
+
+
+class RefreshTokenCreatorImpl:
+    """Wrapper for refresh token creation to match protocol."""
+
+    def __init__(self):
+        self.created_tokens = []
+
+    def create(self) -> str:
+        """Create a refresh token."""
+        token = f"new_refresh_token_{len(self.created_tokens) + 1}"
+        self.created_tokens.append(token)
+        return token
+
+    def hash(self, token: str) -> str:
+        """Hash a refresh token."""
+        return refresh_token_context.hash(token)
+
+
+class RefreshTokenVerifierImpl:
+    """Wrapper for refresh token verification to match protocol."""
+
+    def verify(self, plain_token: str, hashed_token: str) -> bool:
+        """Verify a refresh token against its hash."""
+        return refresh_token_context.verify(plain_token, hashed_token)
 
 
 def create_session_factory(session):
@@ -3360,21 +3620,21 @@ def create_session_factory(session):
 
 
 @pytest.mark.asyncio
-class TestLoginUseCase:
-    """Test suite for the LoginUseCase."""
+class TestRefreshTokenUseCase:
+    """Test suite for the RefreshTokenUseCase."""
 
-    async def test_login_successful(
+    async def test_refresh_token_successful(
         self,
         db_session: AsyncSession,
         password_hasher,
     ):
-        """Test successful user login."""
-        # Arrange - Create a tenant and user
+        """Test successful token refresh."""
+        # Arrange - Create a tenant, user, and refresh token
         tenant = Tenant(name="test-tenant", age_graph_name="test_tenant_graph")
         db_session.add(tenant)
         await db_session.flush()
 
-        hashed_password = password_hasher.hash("correctpassword")
+        hashed_password = password_hasher.hash("password")
         user = User(
             email="test@example.com",
             hashed_password=hashed_password,
@@ -3384,226 +3644,312 @@ class TestLoginUseCase:
             locked_until=None,
         )
         db_session.add(user)
+        await db_session.flush()
+
+        # Create a valid refresh token
+        plain_token = "valid_refresh_token"
+        token_hash = refresh_token_context.hash(plain_token)
+        refresh_token = RefreshToken(
+            token_hash=token_hash,
+            user_id=user.id,
+            expires_at=datetime.now(UTC) + timedelta(days=30),
+            revoked=False,
+        )
+        db_session.add(refresh_token)
         await db_session.commit()
 
         # Create use case
         token_creator = TokenCreatorImpl()
-        use_case = LoginUseCaseImpl(
-            password_verifier=PasswordVerifierImpl(),
+        refresh_token_creator = RefreshTokenCreatorImpl()
+        refresh_token_verifier = RefreshTokenVerifierImpl()
+        use_case = RefreshTokenUseCaseImpl(
             token_creator=token_creator,
+            refresh_token_creator=refresh_token_creator,
+            refresh_token_verifier=refresh_token_verifier,
             get_db_session=create_session_factory(db_session),
         )
 
-        request = LoginRequest(
-            email="test@example.com",
-            password="correctpassword",
-        )
-
         # Act
-        response = await use_case.execute(request.email, request.password)
+        response = await use_case.execute(plain_token)
 
         # Assert
-        assert isinstance(response, LoginResponse)
-        assert response.access_token.startswith("mock_token_")
+        assert isinstance(response, RefreshTokenResponse)
+        assert response.access_token.startswith("mock_access_token_")
+        assert response.refresh_token.startswith("new_refresh_token_")
         assert response.token_type == "bearer"
-        assert response.expires_in == 1800  # 30 minutes in seconds
+        assert response.expires_in == 1800
 
-        # Verify token data
+        # Verify access token data
         assert len(token_creator.created_tokens) == 1
         token_data = token_creator.created_tokens[0]
         assert token_data["sub"] == str(user.id)
         assert token_data["tenant_id"] == str(tenant.id)
         assert token_data["role"] == user.role.value
 
-        # Verify user state was updated
-        await db_session.refresh(user)
-        assert user.failed_login_attempts == 0
-        assert user.locked_until is None
+        # Verify new refresh token was created
+        assert len(refresh_token_creator.created_tokens) == 1
 
-    async def test_login_user_not_found(
+        # Verify old token was revoked
+        await db_session.refresh(refresh_token)
+        assert refresh_token.revoked is True
+        assert refresh_token.replaced_by_id is not None
+
+    async def test_refresh_token_expired(
         self,
-        db_session,
-    ):
-        """Test login with non-existent email."""
-        # Arrange
-        token_creator = TokenCreatorImpl()
-        use_case = LoginUseCaseImpl(
-            password_verifier=PasswordVerifierImpl(),
-            token_creator=token_creator,
-            get_db_session=create_session_factory(db_session),
-        )
-
-        # Act & Assert
-        with pytest.raises(HTTPException) as excinfo:
-            await use_case.execute("nonexistent@example.com", "password")
-
-        assert excinfo.value.status_code == 401
-        assert "Incorrect email or password" in excinfo.value.detail
-
-    async def test_login_wrong_password(
-        self,
-        db_session,
+        db_session: AsyncSession,
         password_hasher,
     ):
-        """Test login with wrong password."""
-        # Arrange - Create a tenant and user
+        """Test refresh with expired token."""
+        # Arrange - Create user with expired refresh token
         tenant = Tenant(name="test-tenant", age_graph_name="test_tenant_graph")
         db_session.add(tenant)
         await db_session.flush()
 
-        hashed_password = password_hasher.hash("correctpassword")
         user = User(
             email="test@example.com",
-            hashed_password=hashed_password,
+            hashed_password=password_hasher.hash("password"),
             tenant_id=tenant.id,
             is_active=True,
-            failed_login_attempts=0,
-            locked_until=None,
         )
         db_session.add(user)
+        await db_session.flush()
+
+        # Create an expired refresh token
+        plain_token = "expired_refresh_token"
+        token_hash = refresh_token_context.hash(plain_token)
+        refresh_token = RefreshToken(
+            token_hash=token_hash,
+            user_id=user.id,
+            expires_at=datetime.now(UTC) - timedelta(days=1),  # Expired
+            revoked=False,
+        )
+        db_session.add(refresh_token)
         await db_session.commit()
 
         # Create use case
-        token_creator = TokenCreatorImpl()
-        use_case = LoginUseCaseImpl(
-            password_verifier=PasswordVerifierImpl(),
-            token_creator=token_creator,
+        use_case = RefreshTokenUseCaseImpl(
+            token_creator=TokenCreatorImpl(),
+            refresh_token_creator=RefreshTokenCreatorImpl(),
+            refresh_token_verifier=RefreshTokenVerifierImpl(),
             get_db_session=create_session_factory(db_session),
         )
 
         # Act & Assert
         with pytest.raises(HTTPException) as excinfo:
-            await use_case.execute("test@example.com", "wrongpassword")
+            await use_case.execute(plain_token)
 
         assert excinfo.value.status_code == 401
-        assert "Incorrect email or password" in excinfo.value.detail
+        assert "expired" in excinfo.value.detail.lower()
 
-        # Verify no token was created
-        assert len(token_creator.created_tokens) == 0
-
-    async def test_login_account_locked(
+    async def test_refresh_token_revoked(
         self,
-        db_session,
+        db_session: AsyncSession,
         password_hasher,
     ):
-        """Test login when account is temporarily locked."""
-        # Arrange - Create a tenant and user with locked account
-        from datetime import UTC, datetime, timedelta
-
+        """Test refresh with already revoked token."""
+        # Arrange - Create user with revoked refresh token
         tenant = Tenant(name="test-tenant", age_graph_name="test_tenant_graph")
         db_session.add(tenant)
         await db_session.flush()
 
-        hashed_password = password_hasher.hash("correctpassword")
-        locked_until = datetime.now(UTC) + timedelta(minutes=30)
         user = User(
             email="test@example.com",
-            hashed_password=hashed_password,
+            hashed_password=password_hasher.hash("password"),
             tenant_id=tenant.id,
             is_active=True,
-            failed_login_attempts=3,
-            locked_until=locked_until,
         )
         db_session.add(user)
+        await db_session.flush()
+
+        # Create a revoked refresh token
+        plain_token = "revoked_refresh_token"
+        token_hash = refresh_token_context.hash(plain_token)
+        refresh_token = RefreshToken(
+            token_hash=token_hash,
+            user_id=user.id,
+            expires_at=datetime.now(UTC) + timedelta(days=30),
+            revoked=True,  # Already revoked
+        )
+        db_session.add(refresh_token)
         await db_session.commit()
 
         # Create use case
-        token_creator = TokenCreatorImpl()
-        use_case = LoginUseCaseImpl(
-            password_verifier=PasswordVerifierImpl(),
-            token_creator=token_creator,
+        use_case = RefreshTokenUseCaseImpl(
+            token_creator=TokenCreatorImpl(),
+            refresh_token_creator=RefreshTokenCreatorImpl(),
+            refresh_token_verifier=RefreshTokenVerifierImpl(),
             get_db_session=create_session_factory(db_session),
         )
 
         # Act & Assert
         with pytest.raises(HTTPException) as excinfo:
-            await use_case.execute("test@example.com", "correctpassword")
+            await use_case.execute(plain_token)
 
         assert excinfo.value.status_code == 401
-        assert "Account is temporarily locked" in excinfo.value.detail
+        assert "Invalid refresh token" in excinfo.value.detail
 
-        # Verify no token was created
-        assert len(token_creator.created_tokens) == 0
-
-    async def test_login_account_inactive(
+    async def test_refresh_token_invalid(
         self,
-        db_session,
+        db_session: AsyncSession,
+    ):
+        """Test refresh with non-existent token."""
+        # Arrange - No refresh token in database
+        use_case = RefreshTokenUseCaseImpl(
+            token_creator=TokenCreatorImpl(),
+            refresh_token_creator=RefreshTokenCreatorImpl(),
+            refresh_token_verifier=RefreshTokenVerifierImpl(),
+            get_db_session=create_session_factory(db_session),
+        )
+
+        # Act & Assert
+        with pytest.raises(HTTPException) as excinfo:
+            await use_case.execute("non_existent_token")
+
+        assert excinfo.value.status_code == 401
+        assert "Invalid refresh token" in excinfo.value.detail
+
+    async def test_refresh_token_rotation(
+        self,
+        db_session: AsyncSession,
         password_hasher,
     ):
-        """Test login when account is disabled."""
-        # Arrange - Create a tenant and inactive user
+        """Test that old token cannot be reused after refresh."""
+        # Arrange - Create user and refresh token
         tenant = Tenant(name="test-tenant", age_graph_name="test_tenant_graph")
         db_session.add(tenant)
         await db_session.flush()
 
-        hashed_password = password_hasher.hash("correctpassword")
         user = User(
             email="test@example.com",
-            hashed_password=hashed_password,
+            hashed_password=password_hasher.hash("password"),
             tenant_id=tenant.id,
-            is_active=False,  # Account is inactive
-            failed_login_attempts=0,
-            locked_until=None,
+            is_active=True,
         )
         db_session.add(user)
+        await db_session.flush()
+
+        plain_token = "rotation_test_token"
+        token_hash = refresh_token_context.hash(plain_token)
+        refresh_token = RefreshToken(
+            token_hash=token_hash,
+            user_id=user.id,
+            expires_at=datetime.now(UTC) + timedelta(days=30),
+            revoked=False,
+        )
+        db_session.add(refresh_token)
         await db_session.commit()
 
         # Create use case
-        token_creator = TokenCreatorImpl()
-        use_case = LoginUseCaseImpl(
-            password_verifier=PasswordVerifierImpl(),
-            token_creator=token_creator,
+        use_case = RefreshTokenUseCaseImpl(
+            token_creator=TokenCreatorImpl(),
+            refresh_token_creator=RefreshTokenCreatorImpl(),
+            refresh_token_verifier=RefreshTokenVerifierImpl(),
+            get_db_session=create_session_factory(db_session),
+        )
+
+        # Act - First refresh (should succeed)
+        response = await use_case.execute(plain_token)
+        assert response.access_token.startswith("mock_access_token_")
+
+        # Try to use the same token again (should fail)
+        with pytest.raises(HTTPException) as excinfo:
+            await use_case.execute(plain_token)
+
+        assert excinfo.value.status_code == 401
+        assert "Invalid refresh token" in excinfo.value.detail
+
+    async def test_refresh_token_user_inactive(
+        self,
+        db_session: AsyncSession,
+        password_hasher,
+    ):
+        """Test refresh fails when user account is inactive."""
+        # Arrange - Create inactive user with refresh token
+        tenant = Tenant(name="test-tenant", age_graph_name="test_tenant_graph")
+        db_session.add(tenant)
+        await db_session.flush()
+
+        user = User(
+            email="test@example.com",
+            hashed_password=password_hasher.hash("password"),
+            tenant_id=tenant.id,
+            is_active=False,  # Inactive account
+        )
+        db_session.add(user)
+        await db_session.flush()
+
+        plain_token = "inactive_user_token"
+        token_hash = refresh_token_context.hash(plain_token)
+        refresh_token = RefreshToken(
+            token_hash=token_hash,
+            user_id=user.id,
+            expires_at=datetime.now(UTC) + timedelta(days=30),
+            revoked=False,
+        )
+        db_session.add(refresh_token)
+        await db_session.commit()
+
+        # Create use case
+        use_case = RefreshTokenUseCaseImpl(
+            token_creator=TokenCreatorImpl(),
+            refresh_token_creator=RefreshTokenCreatorImpl(),
+            refresh_token_verifier=RefreshTokenVerifierImpl(),
             get_db_session=create_session_factory(db_session),
         )
 
         # Act & Assert
         with pytest.raises(HTTPException) as excinfo:
-            await use_case.execute("test@example.com", "correctpassword")
+            await use_case.execute(plain_token)
 
         assert excinfo.value.status_code == 401
         assert "Account is disabled" in excinfo.value.detail
 
-        # Verify no token was created
-        assert len(token_creator.created_tokens) == 0
-
-    async def test_login_resets_failed_attempts_on_success(
+    async def test_refresh_token_user_locked(
         self,
-        db_session,
+        db_session: AsyncSession,
         password_hasher,
     ):
-        """Test that successful login resets failed login attempts counter."""
-        # Arrange - Create a tenant and user with some failed attempts
+        """Test refresh fails when user account is locked."""
+        # Arrange - Create locked user with refresh token
         tenant = Tenant(name="test-tenant", age_graph_name="test_tenant_graph")
         db_session.add(tenant)
         await db_session.flush()
 
-        hashed_password = password_hasher.hash("correctpassword")
         user = User(
             email="test@example.com",
-            hashed_password=hashed_password,
+            hashed_password=password_hasher.hash("password"),
             tenant_id=tenant.id,
             is_active=True,
-            failed_login_attempts=2,  # Had some failed attempts
-            locked_until=None,
+            locked_until=datetime.now(UTC) + timedelta(hours=1),  # Locked
         )
         db_session.add(user)
+        await db_session.flush()
+
+        plain_token = "locked_user_token"
+        token_hash = refresh_token_context.hash(plain_token)
+        refresh_token = RefreshToken(
+            token_hash=token_hash,
+            user_id=user.id,
+            expires_at=datetime.now(UTC) + timedelta(days=30),
+            revoked=False,
+        )
+        db_session.add(refresh_token)
         await db_session.commit()
 
         # Create use case
-        token_creator = TokenCreatorImpl()
-        use_case = LoginUseCaseImpl(
-            password_verifier=PasswordVerifierImpl(),
-            token_creator=token_creator,
+        use_case = RefreshTokenUseCaseImpl(
+            token_creator=TokenCreatorImpl(),
+            refresh_token_creator=RefreshTokenCreatorImpl(),
+            refresh_token_verifier=RefreshTokenVerifierImpl(),
             get_db_session=create_session_factory(db_session),
         )
 
-        # Act
-        await use_case.execute("test@example.com", "correctpassword")
+        # Act & Assert
+        with pytest.raises(HTTPException) as excinfo:
+            await use_case.execute(plain_token)
 
-        # Assert - Verify failed attempts were reset
-        await db_session.refresh(user)
-        assert user.failed_login_attempts == 0
-        assert user.locked_until is None
+        assert excinfo.value.status_code == 401
+        assert "Account is temporarily locked" in excinfo.value.detail
 </file>
 
 <file path="apps/api/tests/features/graph/services/test_langchain_fact_extractor.py">
@@ -4710,31 +5056,6 @@ export const useGraphStore = defineStore("graph", () => {
 export { useApiFetch } from "./useApiFetch";
 </file>
 
-<file path="apps/web/src/api/useApiFetch.ts">
-import { createFetch } from "@vueuse/core";
-
-const BASE_URL = "http://localhost:8000/api/v1"; // Or from .env
-
-export const useApiFetch = createFetch({
-  baseUrl: BASE_URL,
-  options: {
-    // Standard hooks that run before every fetch call
-    async beforeFetch({ options }) {
-      // Here you could add authentication tokens to headers
-      // const myAuthToken = '...'
-      // options.headers.Authorization = `Bearer ${myAuthToken}`
-      return { options };
-    },
-  },
-  // Default options for the fetch request itself
-  fetchOptions: {
-    headers: {
-      "Content-Type": "application/json",
-    },
-  },
-});
-</file>
-
 <file path="apps/web/src/assets/vue.svg">
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img" class="iconify iconify--logos" width="37.07" height="36" preserveAspectRatio="xMidYMid meet" viewBox="0 0 256 198"><path fill="#41B883" d="M204.8 0H256L128 220.8L0 0h97.92L128 51.2L157.44 0h47.36Z"></path><path fill="#41B883" d="m0 0l128 220.8L256 0h-51.2L128 132.48L50.56 0H0Z"></path><path fill="#35495E" d="M50.56 0L128 133.12L204.8 0h-47.36L128 51.2L97.92 0H50.56Z"></path></svg>
 </file>
@@ -5584,6 +5905,114 @@ const forwardedProps = useForwardProps(delegatedProps)
 </template>
 </file>
 
+<file path="apps/web/src/features/login/composables/useAuth.ts">
+import { ref } from "vue";
+import { useRouter } from "vue-router";
+import { useApiFetch } from "@/api/useApiFetch";
+
+interface LoginCredentials {
+  email: string;
+  password: string;
+}
+
+interface CurrentUser {
+  id: string;
+  email: string;
+  role: string;
+  tenant_id: string | null;
+}
+
+export function useAuth() {
+  const router = useRouter();
+  const currentUser = ref<CurrentUser | null>(null);
+  const isLoading = ref(false);
+  const error = ref<string | null>(null);
+
+  /**
+   * Login with email and password
+   */
+  const login = async (credentials: LoginCredentials) => {
+    isLoading.value = true;
+    error.value = null;
+
+    const {
+      execute,
+      statusCode,
+      error: fetchError,
+    } = useApiFetch("/auth/login", {
+      immediate: false,
+    })
+      .post(credentials)
+      .json<{ message: string; token_type: string }>();
+
+    await execute();
+
+    isLoading.value = false;
+
+    if (statusCode.value && statusCode.value >= 200 && statusCode.value < 300) {
+      // Success - tokens are in cookies, fetch user info
+      await fetchCurrentUser();
+      return true;
+    } else {
+      error.value = fetchError.value?.message || "Login failed";
+      return false;
+    }
+  };
+
+  /**
+   * Logout and clear session
+   */
+  const logout = async () => {
+    const { execute } = useApiFetch("/auth/logout", {
+      immediate: false,
+    })
+      .post()
+      .json();
+
+    await execute();
+
+    currentUser.value = null;
+    router.push("/login");
+  };
+
+  /**
+   * Fetch current user information
+   */
+  const fetchCurrentUser = async () => {
+    const { execute, data, statusCode } = useApiFetch("/auth/me", {
+      immediate: false,
+    })
+      .get()
+      .json<CurrentUser>();
+
+    await execute();
+
+    if (statusCode.value && statusCode.value >= 200 && statusCode.value < 300) {
+      currentUser.value = data.value;
+      return true;
+    }
+
+    return false;
+  };
+
+  /**
+   * Check if user is authenticated
+   */
+  const checkAuth = async () => {
+    return await fetchCurrentUser();
+  };
+
+  return {
+    currentUser,
+    isLoading,
+    error,
+    login,
+    logout,
+    checkAuth,
+  };
+}
+</file>
+
 <file path="apps/web/src/features/login/routes.ts">
 import type { RouteRecordRaw } from "vue-router";
 
@@ -5680,6 +6109,20 @@ export interface GetEntityResponse {
   identifier: IdentifierWithRelationshipDto;
   facts: FactWithSourceDto[];
 }
+</file>
+
+<file path="apps/web/.env.development">
+# API Configuration
+VITE_API_URL=http://localhost:8000/api/v1
+</file>
+
+<file path="apps/web/.env.example">
+# API Configuration
+# In development, use:
+VITE_API_URL=http://localhost:8000/api/v1
+
+# In production, use your production API URL:
+# VITE_API_URL=https://your-production-domain.com/api/v1
 </file>
 
 <file path="apps/web/.gitignore">
@@ -5808,319 +6251,6 @@ packages:
     }
   ]
 }
-</file>
-
-<file path="test_delete_api_key.py">
-#!/usr/bin/env python3
-"""Test script to verify API key deletion functionality."""
-
-import asyncio
-import uuid
-
-from app.db.postgres.auth_session import get_auth_db_session
-from app.features.auth.models import ApiKey
-from app.features.auth.usecases.delete_api_key_usecase import DeleteApiKeyUseCaseImpl
-from sqlalchemy import select
-
-
-async def test_delete_api_key():
-    """Test the delete API key functionality."""
-    # Create a test API key first
-    test_tenant_id = uuid.uuid4()
-
-    async with get_auth_db_session() as session:
-        # Create a test API key
-        test_api_key = ApiKey(
-            name="test_key",
-            key_prefix="test123",
-            hashed_key="hashed_test_key",
-            tenant_id=test_tenant_id,
-        )
-        session.add(test_api_key)
-        await session.commit()
-        await session.refresh(test_api_key)
-
-        api_key_id = str(test_api_key.id)
-        print(f"Created test API key with ID: {api_key_id}")
-
-        # Verify it exists
-        result = await session.execute(
-            select(ApiKey).where(ApiKey.id == test_api_key.id)
-        )
-        existing_key = result.scalar_one_or_none()
-        print(f"API key exists before deletion: {existing_key is not None}")
-
-    # Now try to delete it using the use case
-    use_case = DeleteApiKeyUseCaseImpl(get_db_session=get_auth_db_session)
-
-    try:
-        result = await use_case.execute(api_key_id, test_tenant_id)
-        print(f"Delete result: {result}")
-    except Exception as e:
-        print(f"Delete failed with error: {e}")
-
-    # Verify it was actually deleted
-    async with get_auth_db_session() as session:
-        result = await session.execute(
-            select(ApiKey).where(ApiKey.id == test_api_key.id)
-        )
-        deleted_key = result.scalar_one_or_none()
-        print(f"API key exists after deletion: {deleted_key is not None}")
-
-        # Clean up
-        if deleted_key:
-            session.delete(deleted_key)
-            await session.commit()
-            print("Cleaned up remaining test API key")
-
-
-if __name__ == "__main__":
-    asyncio.run(test_delete_api_key())
-</file>
-
-<file path="apps/api/app/core/authentication.py">
-"""Authentication utilities for JWT token validation and user retrieval."""
-
-from datetime import UTC, datetime, timedelta
-from uuid import UUID
-
-from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jose import JWTError, jwt
-from passlib.context import CryptContext
-
-from app.core.schemas import AuthenticatedUser, UserRole
-from app.core.settings import get_settings
-
-# Password hashing - using argon2 as bcrypt has issues.
-pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
-
-security = HTTPBearer()
-
-
-def verify_token(token: str) -> dict[str, str | int]:
-    """Verify and decode a JWT token."""
-    settings = get_settings()
-
-    try:
-        payload = jwt.decode(
-            token, settings.secret_key, algorithms=[settings.algorithm]
-        )
-        return payload
-    except JWTError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Could not validate credentials",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verify a plain password against its hash."""
-    return pwd_context.verify(plain_password, hashed_password)
-
-
-def get_password_hash(password: str) -> str:
-    """Hash a password."""
-    return pwd_context.hash(password)
-
-
-def create_access_token(
-    data: dict[str, str | UUID | datetime], expires_delta: timedelta | None = None
-) -> str:
-    """Create a JWT access token."""
-    settings = get_settings()
-    to_encode = data.copy()
-
-    if expires_delta:
-        expire = datetime.now(UTC) + expires_delta
-    else:
-        expire = datetime.now(UTC) + timedelta(
-            minutes=settings.access_token_expire_minutes
-        )
-
-    to_encode["exp"] = expire
-    encoded_jwt = jwt.encode(
-        to_encode, settings.secret_key, algorithm=settings.algorithm
-    )
-    return encoded_jwt
-
-
-async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-) -> AuthenticatedUser:
-    """Get current user from JWT token with tenant information."""
-    token = credentials.credentials
-    payload = verify_token(token)
-
-    user_id = payload.get("sub")
-    tenant_id = payload.get("tenant_id")  # This can be None
-    role_str = payload.get("role")
-
-    if user_id is None or role_str is None:  # tenant_id can be None, but role cannot
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token missing required user or role information",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    try:
-        return AuthenticatedUser(
-            user_id=UUID(str(user_id)),
-            tenant_id=UUID(str(tenant_id)) if tenant_id else None,
-            role=UserRole(role_str),  # <-- Validate and cast role
-        )
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid user, tenant, or role format in token",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-</file>
-
-<file path="apps/api/app/core/authorization.py">
-from collections.abc import Awaitable
-from datetime import UTC, datetime
-from typing import Callable
-from uuid import UUID
-
-from fastapi import Depends, HTTPException, status
-from fastapi.security import APIKeyHeader
-from pydantic import BaseModel
-from sqlalchemy import and_, or_, select
-
-from app.core.authentication import (
-    AuthenticatedUser,
-    get_current_user,
-    pwd_context,
-)
-from app.db.postgres.auth_session import get_auth_db_session
-from app.features.auth.models import ApiKey, Tenant, UserRole
-
-
-# A dependency factory
-def require_roles(
-    allowed_roles: list[UserRole],
-) -> Callable[..., Awaitable[AuthenticatedUser]]:
-    """
-    Factory for creating a dependency that checks if a user has one of
-    the allowed roles.
-    """
-
-    async def role_checker(
-        user: AuthenticatedUser = Depends(get_current_user),
-    ) -> AuthenticatedUser:
-        """
-        The actual dependency that checks the user's role.
-        """
-        if user.role not in allowed_roles:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Insufficient permissions",
-            )
-        return user
-
-    return role_checker
-
-
-# --- Create your specific role dependencies ---
-is_super_admin = require_roles([UserRole.SUPER_ADMIN])
-is_tenant_admin = require_roles([UserRole.TENANT_ADMIN])
-is_admin = require_roles([UserRole.SUPER_ADMIN, UserRole.TENANT_ADMIN])
-is_any_tenant_user = require_roles([UserRole.TENANT_ADMIN, UserRole.TENANT_USER])
-
-
-# --- Tenant Info and Authentication Dependencies ---
-class TenantInfo(BaseModel):
-    """Tenant information including graph name."""
-
-    tenant_id: UUID
-    graph_name: str
-
-
-# API Key security scheme
-api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
-
-
-async def get_tenant_from_api_key(
-    key: str | None = Depends(api_key_header),
-) -> TenantInfo | None:
-    """Get tenant info from API key authentication."""
-    if not key or "." not in key:
-        return None
-
-    prefix, _ = key.split(".", 1)
-
-    async with get_auth_db_session() as session:
-        result = await session.execute(
-            select(ApiKey).where(
-                and_(
-                    ApiKey.key_prefix == prefix,
-                    or_(
-                        ApiKey.expires_at.is_(None),
-                        ApiKey.expires_at > datetime.now(UTC),
-                    ),
-                )
-            )
-        )
-        api_keys = result.scalars().all()
-
-        found_key: ApiKey | None = None
-        for api_key_record in api_keys:
-            if pwd_context.verify(key, api_key_record.hashed_key):
-                found_key = api_key_record
-                break
-
-        if not found_key:
-            return None
-
-        tenant = await session.get(Tenant, found_key.tenant_id)
-        if not tenant:
-            return None
-
-        found_key.last_used_at = datetime.now(UTC)
-        await session.commit()
-
-        return TenantInfo(tenant_id=tenant.id, graph_name=tenant.age_graph_name)
-
-
-async def get_tenant_from_jwt(
-    user: AuthenticatedUser = Depends(get_current_user),
-) -> TenantInfo | None:
-    """Get tenant info from JWT authentication."""
-    if not user or not user.tenant_id:
-        return None
-
-    async with get_auth_db_session() as session:
-        tenant = await session.get(Tenant, user.tenant_id)
-        if not tenant:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Tenant not found for authenticated user",
-            )
-        return TenantInfo(tenant_id=user.tenant_id, graph_name=tenant.age_graph_name)
-
-
-async def get_tenant_info(
-    jwt_tenant: TenantInfo | None = Depends(get_tenant_from_jwt),
-    api_key_tenant: TenantInfo | None = Depends(get_tenant_from_api_key),
-) -> TenantInfo:
-    """Master dependency that resolves tenant info from either JWT or API key.
-
-    Prioritizes JWT over API key authentication.
-    """
-    if jwt_tenant:
-        return jwt_tenant
-
-    if api_key_tenant:
-        return api_key_tenant
-
-    # Neither authentication method provided or valid
-    raise HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Authentication required",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
 </file>
 
 <file path="apps/api/app/db/postgres/auth_session.py">
@@ -7943,6 +8073,91 @@ export const findEntityByIdentifier = (
 This architecture will provide a solid, scalable foundation for your Vue.js application, making it a pleasure to work with as it evolves.
 </file>
 
+<file path="apps/web/src/api/useApiFetch.ts">
+import { createFetch } from "@vueuse/core";
+import type { BeforeFetchContext, OnFetchErrorContext } from "@vueuse/core";
+
+const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api/v1";
+
+export const useApiFetch = createFetch({
+  baseUrl: BASE_URL,
+  options: {
+    // Run before every fetch call
+    async beforeFetch({ options }: BeforeFetchContext) {
+      // Cookies are sent automatically, but we can add other logic here
+      return { options };
+    },
+
+    // Handle errors, including automatic token refresh on 401
+    async onFetchError(ctx: OnFetchErrorContext) {
+      const { response } = ctx;
+
+      // If we get a 401 and it's not the refresh endpoint, try to refresh
+      if (
+        response?.status === 401 &&
+        !ctx.response?.url.includes("/auth/refresh") &&
+        !ctx.response?.url.includes("/auth/login")
+      ) {
+        console.log("Access token expired, attempting refresh...");
+
+        const refreshed = await refreshAccessToken();
+
+        if (refreshed) {
+          // Retry the original request
+          console.log("Token refreshed, retrying original request");
+          return await ctx.execute();
+        } else {
+          // Refresh failed, redirect to login
+          console.error("Token refresh failed, redirecting to login");
+          window.location.href = "/login";
+        }
+      }
+
+      // For other errors, return the context as-is
+      return ctx;
+    },
+  },
+
+  // Default fetch options applied to all requests
+  fetchOptions: {
+    headers: {
+      "Content-Type": "application/json",
+    },
+    credentials: "include", // ⭐ Critical: Send cookies with every request
+  },
+});
+
+/**
+ * Refresh the access token using the refresh token cookie.
+ * Returns true if successful, false otherwise.
+ */
+async function refreshAccessToken(): Promise<boolean> {
+  try {
+    const response = await fetch(`${BASE_URL}/auth/refresh`, {
+      method: "POST",
+      credentials: "include", // Send refresh_token cookie
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (response.ok) {
+      console.log("Token refreshed successfully");
+      return true;
+    }
+
+    console.error("Token refresh failed:", response.status);
+    return false;
+  } catch (error) {
+    console.error("Token refresh error:", error);
+    return false;
+  }
+}
+
+// Export for manual refresh if needed
+export { refreshAccessToken };
+</file>
+
 <file path="apps/web/src/components/ui/input/Input.vue">
 <script setup lang="ts">
 import type { HTMLAttributes } from "vue";
@@ -8022,32 +8237,6 @@ export const useAssimilateKnowledge = (payload: AssimilateKnowledgeRequest) => {
   // use to track the state of the POST request.
   return useApiFetch(url).post(payload).json<AssimilateKnowledgeResponse>();
 };
-</file>
-
-<file path="apps/web/src/features/graph/routes.ts">
-import type { RouteRecordRaw } from "vue-router";
-
-// Mock authentication - replace with real auth logic later
-const isAuthenticated = () => {
-  // Mock: check localStorage or return false for demo
-  return localStorage.getItem("isLoggedIn") === "true";
-};
-
-export const graphRoutes: RouteRecordRaw[] = [
-  {
-    path: "/",
-    name: "Home",
-    component: () => import("./views/HomeView.vue"),
-    beforeEnter: (_to, _from, next) => {
-      // Redirect to login if not authenticated
-      if (!isAuthenticated()) {
-        next("/login");
-      } else {
-        next();
-      }
-    },
-  },
-];
 </file>
 
 <file path="apps/web/src/App.vue">
@@ -8142,65 +8331,6 @@ export const graphRoutes: RouteRecordRaw[] = [
 }
 </file>
 
-<file path="apps/api/app/features/auth/routes/tenants.py">
-"""Signup route handler."""
-
-from typing import Protocol
-
-from fastapi import APIRouter, Depends
-
-from app.core.authentication import AuthenticatedUser, pwd_context
-from app.core.authorization import is_super_admin
-from app.db.postgres.auth_session import get_auth_db_session
-from app.db.postgres.graph_connection import get_graph_db_pool
-from app.features.auth.dtos import CreateTenantRequest, CreateTenantResponse
-from app.features.auth.usecases.signup_tenant_usecase import SignupTenantUseCaseImpl
-
-
-class PasswordHasherImpl:
-    """Wrapper for password hashing to match protocol."""
-
-    def hash(self, secret: str | bytes, **kwargs) -> str:
-        """Hash a password or secret."""
-        return pwd_context.hash(secret, **kwargs)
-
-
-async def get_signup_tenant_use_case():
-    """Dependency injection for the signup tenant use case."""
-    return SignupTenantUseCaseImpl(
-        password_hasher=PasswordHasherImpl(),
-        get_db_session=get_auth_db_session,
-        get_db_pool=get_graph_db_pool,
-    )
-
-
-class SignupTenantUseCase(Protocol):
-    """Protocol for the signup tenant use case."""
-
-    async def execute(self, request: CreateTenantRequest) -> CreateTenantResponse:
-        """Create a new tenant with user and graph."""
-        ...
-
-
-router = APIRouter()
-
-
-@router.post("/create_tenant", response_model=CreateTenantResponse)
-async def create_tenant(
-    request: CreateTenantRequest,
-    use_case: SignupTenantUseCase = Depends(get_signup_tenant_use_case),
-    _: AuthenticatedUser = Depends(is_super_admin),
-) -> CreateTenantResponse:
-    """Create a new tenant with an initial user and AGE graph.
-
-    This endpoint creates:
-    1. A new tenant record
-    2. An initial user for the tenant
-    3. A dedicated Apache AGE graph for the tenant
-    """
-    return await use_case.execute(request)
-</file>
-
 <file path="apps/api/app/features/auth/routes/users.py">
 from typing import Protocol
 
@@ -8272,67 +8402,6 @@ __all__ = [
     "ListApiKeysUseCaseImpl",
     "DeleteApiKeyUseCaseImpl",
 ]
-</file>
-
-<file path="apps/api/scripts/create_super_admin.py">
-import argparse
-import asyncio
-import uuid
-
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-
-from app.core.authentication import get_password_hash
-from app.core.schemas import UserRole
-from app.core.settings import get_settings
-from app.db.postgres.auth_session import Base
-from app.features.auth.models import User
-
-
-async def create_super_admin(email, password):
-    """Creates the first super admin user."""
-    if not email or not password:
-        print("Email and password cannot be empty.")
-        return
-
-    settings = get_settings()
-    engine = create_async_engine(settings.database_url, echo=True)
-
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-
-    async with engine.connect() as conn:
-        async with conn.begin():
-            session = AsyncSession(engine)
-
-            result = await session.execute(select(User).where(User.email == email))
-            if result.scalar_one_or_none():
-                print(f"User with email {email} already exists.")
-                return
-
-            hashed_password = get_password_hash(password)
-            super_admin = User(
-                id=uuid.uuid4(),
-                email=email,
-                hashed_password=hashed_password,
-                role=UserRole.SUPER_ADMIN,
-                is_active=True,
-                tenant_id=None,
-            )
-            session.add(super_admin)
-            await session.commit()
-            print(f"Super admin {email} created successfully.")
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Create a super admin user.")
-    parser.add_argument("--email", required=True, help="Email for the super admin.")
-    parser.add_argument(
-        "--password", required=True, help="Password for the super admin."
-    )
-    args = parser.parse_args()
-
-    asyncio.run(create_super_admin(args.email, args.password))
 </file>
 
 <file path="apps/api/tests/db/postgres/test_postgres_integration.py">
@@ -8429,162 +8498,344 @@ class TestPostgresIntegration:
             pytest.skip(f"PostgreSQL server not available: {e}")
 </file>
 
-<file path="apps/api/tests/features/auth/usecases/test_signup_tenant_usecase_integration.py">
-"""Integration tests for the SignupTenantUseCase."""
+<file path="apps/api/tests/features/auth/usecases/test_login_usecase_integration.py">
+"""Integration tests for the LoginUseCase."""
 
-import asyncpg
+from contextlib import asynccontextmanager
+
 import pytest
+from fastapi import HTTPException
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.features.auth.usecases.signup_tenant_usecase import (
-    PasswordHasher,
-    SignupTenantUseCaseImpl,
-)
+from app.core.authentication import pwd_context, refresh_token_context
+from app.features.auth.dtos.auth_dto import LoginRequest, LoginResponse
+from app.features.auth.models import RefreshToken, Tenant, User
+from app.features.auth.usecases.login_usecase import LoginUseCaseImpl
 
-# All fixtures are now provided by tests/conftest.py
+
+class PasswordVerifierImpl:
+    """Wrapper for password verification to match protocol."""
+
+    def verify(self, plain_password: str, hashed_password: str) -> bool:
+        """Verify a password against its hash."""
+        return pwd_context.verify(plain_password, hashed_password)
+
+
+class TokenCreatorImpl:
+    """Wrapper for token creation to match protocol."""
+
+    def __init__(self):
+        self.created_tokens = []
+
+    def __call__(self, data: dict[str, str | int], expires_delta=None) -> str:
+        """Create an access token."""
+        # Store the data for verification in tests
+        self.created_tokens.append(data)
+        # Return a mock token for testing
+        return f"mock_token_{len(self.created_tokens)}"
+
+
+class RefreshTokenCreatorImpl:
+    """Wrapper for refresh token creation to match protocol."""
+
+    def __init__(self):
+        self.created_tokens = []
+
+    def create(self) -> str:
+        """Create a refresh token."""
+        token = f"refresh_token_{len(self.created_tokens) + 1}"
+        self.created_tokens.append(token)
+        return token
+
+    def hash(self, token: str) -> str:
+        """Hash a refresh token."""
+        return refresh_token_context.hash(token)
+
+
+def create_session_factory(session):
+    """Create a session factory that returns the same session."""
+
+    @asynccontextmanager
+    async def get_session():
+        yield session
+
+    return get_session
 
 
 @pytest.mark.asyncio
-class TestSignupTenantUseCase:
-    """Test suite for the SignupTenantUseCase."""
+class TestLoginUseCase:
+    """Test suite for the LoginUseCase."""
 
-    async def test_signup_tenant_successfully(
+    async def test_login_successful(
         self,
         db_session: AsyncSession,
-        postgres_pool: asyncpg.Pool,
-        password_hasher: PasswordHasher,
+        password_hasher,
     ):
-        """Test the successful creation of a tenant, user, and graph."""
-        # Arrange
-        use_case = SignupTenantUseCaseImpl(
-            password_hasher=password_hasher,
-            get_db_session=lambda: db_session,  # type: ignore
-            get_db_pool=lambda: postgres_pool,  # type: ignore
-        )
-        from app.features.auth.dtos import CreateTenantRequest
+        """Test successful user login."""
+        # Arrange - Create a tenant and user
+        tenant = Tenant(name="test-tenant", age_graph_name="test_tenant_graph")
+        db_session.add(tenant)
+        await db_session.flush()
 
-        request = CreateTenantRequest(
-            name="test-tenant",
+        hashed_password = password_hasher.hash("correctpassword")
+        user = User(
             email="test@example.com",
-            password="testpassword",
+            hashed_password=hashed_password,
+            tenant_id=tenant.id,
+            is_active=True,
+            failed_login_attempts=0,
+            locked_until=None,
+        )
+        db_session.add(user)
+        await db_session.commit()
+
+        # Create use case
+        token_creator = TokenCreatorImpl()
+        refresh_token_creator = RefreshTokenCreatorImpl()
+        use_case = LoginUseCaseImpl(
+            password_verifier=PasswordVerifierImpl(),
+            token_creator=token_creator,
+            refresh_token_creator=refresh_token_creator,
+            get_db_session=create_session_factory(db_session),
+        )
+
+        request = LoginRequest(
+            email="test@example.com",
+            password="correctpassword",
         )
 
         # Act
-        response = await use_case.execute(request)
+        response = await use_case.execute(request.email, request.password)
 
         # Assert
-        assert response.message == "Tenant created successfully"
-        assert response.tenant_id is not None
-        assert response.user_id is not None
+        assert isinstance(response, LoginResponse)
+        assert response.access_token.startswith("mock_token_")
+        assert response.refresh_token.startswith("refresh_token_")
+        assert response.token_type == "bearer"
+        assert response.expires_in == 1800  # 30 minutes in seconds
 
-        # Verify database state
-        from sqlalchemy.future import select
+        # Verify token data
+        assert len(token_creator.created_tokens) == 1
+        token_data = token_creator.created_tokens[0]
+        assert token_data["sub"] == str(user.id)
+        assert token_data["tenant_id"] == str(tenant.id)
+        assert token_data["role"] == user.role.value
 
-        from app.features.auth.models import Tenant, User
+        # Verify refresh token was created
+        assert len(refresh_token_creator.created_tokens) == 1
 
-        tenant = (
-            await db_session.execute(select(Tenant).filter_by(id=response.tenant_id))
-        ).scalar_one_or_none()
-        assert tenant is not None
-        assert tenant.name == "test-tenant"
-
-        user = (
-            await db_session.execute(select(User).filter_by(id=response.user_id))
-        ).scalar_one_or_none()
-        assert user is not None
-        assert user.email == "test@example.com"
-
-        # Verify graph creation
-        async with postgres_pool.acquire() as conn:
-            await conn.execute("SET search_path = ag_catalog, '$user', public;")
-            graph_exists = await conn.fetchval(
-                "SELECT 1 FROM ag_graph WHERE name = $1;", tenant.age_graph_name
-            )
-            assert graph_exists == 1
-
-    async def test_signup_tenant_duplicate(
-        self,
-        db_session: AsyncSession,
-        postgres_pool: asyncpg.Pool,
-        password_hasher: PasswordHasher,
-    ):
-        """Test that creating a tenant with a duplicate name or email fails."""
-        # Arrange
-        use_case = SignupTenantUseCaseImpl(
-            password_hasher=password_hasher,
-            get_db_session=lambda: db_session,
-            get_db_pool=lambda: postgres_pool,
+        # Verify refresh token is stored in database
+        result = await db_session.execute(
+            select(RefreshToken).where(RefreshToken.user_id == user.id)
         )
-        from app.features.auth.dtos import CreateTenantRequest
+        db_refresh_token = result.scalar_one_or_none()
+        assert db_refresh_token is not None
+        assert db_refresh_token.revoked is False
+        assert db_refresh_token.user_id == user.id
 
-        request = CreateTenantRequest(
-            name="test-tenant",
+        # Verify user state was updated
+        await db_session.refresh(user)
+        assert user.failed_login_attempts == 0
+        assert user.locked_until is None
+
+    async def test_login_user_not_found(
+        self,
+        db_session,
+    ):
+        """Test login with non-existent email."""
+        # Arrange
+        token_creator = TokenCreatorImpl()
+        refresh_token_creator = RefreshTokenCreatorImpl()
+        use_case = LoginUseCaseImpl(
+            password_verifier=PasswordVerifierImpl(),
+            token_creator=token_creator,
+            refresh_token_creator=refresh_token_creator,
+            get_db_session=create_session_factory(db_session),
+        )
+
+        # Act & Assert
+        with pytest.raises(HTTPException) as excinfo:
+            await use_case.execute("nonexistent@example.com", "password")
+
+        assert excinfo.value.status_code == 401
+        assert "Incorrect email or password" in excinfo.value.detail
+
+    async def test_login_wrong_password(
+        self,
+        db_session,
+        password_hasher,
+    ):
+        """Test login with wrong password."""
+        # Arrange - Create a tenant and user
+        tenant = Tenant(name="test-tenant", age_graph_name="test_tenant_graph")
+        db_session.add(tenant)
+        await db_session.flush()
+
+        hashed_password = password_hasher.hash("correctpassword")
+        user = User(
             email="test@example.com",
-            password="testpassword",
+            hashed_password=hashed_password,
+            tenant_id=tenant.id,
+            is_active=True,
+            failed_login_attempts=0,
+            locked_until=None,
         )
-        await use_case.execute(request)
+        db_session.add(user)
+        await db_session.commit()
+
+        # Create use case
+        token_creator = TokenCreatorImpl()
+        refresh_token_creator = RefreshTokenCreatorImpl()
+        use_case = LoginUseCaseImpl(
+            password_verifier=PasswordVerifierImpl(),
+            token_creator=token_creator,
+            refresh_token_creator=refresh_token_creator,
+            get_db_session=create_session_factory(db_session),
+        )
 
         # Act & Assert
-        from fastapi import HTTPException
-
         with pytest.raises(HTTPException) as excinfo:
-            await use_case.execute(request)
-        assert excinfo.value.status_code == 400
+            await use_case.execute("test@example.com", "wrongpassword")
 
-    @pytest.mark.parametrize(
-        "name, email, password, error_detail",
-        [
-            (
-                "a",
-                "test@example.com",
-                "password",
-                "Tenant name must be between 3 and 50 characters",
-            ),
-            (
-                "test-tenant",
-                "test@example.com",
-                "short",
-                "Password must be at least 8 characters long",
-            ),
-            (
-                "invalid name!",
-                "test@example.com",
-                "password",
-                "Tenant name can only contain alphanumeric characters, hyphens, and underscores",
-            ),
-        ],
-    )
-    async def test_signup_tenant_invalid_input(
+        assert excinfo.value.status_code == 401
+        assert "Incorrect email or password" in excinfo.value.detail
+
+        # Verify no token was created
+        assert len(token_creator.created_tokens) == 0
+        assert len(refresh_token_creator.created_tokens) == 0
+
+    async def test_login_account_locked(
         self,
-        db_session: AsyncSession,
-        postgres_pool: asyncpg.Pool,
-        password_hasher: PasswordHasher,
-        name: str,
-        email: str,
-        password: str,
-        error_detail: str,
+        db_session,
+        password_hasher,
     ):
-        """Test that signup fails with invalid input."""
-        # Arrange
-        use_case = SignupTenantUseCaseImpl(
-            password_hasher=password_hasher,
-            get_db_session=lambda: db_session,  # type: ignore
-            get_db_pool=lambda: postgres_pool,  # type: ignore
-        )
-        from app.features.auth.dtos import CreateTenantRequest
+        """Test login when account is temporarily locked."""
+        # Arrange - Create a tenant and user with locked account
+        from datetime import UTC, datetime, timedelta
 
-        request = CreateTenantRequest(
-            name=name,
-            email=email,
-            password=password,
+        tenant = Tenant(name="test-tenant", age_graph_name="test_tenant_graph")
+        db_session.add(tenant)
+        await db_session.flush()
+
+        hashed_password = password_hasher.hash("correctpassword")
+        locked_until = datetime.now(UTC) + timedelta(minutes=30)
+        user = User(
+            email="test@example.com",
+            hashed_password=hashed_password,
+            tenant_id=tenant.id,
+            is_active=True,
+            failed_login_attempts=3,
+            locked_until=locked_until,
         )
-        from fastapi import HTTPException
+        db_session.add(user)
+        await db_session.commit()
+
+        # Create use case
+        token_creator = TokenCreatorImpl()
+        refresh_token_creator = RefreshTokenCreatorImpl()
+        use_case = LoginUseCaseImpl(
+            password_verifier=PasswordVerifierImpl(),
+            token_creator=token_creator,
+            refresh_token_creator=refresh_token_creator,
+            get_db_session=create_session_factory(db_session),
+        )
 
         # Act & Assert
         with pytest.raises(HTTPException) as excinfo:
-            await use_case.execute(request)
-        assert excinfo.value.status_code == 400
-        assert excinfo.value.detail == error_detail
+            await use_case.execute("test@example.com", "correctpassword")
+
+        assert excinfo.value.status_code == 401
+        assert "Account is temporarily locked" in excinfo.value.detail
+
+        # Verify no token was created
+        assert len(token_creator.created_tokens) == 0
+        assert len(refresh_token_creator.created_tokens) == 0
+
+    async def test_login_account_inactive(
+        self,
+        db_session,
+        password_hasher,
+    ):
+        """Test login when account is disabled."""
+        # Arrange - Create a tenant and inactive user
+        tenant = Tenant(name="test-tenant", age_graph_name="test_tenant_graph")
+        db_session.add(tenant)
+        await db_session.flush()
+
+        hashed_password = password_hasher.hash("correctpassword")
+        user = User(
+            email="test@example.com",
+            hashed_password=hashed_password,
+            tenant_id=tenant.id,
+            is_active=False,  # Account is inactive
+            failed_login_attempts=0,
+            locked_until=None,
+        )
+        db_session.add(user)
+        await db_session.commit()
+
+        # Create use case
+        token_creator = TokenCreatorImpl()
+        refresh_token_creator = RefreshTokenCreatorImpl()
+        use_case = LoginUseCaseImpl(
+            password_verifier=PasswordVerifierImpl(),
+            token_creator=token_creator,
+            refresh_token_creator=refresh_token_creator,
+            get_db_session=create_session_factory(db_session),
+        )
+
+        # Act & Assert
+        with pytest.raises(HTTPException) as excinfo:
+            await use_case.execute("test@example.com", "correctpassword")
+
+        assert excinfo.value.status_code == 401
+        assert "Account is disabled" in excinfo.value.detail
+
+        # Verify no token was created
+        assert len(token_creator.created_tokens) == 0
+        assert len(refresh_token_creator.created_tokens) == 0
+
+    async def test_login_resets_failed_attempts_on_success(
+        self,
+        db_session,
+        password_hasher,
+    ):
+        """Test that successful login resets failed login attempts counter."""
+        # Arrange - Create a tenant and user with some failed attempts
+        tenant = Tenant(name="test-tenant", age_graph_name="test_tenant_graph")
+        db_session.add(tenant)
+        await db_session.flush()
+
+        hashed_password = password_hasher.hash("correctpassword")
+        user = User(
+            email="test@example.com",
+            hashed_password=hashed_password,
+            tenant_id=tenant.id,
+            is_active=True,
+            failed_login_attempts=2,  # Had some failed attempts
+            locked_until=None,
+        )
+        db_session.add(user)
+        await db_session.commit()
+
+        # Create use case
+        token_creator = TokenCreatorImpl()
+        refresh_token_creator = RefreshTokenCreatorImpl()
+        use_case = LoginUseCaseImpl(
+            password_verifier=PasswordVerifierImpl(),
+            token_creator=token_creator,
+            refresh_token_creator=refresh_token_creator,
+            get_db_session=create_session_factory(db_session),
+        )
+
+        # Act
+        await use_case.execute("test@example.com", "correctpassword")
+
+        # Assert - Verify failed attempts were reset
+        await db_session.refresh(user)
+        assert user.failed_login_attempts == 0
+        assert user.locked_until is None
 </file>
 
 <file path="apps/api/README.md">
@@ -8888,6 +9139,41 @@ All configuration is handled through environment variables. See `.env.example` f
 5. Use `uv` for dependency management
 </file>
 
+<file path="apps/web/src/features/graph/routes.ts">
+import type { RouteRecordRaw } from "vue-router";
+
+// Check authentication by hitting the /auth/me endpoint
+const checkAuth = async (): Promise<boolean> => {
+  try {
+    const BASE_URL =
+      import.meta.env.VITE_API_URL || "http://localhost:8000/api/v1";
+    const response = await fetch(`${BASE_URL}/auth/me`, {
+      credentials: "include",
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+};
+
+export const graphRoutes: RouteRecordRaw[] = [
+  {
+    path: "/",
+    name: "Home",
+    component: () => import("./views/HomeView.vue"),
+    beforeEnter: async (_to, _from, next) => {
+      const isAuth = await checkAuth();
+      if (!isAuth) {
+        console.log("Not authenticated, redirecting to login");
+        next("/login");
+      } else {
+        next();
+      }
+    },
+  },
+];
+</file>
+
 <file path="apps/web/src/router/index.ts">
 import { createRouter, createWebHistory } from "vue-router";
 import { graphRoutes } from "@/features/graph/routes";
@@ -9044,6 +9330,2156 @@ export default defineConfig({
 });
 </file>
 
+<file path="docs/plans/auth.md">
+# Authentication Implementation Plan
+
+## Overview
+
+This document outlines the implementation plan for a secure authentication system using **HTTP-only cookies** to store JWT access tokens and refresh tokens. This approach provides the best security for a Single Page Application (SPA) by protecting tokens from XSS attacks while maintaining a seamless user experience.
+
+## Table of Contents
+
+1. [Authentication Approach](#authentication-approach)
+2. [Current State Analysis](#current-state-analysis)
+3. [Authentication Flow](#authentication-flow)
+4. [Backend Implementation](#backend-implementation)
+5. [Frontend Implementation](#frontend-implementation)
+6. [Security Considerations](#security-considerations)
+7. [Implementation Steps](#implementation-steps)
+8. [Testing Strategy](#testing-strategy)
+
+---
+
+## Authentication Approach
+
+### HTTP-only Cookies Strategy
+
+**Why HTTP-only Cookies?**
+
+- ✅ **XSS Protection**: Tokens are inaccessible to JavaScript, preventing theft via XSS attacks
+- ✅ **Automatic Management**: Browsers automatically send cookies with requests
+- ✅ **Persistent Sessions**: Survives page refreshes without manual storage
+- ✅ **CSRF Protection**: Combined with `SameSite` attribute provides strong CSRF defense
+
+**Token Strategy:**
+
+- **Access Token**: Short-lived (30 minutes), stored in HTTP-only cookie
+- **Refresh Token**: Long-lived (30 days), stored in HTTP-only cookie with rotation
+- **Token Rotation**: Each refresh generates a new refresh token and revokes the old one
+
+---
+
+## Current State Analysis
+
+### Backend Current State
+
+**Existing Infrastructure** ✅
+
+```
+apps/api/app/
+├── core/
+│   ├── authentication.py    # JWT creation, password hashing, token verification
+│   ├── authorization.py     # Role-based access control, tenant resolution
+│   └── schemas.py           # AuthenticatedUser, UserRole schemas
+├── features/auth/
+│   ├── routes/
+│   │   └── login.py        # Login and refresh endpoints (returns JSON)
+│   ├── usecases/
+│   │   ├── login_usecase.py           # Login business logic
+│   │   └── refresh_token_usecase.py   # Token refresh with rotation ✅
+│   ├── dtos/
+│   │   └── auth_dto.py     # LoginRequest, LoginResponse, etc.
+│   └── models.py           # User, Tenant, RefreshToken, ApiKey models
+└── main.py                 # CORS configured with allow_credentials=True ✅
+```
+
+**What Works:**
+
+- ✅ JWT creation and verification
+- ✅ Refresh token rotation (already implemented!)
+- ✅ Password hashing with Argon2
+- ✅ CORS with `allow_credentials=True`
+- ✅ Role-based authorization
+- ✅ API Key authentication (alternative auth method)
+
+**What Needs to Change:**
+
+- ❌ Login endpoint returns tokens in JSON body (needs to set cookies)
+- ❌ Refresh endpoint accepts token from request body (needs to read from cookie)
+- ❌ `get_current_user` reads from `Authorization` header (needs cookie option)
+- ❌ No logout endpoint
+
+### Frontend Current State
+
+**Existing Infrastructure** ✅
+
+```
+apps/web/src/
+├── api/
+│   └── useApiFetch.ts      # VueUse createFetch wrapper
+├── features/
+│   ├── login/
+│   │   ├── views/LoginView.vue  # Mock login implementation
+│   │   └── routes.ts
+│   └── graph/
+│       ├── api/graphApi.ts      # API composables
+│       └── routes.ts            # Route guards (localStorage check)
+└── router/index.ts
+```
+
+**What Works:**
+
+- ✅ VueUse `createFetch` for API calls
+- ✅ Login UI component
+- ✅ Route navigation
+- ✅ API composables pattern
+
+**What Needs to Change:**
+
+- ❌ Login stores mock data in localStorage
+- ❌ No `credentials: 'include'` in fetch options
+- ❌ No automatic token refresh on 401
+- ❌ Route guards check localStorage instead of server state
+
+---
+
+## Authentication Flow
+
+### 1. Login Flow
+
+```
+┌─────────┐                  ┌─────────┐                  ┌──────────┐
+│ Browser │                  │   API   │                  │ Database │
+└────┬────┘                  └────┬────┘                  └────┬─────┘
+     │                            │                            │
+     │ POST /auth/login           │                            │
+     │ {email, password}          │                            │
+     ├───────────────────────────>│                            │
+     │                            │                            │
+     │                            │ Verify credentials         │
+     │                            ├───────────────────────────>│
+     │                            │                            │
+     │                            │ User + hashed password     │
+     │                            │<───────────────────────────┤
+     │                            │                            │
+     │                            │ Create access token (JWT)  │
+     │                            │ Create refresh token       │
+     │                            │ Store hashed refresh token │
+     │                            ├───────────────────────────>│
+     │                            │                            │
+     │ Set-Cookie: access_token   │                            │
+     │ Set-Cookie: refresh_token  │                            │
+     │ (HTTP-only, Secure, SameSite=Lax)                       │
+     │<───────────────────────────┤                            │
+     │                            │                            │
+     │ {message: "success"}       │                            │
+     │<───────────────────────────┤                            │
+     │                            │                            │
+```
+
+### 2. Authenticated Request Flow
+
+```
+┌─────────┐                  ┌─────────┐
+│ Browser │                  │   API   │
+└────┬────┘                  └────┬────┘
+     │                            │
+     │ GET /graph/entities        │
+     │ Cookie: access_token=...   │
+     ├───────────────────────────>│
+     │                            │
+     │                            │ Verify JWT from cookie
+     │                            │ Extract user info
+     │                            │
+     │ Response + data            │
+     │<───────────────────────────┤
+     │                            │
+```
+
+### 3. Token Refresh Flow (Automatic on 401)
+
+```
+┌─────────┐                  ┌─────────┐                  ┌──────────┐
+│ Browser │                  │   API   │                  │ Database │
+└────┬────┘                  └────┬────┘                  └────┬─────┘
+     │                            │                            │
+     │ GET /graph/entities        │                            │
+     │ Cookie: access_token=...   │                            │
+     ├───────────────────────────>│                            │
+     │                            │                            │
+     │                            │ JWT expired                │
+     │ 401 Unauthorized           │                            │
+     │<───────────────────────────┤                            │
+     │                            │                            │
+     │ POST /auth/refresh         │                            │
+     │ Cookie: refresh_token=...  │                            │
+     ├───────────────────────────>│                            │
+     │                            │                            │
+     │                            │ Verify refresh token       │
+     │                            ├───────────────────────────>│
+     │                            │                            │
+     │                            │ Create new access token    │
+     │                            │ Create new refresh token   │
+     │                            │ Revoke old refresh token   │
+     │                            │ Store new hashed token     │
+     │                            ├───────────────────────────>│
+     │                            │                            │
+     │ Set-Cookie: access_token   │                            │
+     │ Set-Cookie: refresh_token  │                            │
+     │<───────────────────────────┤                            │
+     │                            │                            │
+     │ Retry: GET /graph/entities │                            │
+     │ Cookie: access_token=...   │                            │
+     ├───────────────────────────>│                            │
+     │                            │                            │
+     │ Response + data            │                            │
+     │<───────────────────────────┤                            │
+     │                            │                            │
+```
+
+### 4. Logout Flow
+
+```
+┌─────────┐                  ┌─────────┐                  ┌──────────┐
+│ Browser │                  │   API   │                  │ Database │
+└────┬────┘                  └────┬────┘                  └────┬─────┘
+     │                            │                            │
+     │ POST /auth/logout          │                            │
+     │ Cookie: refresh_token=...  │                            │
+     ├───────────────────────────>│                            │
+     │                            │                            │
+     │                            │ Revoke refresh token       │
+     │                            ├───────────────────────────>│
+     │                            │                            │
+     │ Delete-Cookie: access_token│                            │
+     │ Delete-Cookie: refresh_token                            │
+     │<───────────────────────────┤                            │
+     │                            │                            │
+```
+
+---
+
+## Backend Implementation
+
+### 1. Update Authentication Core
+
+**File: `apps/api/app/core/authentication.py`**
+
+Add a new function to read tokens from cookies:
+
+```python
+from fastapi import Cookie, HTTPException, status
+from typing import Optional
+
+async def get_current_user_from_cookie(
+    access_token: Optional[str] = Cookie(None, alias="access_token")
+) -> AuthenticatedUser:
+    """Get current user from access token in HTTP-only cookie."""
+    if not access_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    payload = verify_token(access_token)
+
+    user_id = payload.get("sub")
+    tenant_id = payload.get("tenant_id")
+    role_str = payload.get("role")
+
+    if user_id is None or role_str is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token missing required user or role information",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    try:
+        return AuthenticatedUser(
+            user_id=UUID(str(user_id)),
+            tenant_id=UUID(str(tenant_id)) if tenant_id else None,
+            role=UserRole(role_str),
+        )
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid user, tenant, or role format in token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+
+# Create a flexible dependency that tries both methods
+async def get_current_user_flexible(
+    cookie_user: Optional[AuthenticatedUser] = Depends(
+        lambda access_token=Cookie(None, alias="access_token"):
+            get_current_user_from_cookie(access_token) if access_token else None
+    ),
+    header_user: Optional[AuthenticatedUser] = Depends(
+        lambda credentials=Depends(security):
+            get_current_user(credentials) if credentials else None
+    ),
+) -> AuthenticatedUser:
+    """Try cookie first, fallback to header (for API keys)."""
+    if cookie_user:
+        return cookie_user
+    if header_user:
+        return header_user
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Not authenticated",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+```
+
+### 2. Update Login Endpoint
+
+**File: `apps/api/app/features/auth/routes/login.py`**
+
+```python
+from fastapi import Response, Cookie, HTTPException, status
+
+@router.post("/login")
+async def login_for_access_token(
+    response: Response,
+    login_data: LoginRequest,
+    use_case: LoginUseCase = Depends(get_login_use_case),
+) -> dict[str, str]:
+    """Authenticate user and set tokens in HTTP-only cookies."""
+    result = await use_case.execute(login_data.email, login_data.password)
+
+    # Get settings for environment-specific cookie configuration
+    settings = get_settings()
+    is_production = not settings.debug
+
+    # Set access token cookie
+    response.set_cookie(
+        key="access_token",
+        value=result.access_token,
+        httponly=True,              # Not accessible to JavaScript
+        secure=is_production,       # Only HTTPS in production
+        samesite="lax",             # CSRF protection
+        max_age=result.expires_in,  # 30 minutes
+        path="/",                   # Available site-wide
+    )
+
+    # Set refresh token cookie
+    response.set_cookie(
+        key="refresh_token",
+        value=result.refresh_token,
+        httponly=True,
+        secure=is_production,
+        samesite="lax",
+        max_age=60 * 60 * 24 * 30,  # 30 days
+        path="/api/v1/auth",        # Only sent to auth endpoints
+    )
+
+    return {
+        "message": "Login successful",
+        "token_type": "bearer"
+    }
+```
+
+### 3. Update Refresh Endpoint
+
+**File: `apps/api/app/features/auth/routes/login.py`**
+
+```python
+@router.post("/refresh")
+async def refresh_access_token(
+    response: Response,
+    refresh_token: str = Cookie(None),
+    use_case: RefreshTokenUseCase = Depends(get_refresh_token_use_case),
+) -> dict[str, str]:
+    """Refresh access token using refresh token from cookie."""
+    if not refresh_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token not found",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # Use case returns new tokens (already implements rotation)
+    result = await use_case.execute(refresh_token)
+
+    settings = get_settings()
+    is_production = not settings.debug
+
+    # Set NEW access token cookie
+    response.set_cookie(
+        key="access_token",
+        value=result.access_token,
+        httponly=True,
+        secure=is_production,
+        samesite="lax",
+        max_age=result.expires_in,
+        path="/",
+    )
+
+    # Set NEW refresh token cookie (rotated)
+    response.set_cookie(
+        key="refresh_token",
+        value=result.refresh_token,
+        httponly=True,
+        secure=is_production,
+        samesite="lax",
+        max_age=60 * 60 * 24 * 30,
+        path="/api/v1/auth",
+    )
+
+    return {
+        "message": "Token refreshed successfully",
+        "token_type": "bearer"
+    }
+```
+
+### 4. Add Logout Endpoint
+
+**File: `apps/api/app/features/auth/routes/login.py`**
+
+```python
+@router.post("/logout")
+async def logout(
+    response: Response,
+    refresh_token: str = Cookie(None),
+) -> dict[str, str]:
+    """Logout user and clear authentication cookies."""
+
+    # Optional: Revoke refresh token in database
+    if refresh_token:
+        async with get_auth_db_session() as session:
+            result = await session.execute(
+                select(RefreshToken)
+                .where(RefreshToken.revoked == False)
+            )
+            db_tokens = list(result.scalars().all())
+
+            # Find and revoke the matching token
+            for token in db_tokens:
+                if verify_refresh_token(refresh_token, token.token_hash):
+                    token.revoked = True
+                    await session.commit()
+                    break
+
+    # Clear both cookies
+    response.delete_cookie(key="access_token", path="/")
+    response.delete_cookie(key="refresh_token", path="/api/v1/auth")
+
+    return {"message": "Logged out successfully"}
+```
+
+### 5. Add Current User Info Endpoint
+
+**File: `apps/api/app/features/auth/routes/login.py`**
+
+```python
+@router.get("/me")
+async def get_current_user_info(
+    current_user: AuthenticatedUser = Depends(get_current_user_from_cookie),
+) -> dict:
+    """Get current authenticated user information."""
+    async with get_auth_db_session() as session:
+        user = await session.get(User, current_user.user_id)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found",
+            )
+
+        return {
+            "id": str(user.id),
+            "email": user.email,
+            "role": user.role.value,
+            "tenant_id": str(user.tenant_id) if user.tenant_id else None,
+        }
+```
+
+### 6. Update Authorization Dependencies
+
+**File: `apps/api/app/core/authorization.py`**
+
+Update `get_tenant_from_jwt` to use the new cookie-based auth:
+
+```python
+async def get_tenant_from_jwt(
+    user: AuthenticatedUser = Depends(get_current_user_from_cookie),
+) -> TenantInfo | None:
+    """Get tenant info from JWT authentication (now from cookie)."""
+    if not user or not user.tenant_id:
+        return None
+
+    async with get_auth_db_session() as session:
+        tenant = await session.get(Tenant, user.tenant_id)
+        if not tenant:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Tenant not found for authenticated user",
+            )
+        return TenantInfo(tenant_id=user.tenant_id, graph_name=tenant.age_graph_name)
+```
+
+### 7. Update DTOs (Optional)
+
+**File: `apps/api/app/features/auth/dtos/auth_dto.py`**
+
+Keep the existing DTOs for backward compatibility, but they're no longer used for cookies:
+
+```python
+# LoginResponse and RefreshTokenResponse are now only used internally
+# The endpoints return simple success messages instead
+
+class LoginSuccessResponse(BaseModel):
+    """Response model for successful login with cookies."""
+    message: str
+    token_type: str = "bearer"
+
+class LogoutResponse(BaseModel):
+    """Response model for successful logout."""
+    message: str
+```
+
+---
+
+## Frontend Implementation
+
+### 1. Update `useApiFetch` Composable
+
+**File: `apps/web/src/api/useApiFetch.ts`**
+
+```typescript
+import { createFetch } from "@vueuse/core";
+import type { BeforeFetchContext, OnFetchErrorContext } from "@vueuse/core";
+
+const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api/v1";
+
+export const useApiFetch = createFetch({
+  baseUrl: BASE_URL,
+  options: {
+    // Run before every fetch call
+    async beforeFetch({ options }: BeforeFetchContext) {
+      // Cookies are sent automatically, but we can add other logic here
+      return { options };
+    },
+
+    // Handle errors, including automatic token refresh on 401
+    async onFetchError(ctx: OnFetchErrorContext) {
+      const { response } = ctx;
+
+      // If we get a 401 and it's not the refresh endpoint, try to refresh
+      if (
+        response?.status === 401 &&
+        !ctx.response?.url.includes("/auth/refresh")
+      ) {
+        console.log("Access token expired, attempting refresh...");
+
+        const refreshed = await refreshAccessToken();
+
+        if (refreshed) {
+          // Retry the original request
+          console.log("Token refreshed, retrying original request");
+          return await ctx.execute();
+        } else {
+          // Refresh failed, redirect to login
+          console.error("Token refresh failed, redirecting to login");
+          window.location.href = "/login";
+        }
+      }
+
+      // For other errors, return the context as-is
+      return ctx;
+    },
+  },
+
+  // Default fetch options applied to all requests
+  fetchOptions: {
+    headers: {
+      "Content-Type": "application/json",
+    },
+    credentials: "include", // ⭐ Critical: Send cookies with every request
+  },
+});
+
+/**
+ * Refresh the access token using the refresh token cookie.
+ * Returns true if successful, false otherwise.
+ */
+async function refreshAccessToken(): Promise<boolean> {
+  try {
+    const response = await fetch(`${BASE_URL}/auth/refresh`, {
+      method: "POST",
+      credentials: "include", // Send refresh_token cookie
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (response.ok) {
+      console.log("Token refreshed successfully");
+      return true;
+    }
+
+    console.error("Token refresh failed:", response.status);
+    return false;
+  } catch (error) {
+    console.error("Token refresh error:", error);
+    return false;
+  }
+}
+
+// Export for manual refresh if needed
+export { refreshAccessToken };
+```
+
+### 2. Create Authentication Composable
+
+**File: `apps/web/src/features/login/composables/useAuth.ts`** (new file)
+
+```typescript
+import { ref } from "vue";
+import { useRouter } from "vue-router";
+import { useApiFetch } from "@/api/useApiFetch";
+
+interface LoginCredentials {
+  email: string;
+  password: string;
+}
+
+interface CurrentUser {
+  id: string;
+  email: string;
+  role: string;
+  tenant_id: string | null;
+}
+
+export function useAuth() {
+  const router = useRouter();
+  const currentUser = ref<CurrentUser | null>(null);
+  const isLoading = ref(false);
+  const error = ref<string | null>(null);
+
+  /**
+   * Login with email and password
+   */
+  const login = async (credentials: LoginCredentials) => {
+    isLoading.value = true;
+    error.value = null;
+
+    const {
+      execute,
+      statusCode,
+      error: fetchError,
+    } = useApiFetch("/auth/login", {
+      immediate: false,
+    })
+      .post(credentials)
+      .json<{ message: string; token_type: string }>();
+
+    await execute();
+
+    isLoading.value = false;
+
+    if (statusCode.value && statusCode.value >= 200 && statusCode.value < 300) {
+      // Success - tokens are in cookies, fetch user info
+      await fetchCurrentUser();
+      return true;
+    } else {
+      error.value = fetchError.value?.message || "Login failed";
+      return false;
+    }
+  };
+
+  /**
+   * Logout and clear session
+   */
+  const logout = async () => {
+    const { execute } = useApiFetch("/auth/logout", {
+      immediate: false,
+    })
+      .post()
+      .json();
+
+    await execute();
+
+    currentUser.value = null;
+    router.push("/login");
+  };
+
+  /**
+   * Fetch current user information
+   */
+  const fetchCurrentUser = async () => {
+    const { execute, data, statusCode } = useApiFetch("/auth/me", {
+      immediate: false,
+    })
+      .get()
+      .json<CurrentUser>();
+
+    await execute();
+
+    if (statusCode.value && statusCode.value >= 200 && statusCode.value < 300) {
+      currentUser.value = data.value;
+      return true;
+    }
+
+    return false;
+  };
+
+  /**
+   * Check if user is authenticated
+   */
+  const checkAuth = async () => {
+    return await fetchCurrentUser();
+  };
+
+  return {
+    currentUser,
+    isLoading,
+    error,
+    login,
+    logout,
+    checkAuth,
+  };
+}
+```
+
+### 3. Update Login View
+
+**File: `apps/web/src/features/login/views/LoginView.vue`**
+
+```vue
+<script setup lang="ts">
+import { ref } from "vue";
+import { useRouter } from "vue-router";
+import { useAuth } from "../composables/useAuth";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+
+const router = useRouter();
+const { login, isLoading, error: authError } = useAuth();
+
+// Form data
+const email = ref("");
+const password = ref("");
+const errorMessage = ref("");
+
+// Handle login submission
+const handleLogin = async () => {
+  if (!email.value || !password.value) {
+    errorMessage.value = "Please fill in all fields";
+    return;
+  }
+
+  errorMessage.value = "";
+
+  const success = await login({
+    email: email.value,
+    password: password.value,
+  });
+
+  if (success) {
+    console.log("Login successful, redirecting...");
+    router.push("/");
+  } else {
+    errorMessage.value = authError.value || "Invalid credentials";
+  }
+};
+</script>
+
+<template>
+  <div class="flex justify-center items-center min-h-screen bg-background p-8">
+    <Card class="w-full max-w-sm">
+      <CardHeader>
+        <CardTitle>Welcome Back</CardTitle>
+        <CardDescription>Enter your credentials to sign in.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form @submit.prevent="handleLogin" class="flex flex-col gap-6">
+          <div class="flex flex-col gap-2">
+            <label for="email">Email</label>
+            <Input
+              id="email"
+              v-model="email"
+              type="email"
+              placeholder="Enter your email"
+              class="w-full"
+              required
+            />
+          </div>
+
+          <div class="flex flex-col gap-2">
+            <label for="password">Password</label>
+            <Input
+              id="password"
+              v-model="password"
+              type="password"
+              placeholder="Enter your password"
+              class="w-full"
+              required
+            />
+          </div>
+
+          <Alert v-if="errorMessage" variant="destructive">
+            <AlertDescription>
+              {{ errorMessage }}
+            </AlertDescription>
+          </Alert>
+
+          <Button type="submit" :disabled="isLoading" size="lg">
+            <span v-if="isLoading">Signing in...</span>
+            <span v-else>Sign In</span>
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
+  </div>
+</template>
+```
+
+### 4. Update Route Guards
+
+**File: `apps/web/src/features/graph/routes.ts`**
+
+```typescript
+import type { RouteRecordRaw } from "vue-router";
+
+// Check authentication by hitting the /auth/me endpoint
+const checkAuth = async (): Promise<boolean> => {
+  try {
+    const response = await fetch("http://localhost:8000/api/v1/auth/me", {
+      credentials: "include",
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+};
+
+export const graphRoutes: RouteRecordRaw[] = [
+  {
+    path: "/",
+    name: "Home",
+    component: () => import("./views/HomeView.vue"),
+    beforeEnter: async (_to, _from, next) => {
+      const isAuth = await checkAuth();
+      if (!isAuth) {
+        console.log("Not authenticated, redirecting to login");
+        next("/login");
+      } else {
+        next();
+      }
+    },
+  },
+];
+```
+
+### 5. Environment Configuration
+
+**File: `apps/web/.env.development`** (new file)
+
+```env
+VITE_API_URL=http://localhost:8000/api/v1
+```
+
+**File: `apps/web/.env.production`** (new file)
+
+```env
+VITE_API_URL=https://your-production-domain.com/api/v1
+```
+
+### 6. No Changes Needed in Existing API Composables! ✅
+
+**File: `apps/web/src/features/graph/api/graphApi.ts`**
+
+Your existing API composables will work automatically with cookies:
+
+```typescript
+// This already works with the updated useApiFetch!
+export const useFindEntityByIdentifier = (
+  params: MaybeRefOrGetter<FindEntityParams>
+) => {
+  const url = computed(() => {
+    const resolvedParams = toValue(params);
+    if (!resolvedParams || !resolvedParams.value) {
+      return "";
+    }
+    return `/graph/entities/lookup?type=${resolvedParams.type}&value=${resolvedParams.value}`;
+  });
+
+  return useApiFetch(url, {
+    refetch: false,
+    immediate: false,
+  })
+    .get()
+    .json<GetEntityResponse>();
+};
+```
+
+---
+
+## Security Considerations
+
+### 1. Cookie Security Attributes
+
+| Attribute  | Value                                  | Purpose                                     |
+| ---------- | -------------------------------------- | ------------------------------------------- |
+| `HttpOnly` | `true`                                 | Prevents JavaScript access (XSS protection) |
+| `Secure`   | `true` (prod)                          | Only sent over HTTPS                        |
+| `SameSite` | `Lax`                                  | CSRF protection, allows normal navigation   |
+| `Path`     | `/` (access), `/api/v1/auth` (refresh) | Limits cookie scope                         |
+| `Max-Age`  | 30 min (access), 30 days (refresh)     | Automatic expiration                        |
+
+### 2. XSS Protection
+
+✅ **HTTP-only cookies**: Tokens cannot be accessed by JavaScript, even if XSS vulnerability exists
+✅ **Content Security Policy**: Consider adding CSP headers to further restrict script execution
+✅ **Input sanitization**: All user inputs should be sanitized (already handled by FastAPI)
+
+### 3. CSRF Protection
+
+✅ **SameSite=Lax**: Cookies not sent on cross-site POST requests
+✅ **CORS configuration**: Only allow specific origins
+⚠️ **Optional CSRF tokens**: For additional protection, consider implementing CSRF tokens for state-changing operations
+
+### 4. Token Rotation
+
+✅ **Refresh token rotation**: Each refresh generates new refresh token and revokes old one
+✅ **Prevents replay attacks**: Old refresh tokens cannot be reused
+✅ **Detects token theft**: If revoked token is used, indicates potential compromise
+
+### 5. HTTPS Requirement
+
+⚠️ **Production**: MUST use HTTPS with `Secure=true` cookies
+✅ **Development**: Can use HTTP with `Secure=false` for local testing
+⚠️ **Mixed content**: Ensure all resources loaded over HTTPS in production
+
+### 6. Token Expiration
+
+✅ **Short-lived access tokens**: 30 minutes reduces window of opportunity if compromised
+✅ **Long-lived refresh tokens**: 30 days provides good UX balance
+✅ **Automatic refresh**: Frontend automatically refreshes tokens before they expire
+
+### 7. Rate Limiting
+
+Consider implementing rate limiting on authentication endpoints:
+
+- Login: 5 attempts per 15 minutes per IP
+- Refresh: 10 attempts per minute per IP
+- Password reset: 3 attempts per hour per email
+
+---
+
+## Implementation Steps
+
+### Phase 1: Backend Changes (2-3 hours)
+
+1. **Update authentication core** (30 min)
+
+   - [ ] Add `get_current_user_from_cookie` function
+   - [ ] Test token verification from cookies
+   - [ ] Update imports in authorization module
+
+2. **Update login endpoint** (30 min)
+
+   - [ ] Modify `/auth/login` to set cookies
+   - [ ] Remove response model or create new DTO
+   - [ ] Test login flow with cookie inspection
+
+3. **Update refresh endpoint** (30 min)
+
+   - [ ] Modify `/auth/refresh` to read from cookie
+   - [ ] Set new cookies in response
+   - [ ] Test token rotation
+
+4. **Add logout endpoint** (30 min)
+
+   - [ ] Create `/auth/logout` endpoint
+   - [ ] Implement token revocation
+   - [ ] Clear cookies
+
+5. **Add /me endpoint** (20 min)
+
+   - [ ] Create `/auth/me` endpoint
+   - [ ] Test user info retrieval
+
+6. **Update authorization dependencies** (20 min)
+   - [ ] Update `get_tenant_from_jwt` to use cookies
+   - [ ] Test with protected endpoints
+
+### Phase 2: Frontend Changes (2-3 hours)
+
+1. **Update useApiFetch** (45 min)
+
+   - [ ] Add `credentials: 'include'` to fetch options
+   - [ ] Implement `onFetchError` with automatic refresh
+   - [ ] Test automatic token refresh on 401
+   - [ ] Add environment variable for API URL
+
+2. **Create useAuth composable** (45 min)
+
+   - [ ] Implement login function
+   - [ ] Implement logout function
+   - [ ] Implement checkAuth function
+   - [ ] Add reactive state management
+
+3. **Update LoginView** (30 min)
+
+   - [ ] Integrate useAuth composable
+   - [ ] Remove localStorage logic
+   - [ ] Test login flow
+
+4. **Update route guards** (30 min)
+
+   - [ ] Replace localStorage check with API call
+   - [ ] Test protected routes
+   - [ ] Test redirect to login
+
+5. **Environment configuration** (15 min)
+   - [ ] Create .env files
+   - [ ] Update vite.config.ts if needed
+   - [ ] Document environment variables
+
+### Phase 3: Testing (2-3 hours)
+
+1. **Unit tests** (1 hour)
+
+   - [ ] Test cookie setting in login endpoint
+   - [ ] Test cookie reading in auth middleware
+   - [ ] Test token refresh logic
+   - [ ] Test logout functionality
+
+2. **Integration tests** (1 hour)
+
+   - [ ] Test complete login flow
+   - [ ] Test automatic token refresh
+   - [ ] Test protected route access
+   - [ ] Test logout and session clearing
+
+3. **Manual testing** (1 hour)
+   - [ ] Test in Chrome, Firefox, Safari
+   - [ ] Test cookie security attributes in DevTools
+   - [ ] Test network tab for cookie behavior
+   - [ ] Test expired token scenarios
+   - [ ] Test logout from multiple tabs
+
+### Phase 4: Documentation and Deployment (1 hour)
+
+1. **Update API documentation** (30 min)
+
+   - [ ] Document cookie-based authentication
+   - [ ] Update OpenAPI/Swagger docs
+   - [ ] Add security scheme documentation
+
+2. **Update README** (20 min)
+
+   - [ ] Document authentication approach
+   - [ ] Add setup instructions
+   - [ ] Document environment variables
+
+3. **Deployment checklist** (10 min)
+   - [ ] Verify HTTPS is enabled
+   - [ ] Set `Secure=true` in production
+   - [ ] Configure CORS for production domain
+   - [ ] Set proper environment variables
+
+---
+
+## Testing Strategy
+
+### Backend Tests
+
+**File: `apps/api/tests/features/auth/routes/test_login_with_cookies.py`**
+
+```python
+import pytest
+from httpx import AsyncClient
+
+@pytest.mark.asyncio
+async def test_login_sets_cookies(client: AsyncClient, test_user):
+    """Test that login endpoint sets HTTP-only cookies."""
+    response = await client.post(
+        "/api/v1/auth/login",
+        json={"email": test_user.email, "password": "test_password"}
+    )
+
+    assert response.status_code == 200
+    assert "access_token" in response.cookies
+    assert "refresh_token" in response.cookies
+
+    # Verify cookie attributes
+    access_cookie = response.cookies["access_token"]
+    assert access_cookie.httponly
+    assert access_cookie.samesite == "lax"
+
+
+@pytest.mark.asyncio
+async def test_refresh_with_cookie(client: AsyncClient, test_user):
+    """Test that refresh endpoint reads from and sets cookies."""
+    # First login
+    login_response = await client.post(
+        "/api/v1/auth/login",
+        json={"email": test_user.email, "password": "test_password"}
+    )
+
+    # Extract cookies
+    cookies = login_response.cookies
+
+    # Refresh with cookies
+    refresh_response = await client.post(
+        "/api/v1/auth/refresh",
+        cookies=cookies
+    )
+
+    assert refresh_response.status_code == 200
+    assert "access_token" in refresh_response.cookies
+    assert "refresh_token" in refresh_response.cookies
+
+    # Verify new tokens are different
+    assert refresh_response.cookies["access_token"] != cookies["access_token"]
+    assert refresh_response.cookies["refresh_token"] != cookies["refresh_token"]
+
+
+@pytest.mark.asyncio
+async def test_authenticated_request_with_cookie(client: AsyncClient, test_user):
+    """Test accessing protected endpoint with cookie."""
+    # Login
+    login_response = await client.post(
+        "/api/v1/auth/login",
+        json={"email": test_user.email, "password": "test_password"}
+    )
+
+    cookies = login_response.cookies
+
+    # Access protected endpoint
+    me_response = await client.get(
+        "/api/v1/auth/me",
+        cookies=cookies
+    )
+
+    assert me_response.status_code == 200
+    data = me_response.json()
+    assert data["email"] == test_user.email
+
+
+@pytest.mark.asyncio
+async def test_logout_clears_cookies(client: AsyncClient, test_user):
+    """Test that logout clears cookies."""
+    # Login
+    login_response = await client.post(
+        "/api/v1/auth/login",
+        json={"email": test_user.email, "password": "test_password"}
+    )
+
+    cookies = login_response.cookies
+
+    # Logout
+    logout_response = await client.post(
+        "/api/v1/auth/logout",
+        cookies=cookies
+    )
+
+    assert logout_response.status_code == 200
+
+    # Verify cookies are cleared (max_age=0 or expired)
+    # Implementation depends on your HTTP client
+```
+
+### Frontend Tests
+
+**File: `apps/web/src/features/login/composables/__tests__/useAuth.spec.ts`**
+
+```typescript
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { useAuth } from "../useAuth";
+
+describe("useAuth", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("should login successfully with valid credentials", async () => {
+    // Mock fetch
+    global.fetch = vi.fn(() =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ message: "Login successful" }),
+      } as Response)
+    );
+
+    const { login, currentUser } = useAuth();
+    const success = await login({
+      email: "test@example.com",
+      password: "password123",
+    });
+
+    expect(success).toBe(true);
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining("/auth/login"),
+      expect.objectContaining({
+        method: "POST",
+        credentials: "include",
+      })
+    );
+  });
+
+  it("should handle login failure", async () => {
+    global.fetch = vi.fn(() =>
+      Promise.resolve({
+        ok: false,
+        status: 401,
+        json: () => Promise.resolve({ detail: "Invalid credentials" }),
+      } as Response)
+    );
+
+    const { login, error } = useAuth();
+    const success = await login({
+      email: "test@example.com",
+      password: "wrong",
+    });
+
+    expect(success).toBe(false);
+    expect(error.value).toBeTruthy();
+  });
+
+  it("should check authentication status", async () => {
+    global.fetch = vi.fn(() =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve({
+            id: "123",
+            email: "test@example.com",
+            role: "TENANT_USER",
+          }),
+      } as Response)
+    );
+
+    const { checkAuth, currentUser } = useAuth();
+    const isAuth = await checkAuth();
+
+    expect(isAuth).toBe(true);
+    expect(currentUser.value).toBeTruthy();
+    expect(currentUser.value?.email).toBe("test@example.com");
+  });
+});
+```
+
+---
+
+## Migration Considerations
+
+### Backward Compatibility
+
+For a smooth transition, you can support both authentication methods temporarily:
+
+1. **Accept tokens from both cookie and header**
+2. **Gradually migrate clients to cookie-based auth**
+3. **Remove header-based auth after migration period**
+
+### Existing Sessions
+
+- Users with existing tokens in localStorage will need to re-login
+- Consider adding a migration notice in the UI
+- Clear localStorage on first load of new version
+
+### API Clients
+
+- Mobile apps might prefer header-based auth (easier than cookie management)
+- Keep API key authentication for service-to-service communication
+- Document both authentication methods
+
+---
+
+## Monitoring and Observability
+
+### Metrics to Track
+
+1. **Authentication success/failure rates**
+2. **Token refresh frequency**
+3. **Average session duration**
+4. **Failed refresh attempts (potential security issue)**
+5. **Logout frequency**
+
+### Logging
+
+Log the following events:
+
+- Successful logins (user ID, IP, timestamp)
+- Failed login attempts (email, IP, reason, timestamp)
+- Token refreshes (user ID, timestamp)
+- Logouts (user ID, timestamp)
+- Suspicious activity (multiple failed refresh attempts)
+
+### Alerts
+
+Set up alerts for:
+
+- Unusual spike in failed logins
+- High rate of failed token refreshes
+- Potential credential stuffing attacks
+
+---
+
+## Future Enhancements
+
+### Short Term
+
+1. **Remember Me**: Extend refresh token expiration for opted-in users
+2. **Session Management**: List active sessions, revoke specific sessions
+3. **Two-Factor Authentication**: Add TOTP or SMS-based 2FA
+4. **Password Reset**: Implement secure password reset flow
+
+### Long Term
+
+1. **OAuth2/OIDC**: Support social login (Google, GitHub, etc.)
+2. **Biometric Authentication**: WebAuthn for passwordless login
+3. **Device Fingerprinting**: Track and verify known devices
+4. **Anomaly Detection**: ML-based detection of unusual login patterns
+
+---
+
+## Conclusion
+
+This authentication implementation using HTTP-only cookies provides a secure, scalable, and user-friendly authentication system. The key benefits are:
+
+✅ **Security First**: XSS-proof token storage
+✅ **Seamless UX**: Automatic token refresh, persistent sessions
+✅ **Clean Architecture**: Separation of concerns, testable code
+✅ **Future-Proof**: Easy to extend with additional auth methods
+
+### Success Criteria
+
+- [ ] All authentication endpoints use cookies
+- [ ] Frontend automatically refreshes tokens
+- [ ] Protected routes require authentication
+- [ ] Logout clears all session data
+- [ ] All tests passing
+- [ ] Security audit completed
+- [ ] Documentation updated
+
+### Timeline
+
+**Total Estimated Time**: 8-10 hours
+
+- Backend: 2-3 hours
+- Frontend: 2-3 hours
+- Testing: 2-3 hours
+- Documentation: 1 hour
+
+### Next Steps
+
+1. Review this plan with the team
+2. Set up development environment
+3. Start with Phase 1 (Backend Changes)
+4. Test thoroughly at each phase
+5. Deploy to staging for integration testing
+6. Deploy to production with monitoring
+
+---
+
+**Document Version**: 1.0
+**Last Updated**: October 29, 2025
+**Author**: Development Team
+**Status**: Ready for Implementation
+</file>
+
+<file path="apps/api/app/core/authorization.py">
+from collections.abc import Awaitable
+from datetime import UTC, datetime
+from typing import Callable
+from uuid import UUID
+
+from fastapi import Depends, HTTPException, status
+from fastapi.security import APIKeyHeader
+from pydantic import BaseModel
+from sqlalchemy import and_, or_, select
+
+from app.core.authentication import (
+    pwd_context,
+    verify_auth,
+)
+from app.core.schemas import AuthenticatedUser, UserRole
+from app.db.postgres.auth_session import get_auth_db_session
+from app.features.auth.models import ApiKey, Tenant
+
+
+# A dependency factory
+def require_roles(
+    allowed_roles: list[UserRole],
+) -> Callable[..., Awaitable[AuthenticatedUser]]:
+    """
+    Factory for creating a dependency that checks if a user has one of
+    the allowed roles.
+    """
+
+    async def role_checker(
+        user: AuthenticatedUser = Depends(verify_auth),
+    ) -> AuthenticatedUser:
+        """
+        The actual dependency that checks the user's role.
+        """
+        if user.role not in allowed_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Insufficient permissions",
+            )
+        return user
+
+    return role_checker
+
+
+# --- Create your specific role dependencies ---
+is_super_admin = require_roles([UserRole.SUPER_ADMIN])
+is_tenant_admin = require_roles([UserRole.TENANT_ADMIN])
+is_admin = require_roles([UserRole.SUPER_ADMIN, UserRole.TENANT_ADMIN])
+is_any_tenant_user = require_roles([UserRole.TENANT_ADMIN, UserRole.TENANT_USER])
+
+
+# --- Tenant Info and Authentication Dependencies ---
+class TenantInfo(BaseModel):
+    """Tenant information including graph name."""
+
+    tenant_id: UUID
+    graph_name: str
+
+
+# API Key security scheme
+api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+
+
+async def get_tenant_from_api_key(
+    key: str | None = Depends(api_key_header),
+) -> TenantInfo | None:
+    """Get tenant info from API key authentication."""
+    if not key or "." not in key:
+        return None
+
+    prefix, _ = key.split(".", 1)
+
+    async with get_auth_db_session() as session:
+        result = await session.execute(
+            select(ApiKey).where(
+                and_(
+                    ApiKey.key_prefix == prefix,
+                    or_(
+                        ApiKey.expires_at.is_(None),
+                        ApiKey.expires_at > datetime.now(UTC),
+                    ),
+                )
+            )
+        )
+        api_keys = result.scalars().all()
+
+        found_key: ApiKey | None = None
+        for api_key_record in api_keys:
+            if pwd_context.verify(key, api_key_record.hashed_key):
+                found_key = api_key_record
+                break
+
+        if not found_key:
+            return None
+
+        tenant = await session.get(Tenant, found_key.tenant_id)
+        if not tenant:
+            return None
+
+        found_key.last_used_at = datetime.now(UTC)
+        await session.commit()
+
+        return TenantInfo(tenant_id=tenant.id, graph_name=tenant.age_graph_name)
+
+
+async def get_tenant_from_jwt(
+    user: AuthenticatedUser = Depends(verify_auth),
+) -> TenantInfo | None:
+    """Get tenant info from JWT authentication (from cookie)."""
+    if not user or not user.tenant_id:
+        return None
+
+    async with get_auth_db_session() as session:
+        tenant = await session.get(Tenant, user.tenant_id)
+        if not tenant:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Tenant not found for authenticated user",
+            )
+        return TenantInfo(tenant_id=user.tenant_id, graph_name=tenant.age_graph_name)
+
+
+async def get_tenant_info(
+    jwt_tenant: TenantInfo | None = Depends(get_tenant_from_jwt),
+    api_key_tenant: TenantInfo | None = Depends(get_tenant_from_api_key),
+) -> TenantInfo:
+    """Master dependency that resolves tenant info from either JWT or API key.
+
+    Prioritizes JWT over API key authentication.
+    """
+    if jwt_tenant:
+        return jwt_tenant
+
+    if api_key_tenant:
+        return api_key_tenant
+
+    # Neither authentication method provided or valid
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Authentication required",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+</file>
+
+<file path="apps/api/app/features/auth/routes/tenants.py">
+"""Signup route handler."""
+
+from typing import Protocol
+
+from fastapi import APIRouter, Depends
+
+from app.core.authentication import pwd_context
+from app.core.authorization import is_super_admin
+from app.core.schemas import AuthenticatedUser
+from app.db.postgres.auth_session import get_auth_db_session
+from app.db.postgres.graph_connection import get_graph_db_pool
+from app.features.auth.dtos import CreateTenantRequest, CreateTenantResponse
+from app.features.auth.usecases.signup_tenant_usecase import SignupTenantUseCaseImpl
+
+
+class PasswordHasherImpl:
+    """Wrapper for password hashing to match protocol."""
+
+    def hash(self, secret: str | bytes, **kwargs) -> str:
+        """Hash a password or secret."""
+        return pwd_context.hash(secret, **kwargs)
+
+
+async def get_signup_tenant_use_case():
+    """Dependency injection for the signup tenant use case."""
+    return SignupTenantUseCaseImpl(
+        password_hasher=PasswordHasherImpl(),
+        get_db_session=get_auth_db_session,
+        get_db_pool=get_graph_db_pool,
+    )
+
+
+class SignupTenantUseCase(Protocol):
+    """Protocol for the signup tenant use case."""
+
+    async def execute(self, request: CreateTenantRequest) -> CreateTenantResponse:
+        """Create a new tenant with user and graph."""
+        ...
+
+
+router = APIRouter()
+
+
+@router.post("/create_tenant", response_model=CreateTenantResponse)
+async def create_tenant(
+    request: CreateTenantRequest,
+    use_case: SignupTenantUseCase = Depends(get_signup_tenant_use_case),
+    _: AuthenticatedUser = Depends(is_super_admin),
+) -> CreateTenantResponse:
+    """Create a new tenant with an initial user and AGE graph.
+
+    This endpoint creates:
+    1. A new tenant record
+    2. An initial user for the tenant
+    3. A dedicated Apache AGE graph for the tenant
+    """
+    return await use_case.execute(request)
+</file>
+
+<file path="apps/api/scripts/create_super_admin.py">
+import asyncio
+import getpass
+import uuid
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+
+from app.core.authentication import get_password_hash
+from app.core.schemas import UserRole
+from app.core.settings import get_settings
+from app.db.postgres.auth_session import Base
+from app.features.auth.models import User
+
+
+async def create_super_admin(email: str, password: str):
+    """Creates the first super admin user."""
+    if not email or not password:
+        print("Email and password cannot be empty.")
+        return
+
+    settings = get_settings()
+    engine = create_async_engine(settings.database_url, echo=True)
+
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+    async with engine.connect() as conn:
+        async with conn.begin():
+            session = AsyncSession(engine)
+
+            result = await session.execute(select(User).where(User.email == email))
+            if result.scalar_one_or_none():
+                print(f"User with email {email} already exists.")
+                return
+
+            hashed_password = get_password_hash(password)
+            super_admin = User(
+                id=uuid.uuid4(),
+                email=email,
+                hashed_password=hashed_password,
+                role=UserRole.SUPER_ADMIN,
+                is_active=True,
+                tenant_id=None,
+            )
+            session.add(super_admin)
+            await session.commit()
+            print(f"Super admin {email} created successfully.")
+
+
+def get_user_input():
+    """Get email and password from user interactively."""
+    email = input("Enter email for super admin: ").strip()
+
+    if not email:
+        print("Email cannot be empty.")
+        return None, None
+
+    password = getpass.getpass("Enter password for super admin: ")
+    if not password:
+        print("Password cannot be empty.")
+        return None, None
+
+    confirm_password = getpass.getpass("Confirm password: ")
+    if password != confirm_password:
+        print("Passwords do not match.")
+        return None, None
+
+    return email, password
+
+
+if __name__ == "__main__":
+    print("Create Super Admin User")
+    print("=" * 25)
+
+    email, password = get_user_input()
+    if not email or not password:
+        exit(1)
+
+    asyncio.run(create_super_admin(email, password))
+</file>
+
+<file path="apps/api/tests/features/auth/usecases/test_signup_tenant_usecase_integration.py">
+"""Integration tests for the SignupTenantUseCase."""
+
+import asyncpg
+import pytest
+from fastapi import HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+
+from app.features.auth.dtos import CreateTenantRequest
+from app.features.auth.models import Tenant, User
+from app.features.auth.usecases.signup_tenant_usecase import (
+    PasswordHasher,
+    SignupTenantUseCaseImpl,
+)
+
+# All fixtures are now provided by tests/conftest.py
+
+
+@pytest.mark.asyncio
+class TestSignupTenantUseCase:
+    """Test suite for the SignupTenantUseCase."""
+
+    async def test_signup_tenant_successfully(
+        self,
+        db_session: AsyncSession,
+        postgres_pool: asyncpg.Pool,
+        password_hasher: PasswordHasher,
+    ):
+        """Test the successful creation of a tenant, user, and graph."""
+        # Arrange
+        use_case = SignupTenantUseCaseImpl(
+            password_hasher=password_hasher,
+            get_db_session=lambda: db_session,
+            get_db_pool=lambda: postgres_pool,
+        )
+
+        request = CreateTenantRequest(
+            name="test-tenant",
+            email="test@example.com",
+            password="testpassword",
+        )
+
+        # Act
+        response = await use_case.execute(request)
+
+        # Assert
+        assert response.message == "Tenant created successfully"
+        assert response.tenant_id is not None
+        assert response.user_id is not None
+
+        # Verify database state
+
+        tenant = (
+            await db_session.execute(select(Tenant).filter_by(id=response.tenant_id))
+        ).scalar_one_or_none()
+        assert tenant is not None
+        assert tenant.name == "test-tenant"
+
+        user = (
+            await db_session.execute(select(User).filter_by(id=response.user_id))
+        ).scalar_one_or_none()
+        assert user is not None
+        assert user.email == "test@example.com"
+
+        # Verify graph creation
+        async with postgres_pool.acquire() as conn:
+            await conn.execute("SET search_path = ag_catalog, '$user', public;")
+            graph_exists = await conn.fetchval(
+                "SELECT 1 FROM ag_graph WHERE name = $1;", tenant.age_graph_name
+            )
+            assert graph_exists == 1
+
+    async def test_signup_tenant_duplicate(
+        self,
+        db_session: AsyncSession,
+        postgres_pool: asyncpg.Pool,
+        password_hasher: PasswordHasher,
+    ):
+        """Test that creating a tenant with a duplicate name or email fails."""
+        # Arrange
+        use_case = SignupTenantUseCaseImpl(
+            password_hasher=password_hasher,
+            get_db_session=lambda: db_session,
+            get_db_pool=lambda: postgres_pool,
+        )
+
+        request = CreateTenantRequest(
+            name="test-tenant",
+            email="test@example.com",
+            password="testpassword",
+        )
+        await use_case.execute(request)
+
+        # Act & Assert
+
+        with pytest.raises(HTTPException) as excinfo:
+            await use_case.execute(request)
+        assert excinfo.value.status_code == 400
+
+    @pytest.mark.parametrize(
+        "name, email, password, error_detail",
+        [
+            (
+                "a",
+                "test@example.com",
+                "password",
+                "Tenant name must be between 3 and 50 characters",
+            ),
+            (
+                "test-tenant",
+                "test@example.com",
+                "short",
+                "Password must be at least 8 characters long",
+            ),
+            (
+                "invalid name!",
+                "test@example.com",
+                "password",
+                "Tenant name can only contain alphanumeric characters, hyphens, and underscores",
+            ),
+        ],
+    )
+    async def test_signup_tenant_invalid_input(
+        self,
+        db_session: AsyncSession,
+        postgres_pool: asyncpg.Pool,
+        password_hasher: PasswordHasher,
+        name: str,
+        email: str,
+        password: str,
+        error_detail: str,
+    ):
+        """Test that signup fails with invalid input."""
+        # Arrange
+        use_case = SignupTenantUseCaseImpl(
+            password_hasher=password_hasher,
+            get_db_session=lambda: db_session,
+            get_db_pool=lambda: postgres_pool,
+        )
+
+        request = CreateTenantRequest(
+            name=name,
+            email=email,
+            password=password,
+        )
+
+        # Act & Assert
+        with pytest.raises(HTTPException) as excinfo:
+            await use_case.execute(request)
+        assert excinfo.value.status_code == 400
+        assert excinfo.value.detail == error_detail
+</file>
+
+<file path="README.md">
+# Nous Monorepo
+
+Welcome to the `nous` project monorepo. This repository contains all the code for the Nous AI Agent Memory System, including the FastAPI backend (`api`) and the Vue.js frontend (`web`).
+
+This project is managed as a **polyglot (Python + TypeScript) monorepo** using **pnpm Workspaces** and **Turborepo**.
+
+- **`pnpm`** manages the JavaScript dependencies and workspaces.
+- **`Turborepo`** orchestrates tasks (like `dev`, `test`, `lint`) across all projects.
+- **`uv`** manages the Python dependencies and virtual environment for the `api`.
+
+## Prerequisites
+
+Before you begin, ensure you have the following tools installed:
+
+1.  **Node.js**: Version `22.12.0` or higher is required. We recommend using a version manager like [nvm](https://github.com/nvm-sh/nvm) to easily switch between Node.js versions.
+2.  **pnpm**: The recommended way to install is via `corepack` (which comes with Node.js):
+    ```bash
+    corepack enable
+    ```
+3.  **uv**: The Python package manager used by the `api`.
+    ```bash
+    # (macOS/Linux)
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+    # (Windows)
+    powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+    ```
+
+## 1. Initial Setup
+
+To get your environment ready, run these commands from the root (`nous/`) directory:
+
+1.  **Install Node.js Dependencies:**
+    This command installs all Node.js dependencies for the entire monorepo, including `turbo` at the root and all dependencies for each application inside `apps/` (like `vite` for `web`). It also links the workspace packages together.
+
+    ```bash
+    pnpm install
+    ```
+
+2.  **Set up Python Environment:**
+    You only need to do this once for the `api` project.
+
+    ```bash
+    # 1. Navigate to the api directory
+    cd apps/api
+
+    # 2. Create a virtual environment
+    uv venv
+
+    # 3. Install all Python dependencies
+    uv sync
+
+    # 4. Go back to the root
+    cd ../..
+    ```
+
+3.  **Set up Environment Variables:**
+    The API requires a `.env` file for its configuration.
+
+    ```bash
+    # From the root directory:
+    cp apps/api/.env.example apps/api/.env
+
+    # Now, edit apps/api/.env with your database credentials.
+    ```
+
+## 2. Development Workflow
+
+All commands should be run from the **root of the monorepo**.
+
+### How to Start the API
+
+This command uses Turborepo to find the `api` project and run its `dev` script.
+
+```bash
+pnpm turbo dev --filter=api
+```
+
+Your FastAPI server will be running on `http://localhost:8000`.
+
+---
+
+### How to Start the Web-App
+
+This command uses Turborepo to find the `web` project and run its `dev` script.
+
+```bash
+pnpm turbo dev --filter=web
+```
+
+Your Vue.js app will be running on `http://localhost:5173` (or the next available port).
+
+---
+
+### How to Start Both (API + Web)
+
+This is the most common command you'll use. Turborepo finds _all_ projects with a `dev` script and runs them in parallel.
+
+```bash
+pnpm turbo dev
+```
+
+---
+
+### How to Run Tests
+
+This command runs the `test` script in all projects.
+
+```bash
+pnpm turbo test
+```
+
+> **Note:** The `apps/web` project currently has a placeholder test script. This command will primarily run the **Python tests** for the `api`.
+
+---
+
+### How to Run Linting
+
+This command runs the `lint` script in all projects (`ruff` for the API, `eslint` for the web app).
+
+```bash
+pnpm turbo lint
+```
+
+## 3. What Else Can I Do with Turborepo?
+
+Turborepo is more than just a task runner; it's a build system that makes your monorepo fast and efficient.
+
+### ⚡️ Caching (The "Turbo")
+
+This is Turborepo's killer feature.
+
+- **What it does:** Turborepo caches the output and logs of your tasks (like `test`, `lint`, and `build`).
+- **Why it's great:** If you run `pnpm turbo test`, and then run it again without changing any files in `apps/api`, Turborepo will **skip** running the tests and show you the cached result instantly. This saves a massive amount of time, especially in CI/CD pipelines.
+
+### 🎯 Filtering
+
+You've already used this\! The `--filter` flag lets you run tasks on a single project or a subset of projects.
+
+```bash
+# Run `build` only on the `web` app
+pnpm turbo build --filter=web
+```
+
+### 🏎️ Parallel Execution
+
+When you run a command like `pnpm turbo dev` or `pnpm turbo lint`, Turborepo reads your `turbo.json` and understands that these tasks can be run in parallel, maximizing your CPU usage and finishing faster.
+
+## 4. High-Level Directory Structure
+
+```plaintext
+nous/
+├── apps/
+│   ├── api/          # FastAPI (Python) backend
+│   └── web/          # Vue.js (TypeScript) frontend
+├── package.json      # Root Node.js dependencies (contains `turbo`)
+├── pnpm-workspace.yaml # Defines the `apps/*` as pnpm workspaces
+└── turbo.json        # Defines the monorepo task pipeline
+```
+</file>
+
+<file path="apps/api/app/core/authentication.py">
+"""Authentication utilities for JWT token validation and user retrieval."""
+
+import secrets
+from datetime import UTC, datetime, timedelta
+from uuid import UUID
+
+from fastapi import Cookie, Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from jose import JWTError, jwt
+from passlib.context import CryptContext
+
+from app.core.schemas import AuthenticatedUser, UserRole
+from app.core.settings import get_settings
+
+# Password hashing - using argon2 as bcrypt has issues.
+pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
+
+# Refresh token hashing context - using argon2
+refresh_token_context = CryptContext(schemes=["argon2"], deprecated="auto")
+
+optional_security = HTTPBearer(auto_error=False)
+
+
+def verify_token(token: str) -> dict[str, str | int]:
+    """Verify and decode a JWT token."""
+    settings = get_settings()
+
+    try:
+        payload = jwt.decode(
+            token, settings.secret_key, algorithms=[settings.algorithm]
+        )
+        return payload
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """Verify a plain password against its hash."""
+    return pwd_context.verify(plain_password, hashed_password)
+
+
+def get_password_hash(password: str) -> str:
+    """Hash a password."""
+    return pwd_context.hash(password)
+
+
+def create_access_token(
+    data: dict[str, str | UUID | datetime], expires_delta: timedelta | None = None
+) -> str:
+    """Create a JWT access token."""
+    settings = get_settings()
+    to_encode = data.copy()
+
+    if expires_delta:
+        expire = datetime.now(UTC) + expires_delta
+    else:
+        expire = datetime.now(UTC) + timedelta(
+            minutes=settings.access_token_expire_minutes
+        )
+
+    to_encode["exp"] = expire
+    encoded_jwt = jwt.encode(
+        to_encode, settings.secret_key, algorithm=settings.algorithm
+    )
+    return encoded_jwt
+
+
+def create_refresh_token() -> str:
+    """Generate a cryptographically secure random refresh token.
+
+    Returns:
+        A 64-character hexadecimal string (256 bits of entropy)
+    """
+    return secrets.token_hex(32)
+
+
+def hash_refresh_token(token: str) -> str:
+    """Hash a refresh token for secure storage in database.
+
+    Args:
+        token: The plain refresh token to hash
+
+    Returns:
+        The hashed token
+    """
+    return refresh_token_context.hash(token)
+
+
+def verify_refresh_token(plain_token: str, hashed_token: str) -> bool:
+    """Verify a plain refresh token against its hash.
+
+    Args:
+        plain_token: The plain refresh token from the request
+        hashed_token: The hashed token from the database
+
+    Returns:
+        True if the token matches, False otherwise
+    """
+    return refresh_token_context.verify(plain_token, hashed_token)
+
+
+async def verify_auth(
+    access_token: str | None = Cookie(None, alias="access_token"),
+    credentials: HTTPAuthorizationCredentials | None = Depends(optional_security),
+) -> AuthenticatedUser:
+    """Verify authentication from either cookie or Authorization header.
+
+    Tries cookie-based authentication first (for web app users),
+    then falls back to header-based authentication (for programmatic access).
+
+    Returns:
+        AuthenticatedUser with user_id, tenant_id, and role
+
+    Raises:
+        HTTPException 401 if not authenticated or token is invalid
+    """
+    # Try cookie first (web app authentication)
+    if access_token:
+        payload = verify_token(access_token)
+
+        user_id = payload.get("sub")
+        tenant_id = payload.get("tenant_id")
+        role_str = payload.get("role")
+
+        if user_id is None or role_str is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token missing required user or role information",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        try:
+            return AuthenticatedUser(
+                user_id=UUID(str(user_id)),
+                tenant_id=UUID(str(tenant_id)) if tenant_id else None,
+                role=UserRole(role_str),
+            )
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid user, tenant, or role format in token",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+    # Try Authorization header (programmatic authentication)
+    if credentials:
+        token = credentials.credentials
+        payload = verify_token(token)
+
+        user_id = payload.get("sub")
+        tenant_id = payload.get("tenant_id")
+        role_str = payload.get("role")
+
+        if user_id is None or role_str is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token missing required user or role information",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        try:
+            return AuthenticatedUser(
+                user_id=UUID(str(user_id)),
+                tenant_id=UUID(str(tenant_id)) if tenant_id else None,
+                role=UserRole(role_str),
+            )
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid user, tenant, or role format in token",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+    # Neither method provided authentication credentials
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Not authenticated",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+</file>
+
 <file path="apps/api/app/core/settings.py">
 """Application settings and configuration."""
 
@@ -9089,6 +11525,9 @@ class Settings(BaseSettings):
     algorithm: str = Field(default="HS256", description="JWT algorithm")
     access_token_expire_minutes: int = Field(
         default=30, description="Access token expiration time in minutes"
+    )
+    refresh_token_expire_days: int = Field(
+        default=30, description="Refresh token expiration time in days"
     )
 
     # PostgreSQL Database
@@ -9146,6 +11585,8 @@ from .auth_dto import (
     ListApiKeysResponse,
     LoginRequest,
     LoginResponse,
+    RefreshTokenRequest,
+    RefreshTokenResponse,
 )
 
 __all__ = [
@@ -9155,6 +11596,8 @@ __all__ = [
     "CreateUserResponse",
     "LoginRequest",
     "LoginResponse",
+    "RefreshTokenRequest",
+    "RefreshTokenResponse",
     "CreateApiKeyRequest",
     "CreateApiKeyResponse",
     "ApiKeyInfo",
@@ -9199,6 +11642,22 @@ class LoginResponse(BaseModel):
     """Response model for successful login."""
 
     access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+    expires_in: int
+
+
+class RefreshTokenRequest(BaseModel):
+    """Request model for refreshing access token."""
+
+    refresh_token: str
+
+
+class RefreshTokenResponse(BaseModel):
+    """Response model for successful token refresh."""
+
+    access_token: str
+    refresh_token: str
     token_type: str = "bearer"
     expires_in: int
 
@@ -9422,464 +11881,6 @@ class ListApiKeysUseCaseImpl:
             ]
 
             return ListApiKeysResponse(api_keys=api_key_infos)
-</file>
-
-<file path="apps/web/src/features/login/views/LoginView.vue">
-<script setup lang="ts">
-import { ref } from "vue";
-import { useRouter } from "vue-router";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-
-const router = useRouter();
-
-// Reactive data
-const email = ref("");
-const password = ref("");
-const loading = ref(false);
-const errorMessage = ref("");
-
-// Methods
-const handleLogin = async () => {
-  if (!email.value || !password.value) {
-    errorMessage.value = "Please fill in all fields";
-    return;
-  }
-
-  loading.value = true;
-  errorMessage.value = "";
-
-  try {
-    // TODO: Implement actual login logic
-    console.log("Login attempt:", {
-      email: email.value,
-      password: password.value,
-    });
-
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-
-    // Mock successful login - set authentication state
-    localStorage.setItem("isLoggedIn", "true");
-
-    // Redirect to home after successful login
-    router.push("/");
-  } catch (error) {
-    errorMessage.value = "Login failed. Please try again.";
-  } finally {
-    loading.value = false;
-  }
-};
-</script>
-
-<template>
-  <div class="flex justify-center items-center min-h-screen bg-background p-8">
-    <Card class="w-full max-w-sm">
-      <CardHeader>
-        <CardTitle>Welcome Back</CardTitle>
-        <CardDescription>Enter your credentials to sign in.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form @submit.prevent="handleLogin" class="flex flex-col gap-6">
-          <div class="flex flex-col gap-2">
-            <label for="email">Email</label>
-            <Input
-              id="email"
-              v-model="email"
-              type="email"
-              placeholder="Enter your email"
-              class="w-full"
-              required
-            />
-          </div>
-
-          <div class="flex flex-col gap-2">
-            <label for="password">Password</label>
-            <Input
-              id="password"
-              v-model="password"
-              type="password"
-              placeholder="Enter your password"
-              class="w-full"
-              required
-            />
-          </div>
-
-          <Alert v-if="errorMessage" variant="destructive">
-            <AlertDescription>
-              {{ errorMessage }}
-            </AlertDescription>
-          </Alert>
-
-          <Button type="submit" :disabled="loading" size="lg">
-            <span v-if="loading">Signing in...</span>
-            <span v-else>Sign In</span>
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
-  </div>
-</template>
-</file>
-
-<file path="README.md">
-# Nous Monorepo
-
-Welcome to the `nous` project monorepo. This repository contains all the code for the Nous AI Agent Memory System, including the FastAPI backend (`api`) and the Vue.js frontend (`web`).
-
-This project is managed as a **polyglot (Python + TypeScript) monorepo** using **pnpm Workspaces** and **Turborepo**.
-
-- **`pnpm`** manages the JavaScript dependencies and workspaces.
-- **`Turborepo`** orchestrates tasks (like `dev`, `test`, `lint`) across all projects.
-- **`uv`** manages the Python dependencies and virtual environment for the `api`.
-
-## Prerequisites
-
-Before you begin, ensure you have the following tools installed:
-
-1.  **Node.js**: Version `22.12.0` or higher is required. We recommend using a version manager like [nvm](https://github.com/nvm-sh/nvm) to easily switch between Node.js versions.
-2.  **pnpm**: The recommended way to install is via `corepack` (which comes with Node.js):
-    ```bash
-    corepack enable
-    ```
-3.  **uv**: The Python package manager used by the `api`.
-    ```bash
-    # (macOS/Linux)
-    curl -LsSf https://astral.sh/uv/install.sh | sh
-    # (Windows)
-    powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
-    ```
-
-## 1. Initial Setup
-
-To get your environment ready, run these commands from the root (`nous/`) directory:
-
-1.  **Install Node.js Dependencies:**
-    This command installs all Node.js dependencies for the entire monorepo, including `turbo` at the root and all dependencies for each application inside `apps/` (like `vite` for `web`). It also links the workspace packages together.
-
-    ```bash
-    pnpm install
-    ```
-
-2.  **Set up Python Environment:**
-    You only need to do this once for the `api` project.
-
-    ```bash
-    # 1. Navigate to the api directory
-    cd apps/api
-
-    # 2. Create a virtual environment
-    uv venv
-
-    # 3. Install all Python dependencies
-    uv sync
-
-    # 4. Go back to the root
-    cd ../..
-    ```
-
-3.  **Set up Environment Variables:**
-    The API requires a `.env` file for its configuration.
-
-    ```bash
-    # From the root directory:
-    cp apps/api/.env.example apps/api/.env
-
-    # Now, edit apps/api/.env with your database credentials.
-    ```
-
-## 2. Development Workflow
-
-All commands should be run from the **root of the monorepo**.
-
-### How to Start the API
-
-This command uses Turborepo to find the `api` project and run its `dev` script.
-
-```bash
-pnpm turbo dev --filter=api
-```
-
-Your FastAPI server will be running on `http://localhost:8000`.
-
----
-
-### How to Start the Web-App
-
-This command uses Turborepo to find the `web` project and run its `dev` script.
-
-```bash
-pnpm turbo dev --filter=web
-```
-
-Your Vue.js app will be running on `http://localhost:5173` (or the next available port).
-
----
-
-### How to Start Both (API + Web)
-
-This is the most common command you'll use. Turborepo finds _all_ projects with a `dev` script and runs them in parallel.
-
-```bash
-pnpm turbo dev
-```
-
----
-
-### How to Run Tests
-
-This command runs the `test` script in all projects.
-
-```bash
-pnpm turbo test
-```
-
-> **Note:** The `apps/web` project currently has a placeholder test script. This command will primarily run the **Python tests** for the `api`.
-
----
-
-### How to Run Linting
-
-This command runs the `lint` script in all projects (`ruff` for the API, `eslint` for the web app).
-
-```bash
-pnpm turbo lint
-```
-
-## 3. What Else Can I Do with Turborepo?
-
-Turborepo is more than just a task runner; it's a build system that makes your monorepo fast and efficient.
-
-### ⚡️ Caching (The "Turbo")
-
-This is Turborepo's killer feature.
-
-- **What it does:** Turborepo caches the output and logs of your tasks (like `test`, `lint`, and `build`).
-- **Why it's great:** If you run `pnpm turbo test`, and then run it again without changing any files in `apps/api`, Turborepo will **skip** running the tests and show you the cached result instantly. This saves a massive amount of time, especially in CI/CD pipelines.
-
-### 🎯 Filtering
-
-You've already used this\! The `--filter` flag lets you run tasks on a single project or a subset of projects.
-
-```bash
-# Run `build` only on the `web` app
-pnpm turbo build --filter=web
-```
-
-### 🏎️ Parallel Execution
-
-When you run a command like `pnpm turbo dev` or `pnpm turbo lint`, Turborepo reads your `turbo.json` and understands that these tasks can be run in parallel, maximizing your CPU usage and finishing faster.
-
-## 4. High-Level Directory Structure
-
-```plaintext
-nous/
-├── apps/
-│   ├── api/          # FastAPI (Python) backend
-│   └── web/          # Vue.js (TypeScript) frontend
-├── package.json      # Root Node.js dependencies (contains `turbo`)
-├── pnpm-workspace.yaml # Defines the `apps/*` as pnpm workspaces
-└── turbo.json        # Defines the monorepo task pipeline
-```
-</file>
-
-<file path="apps/api/app/features/auth/usecases/delete_api_key_usecase.py">
-"""Use case for deleting API keys."""
-
-from contextlib import AbstractAsyncContextManager
-from typing import Callable
-from uuid import UUID
-
-from fastapi import HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.features.auth.models import ApiKey
-
-
-class DeleteApiKeyUseCaseImpl:
-    """Implementation of the delete API key use case."""
-
-    def __init__(
-        self, get_db_session: Callable[[], AbstractAsyncContextManager[AsyncSession]]
-    ):
-        """Initialize the use case with dependencies.
-
-        Args:
-            get_db_session: Function to get database session
-        """
-        self.get_auth_db_session = get_db_session
-
-    async def execute(self, api_key_id: str, tenant_id: UUID) -> dict[str, str]:
-        """Delete an API key.
-
-        Args:
-            api_key_id: The ID of the API key to delete
-            tenant_id: The tenant ID for authorization
-
-        Returns:
-            Success message
-
-        Raises:
-            HTTPException: With appropriate status codes for validation and access errors
-        """
-        try:
-            uuid_obj = UUID(api_key_id)
-        except ValueError:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid API key ID format",
-            )
-
-        async with self.get_auth_db_session() as session:
-            async with session.begin():
-                api_key = await session.get(ApiKey, uuid_obj)
-
-                if not api_key:
-                    raise HTTPException(
-                        status_code=status.HTTP_404_NOT_FOUND,
-                        detail="API key not found",
-                    )
-
-                # Ensure the API key belongs to the current tenant
-                if api_key.tenant_id != tenant_id:
-                    raise HTTPException(
-                        status_code=status.HTTP_403_FORBIDDEN, detail="Access denied"
-                    )
-
-                await session.delete(api_key)
-
-        return {"message": "API key deleted successfully"}
-</file>
-
-<file path="apps/api/app/features/auth/usecases/login_usecase.py">
-"""Use case for user login and token generation."""
-
-from contextlib import AbstractAsyncContextManager
-from datetime import UTC, datetime, timedelta
-from typing import Any, Callable, Protocol
-
-from fastapi import HTTPException, status
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.features.auth.dtos import LoginResponse
-from app.features.auth.models import User
-
-
-class PasswordVerifier(Protocol):
-    """Protocol for password verification operations."""
-
-    def verify(self, plain_password: str, hashed_password: str) -> bool:
-        """Verify a password against its hash."""
-        ...
-
-
-class TokenCreator(Protocol):
-    """Protocol for JWT token creation operations."""
-
-    def __call__(
-        self, data: dict[str, Any], expires_delta: timedelta | None = None
-    ) -> str:
-        """Create an access token."""
-        ...
-
-
-class LoginUseCaseImpl:
-    """Implementation of the login use case."""
-
-    def __init__(
-        self,
-        password_verifier: PasswordVerifier,
-        token_creator: TokenCreator,
-        get_db_session: Callable[[], AbstractAsyncContextManager[AsyncSession]],
-    ):
-        """Initialize the use case with dependencies.
-
-        Args:
-            password_verifier: Service for verifying passwords
-            token_creator: Service for creating access tokens
-            get_db_session: Function to get database session
-        """
-        self.password_verifier = password_verifier
-        self.token_creator = token_creator
-        self.get_auth_db_session = get_db_session
-
-    async def execute(self, email: str, password: str) -> LoginResponse:
-        """Authenticate user and return JWT access token.
-
-        Args:
-            email: User's email address
-            password: User's password
-
-        Returns:
-            Response with access token
-
-        Raises:
-            HTTPException: With appropriate status codes for authentication errors
-        """
-        async with self.get_auth_db_session() as session:
-            # Find user by email
-            result = await session.execute(select(User).where(User.email == email))
-            user: User | None = result.scalar_one_or_none()
-
-            if not user or not self.password_verifier.verify(
-                password, user.hashed_password
-            ):
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Incorrect email or password",
-                    headers={"WWW-Authenticate": "Bearer"},
-                )
-
-            # Check if account is locked
-            if user.locked_until and user.locked_until > datetime.now(UTC):
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Account is temporarily locked due to failed login attempts",
-                    headers={"WWW-Authenticate": "Bearer"},
-                )
-
-            # Check if user is active
-            if not user.is_active:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Account is disabled",
-                    headers={"WWW-Authenticate": "Bearer"},
-                )
-
-            # Reset failed login attempts and update user
-            user.failed_login_attempts = 0
-            user.locked_until = None
-            await session.commit()
-
-            # Create access token with tenant info
-            access_token_expires = timedelta(minutes=30)  # 30 minutes
-
-            # Convert tenant_id to string only if it exists
-            tenant_id_str = str(user.tenant_id) if user.tenant_id else None
-
-            access_token = self.token_creator(
-                data={
-                    "sub": str(user.id),
-                    "tenant_id": tenant_id_str,  # <-- This can be None
-                    "role": user.role.value,  # <-- Add this
-                },
-                expires_delta=access_token_expires,
-            )
-
-            return LoginResponse(
-                access_token=access_token,
-                token_type="bearer",
-                expires_in=int(access_token_expires.total_seconds()),
-            )
 </file>
 
 <file path="apps/api/app/features/auth/router.py">
@@ -11294,6 +13295,103 @@ line-ending = "auto"
 known-first-party = ["app"]
 </file>
 
+<file path="apps/web/src/features/login/views/LoginView.vue">
+<script setup lang="ts">
+import { ref } from "vue";
+import { useRouter } from "vue-router";
+import { useAuth } from "../composables/useAuth";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+
+const router = useRouter();
+const { login, isLoading, error: authError } = useAuth();
+
+// Form data
+const email = ref("");
+const password = ref("");
+const errorMessage = ref("");
+
+// Handle login submission
+const handleLogin = async () => {
+  if (!email.value || !password.value) {
+    errorMessage.value = "Please fill in all fields";
+    return;
+  }
+
+  errorMessage.value = "";
+
+  const success = await login({
+    email: email.value,
+    password: password.value,
+  });
+
+  if (success) {
+    console.log("Login successful, redirecting...");
+    router.push("/");
+  } else {
+    errorMessage.value = authError.value || "Invalid credentials";
+  }
+};
+</script>
+
+<template>
+  <div class="flex justify-center items-center min-h-screen bg-background p-8">
+    <Card class="w-full max-w-sm">
+      <CardHeader>
+        <CardTitle>Welcome Back</CardTitle>
+        <CardDescription>Enter your credentials to sign in.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form @submit.prevent="handleLogin" class="flex flex-col gap-6">
+          <div class="flex flex-col gap-2">
+            <label for="email">Email</label>
+            <Input
+              id="email"
+              v-model="email"
+              type="email"
+              placeholder="Enter your email"
+              class="w-full"
+              required
+            />
+          </div>
+
+          <div class="flex flex-col gap-2">
+            <label for="password">Password</label>
+            <Input
+              id="password"
+              v-model="password"
+              type="password"
+              placeholder="Enter your password"
+              class="w-full"
+              required
+            />
+          </div>
+
+          <Alert v-if="errorMessage" variant="destructive">
+            <AlertDescription>
+              {{ errorMessage }}
+            </AlertDescription>
+          </Alert>
+
+          <Button type="submit" :disabled="isLoading" size="lg">
+            <span v-if="isLoading">Signing in...</span>
+            <span v-else>Sign In</span>
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
+  </div>
+</template>
+</file>
+
 <file path="apps/web/package.json">
 {
   "name": "web",
@@ -11338,171 +13436,72 @@ known-first-party = ["app"]
 }
 </file>
 
-<file path="apps/api/app/features/auth/routes/api_keys.py">
-"""API keys route handlers."""
+<file path="apps/api/app/features/auth/usecases/delete_api_key_usecase.py">
+"""Use case for deleting API keys."""
 
-from typing import Protocol
+from contextlib import AbstractAsyncContextManager
+from typing import Callable
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.authentication import get_current_user
-from app.core.schemas import AuthenticatedUser
-from app.db.postgres.auth_session import get_auth_db_session
-from app.features.auth.dtos import (
-    CreateApiKeyRequest,
-    CreateApiKeyResponse,
-    ListApiKeysResponse,
-)
-from app.features.auth.usecases.create_api_key_usecase import CreateApiKeyUseCaseImpl
-from app.features.auth.usecases.delete_api_key_usecase import DeleteApiKeyUseCaseImpl
-from app.features.auth.usecases.list_api_keys_usecase import ListApiKeysUseCaseImpl
+from app.features.auth.models import ApiKey
 
 
-async def get_create_api_key_use_case():
-    """Dependency injection for the create API key use case."""
-    return CreateApiKeyUseCaseImpl(get_db_session=get_auth_db_session)
+class DeleteApiKeyUseCaseImpl:
+    """Implementation of the delete API key use case."""
 
+    def __init__(
+        self, get_db_session: Callable[[], AbstractAsyncContextManager[AsyncSession]]
+    ):
+        """Initialize the use case with dependencies.
 
-async def get_list_api_keys_use_case():
-    """Dependency injection for the list API keys use case."""
-    return ListApiKeysUseCaseImpl(get_db_session=get_auth_db_session)
-
-
-async def get_delete_api_key_use_case():
-    """Dependency injection for the delete API key use case."""
-    return DeleteApiKeyUseCaseImpl(get_db_session=get_auth_db_session)
-
-
-class CreateApiKeyUseCase(Protocol):
-    """Protocol for the create API key use case."""
-
-    async def execute(
-        self, request: CreateApiKeyRequest, tenant_id: UUID
-    ) -> CreateApiKeyResponse:
-        """Create a new API key."""
-        ...
-
-
-class ListApiKeysUseCase(Protocol):
-    """Protocol for the list API keys use case."""
-
-    async def execute(self, tenant_id: UUID) -> ListApiKeysResponse:
-        """List API keys for a tenant."""
-        ...
-
-
-class DeleteApiKeyUseCase(Protocol):
-    """Protocol for the delete API key use case."""
+        Args:
+            get_db_session: Function to get database session
+        """
+        self.get_auth_db_session = get_db_session
 
     async def execute(self, api_key_id: str, tenant_id: UUID) -> dict[str, str]:
-        """Delete an API key."""
-        ...
+        """Delete an API key.
 
+        Args:
+            api_key_id: The ID of the API key to delete
+            tenant_id: The tenant ID for authorization
 
-router = APIRouter()
+        Returns:
+            Success message
 
+        Raises:
+            HTTPException: With appropriate status codes for validation and access errors
+        """
+        try:
+            uuid_obj = UUID(api_key_id)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid API key ID format",
+            )
 
-@router.post("/api-keys", response_model=CreateApiKeyResponse)
-async def create_api_key(
-    request: CreateApiKeyRequest,
-    current_user: AuthenticatedUser = Depends(get_current_user),
-    use_case: CreateApiKeyUseCase = Depends(get_create_api_key_use_case),
-) -> CreateApiKeyResponse:
-    """Create a new API key for programmatic access."""
-    if current_user.tenant_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="User must be associated with a tenant to create API keys",
-        )
-    return await use_case.execute(request, current_user.tenant_id)
+        async with self.get_auth_db_session() as session:
+            async with session.begin():
+                api_key = await session.get(ApiKey, uuid_obj)
 
+                if not api_key:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail="API key not found",
+                    )
 
-@router.get("/api-keys", response_model=ListApiKeysResponse)
-async def list_api_keys(
-    current_user: AuthenticatedUser = Depends(get_current_user),
-    use_case: ListApiKeysUseCase = Depends(get_list_api_keys_use_case),
-) -> ListApiKeysResponse:
-    """List all API keys for the current tenant."""
-    if current_user.tenant_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="User must be associated with a tenant to list API keys",
-        )
-    return await use_case.execute(current_user.tenant_id)
+                # Ensure the API key belongs to the current tenant
+                if api_key.tenant_id != tenant_id:
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN, detail="Access denied"
+                    )
 
+                await session.delete(api_key)
 
-@router.delete("/api-keys/{api_key_id}")
-async def delete_api_key(
-    api_key_id: str,
-    current_user: AuthenticatedUser = Depends(get_current_user),
-    use_case: DeleteApiKeyUseCase = Depends(get_delete_api_key_use_case),
-) -> dict[str, str]:
-    """Delete an API key."""
-    if current_user.tenant_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="User must be associated with a tenant to delete API keys",
-        )
-    return await use_case.execute(api_key_id, current_user.tenant_id)
-</file>
-
-<file path="apps/api/app/features/auth/routes/login.py">
-"""Login route handler."""
-
-from typing import Any, Protocol
-
-from fastapi import APIRouter, Depends
-
-from app.core.authentication import create_access_token, verify_password
-from app.db.postgres.auth_session import get_auth_db_session
-from app.features.auth.dtos.auth_dto import LoginRequest, LoginResponse
-from app.features.auth.usecases.login_usecase import LoginUseCaseImpl
-
-
-class PasswordVerifierImpl:
-    """Wrapper for password verification to match protocol."""
-
-    def verify(self, plain_password: str, hashed_password: str) -> bool:
-        """Verify a password against its hash."""
-        return verify_password(plain_password, hashed_password)
-
-
-class TokenCreatorImpl:
-    """Wrapper for token creation to match protocol."""
-
-    def __call__(self, data: dict[str, Any], expires_delta=None) -> str:
-        """Create an access token."""
-        return create_access_token(data, expires_delta)
-
-
-async def get_login_use_case():
-    """Dependency injection for the login use case."""
-    return LoginUseCaseImpl(
-        password_verifier=PasswordVerifierImpl(),
-        token_creator=TokenCreatorImpl(),
-        get_db_session=get_auth_db_session,
-    )
-
-
-class LoginUseCase(Protocol):
-    """Protocol for the login use case."""
-
-    async def execute(self, email: str, password: str) -> LoginResponse:
-        """Authenticate user and return token."""
-        ...
-
-
-router = APIRouter()
-
-
-@router.post("/login", response_model=LoginResponse)
-async def login_for_access_token(
-    login_data: LoginRequest,
-    use_case: LoginUseCase = Depends(get_login_use_case),
-) -> LoginResponse:
-    """Authenticate user and return JWT access token."""
-    return await use_case.execute(login_data.email, login_data.password)
+        return {"message": "API key deleted successfully"}
 </file>
 
 <file path="apps/web/src/main.ts">
@@ -11852,6 +13851,271 @@ docs/build/
 .pnpm-store
 </file>
 
+<file path="apps/api/app/features/auth/routes/api_keys.py">
+"""API keys route handlers."""
+
+from typing import Protocol
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException, status
+
+from app.core.authentication import verify_auth
+from app.core.schemas import AuthenticatedUser
+from app.db.postgres.auth_session import get_auth_db_session
+from app.features.auth.dtos import (
+    CreateApiKeyRequest,
+    CreateApiKeyResponse,
+    ListApiKeysResponse,
+)
+from app.features.auth.usecases.create_api_key_usecase import CreateApiKeyUseCaseImpl
+from app.features.auth.usecases.delete_api_key_usecase import DeleteApiKeyUseCaseImpl
+from app.features.auth.usecases.list_api_keys_usecase import ListApiKeysUseCaseImpl
+
+
+async def get_create_api_key_use_case():
+    """Dependency injection for the create API key use case."""
+    return CreateApiKeyUseCaseImpl(get_db_session=get_auth_db_session)
+
+
+async def get_list_api_keys_use_case():
+    """Dependency injection for the list API keys use case."""
+    return ListApiKeysUseCaseImpl(get_db_session=get_auth_db_session)
+
+
+async def get_delete_api_key_use_case():
+    """Dependency injection for the delete API key use case."""
+    return DeleteApiKeyUseCaseImpl(get_db_session=get_auth_db_session)
+
+
+class CreateApiKeyUseCase(Protocol):
+    """Protocol for the create API key use case."""
+
+    async def execute(
+        self, request: CreateApiKeyRequest, tenant_id: UUID
+    ) -> CreateApiKeyResponse:
+        """Create a new API key."""
+        ...
+
+
+class ListApiKeysUseCase(Protocol):
+    """Protocol for the list API keys use case."""
+
+    async def execute(self, tenant_id: UUID) -> ListApiKeysResponse:
+        """List API keys for a tenant."""
+        ...
+
+
+class DeleteApiKeyUseCase(Protocol):
+    """Protocol for the delete API key use case."""
+
+    async def execute(self, api_key_id: str, tenant_id: UUID) -> dict[str, str]:
+        """Delete an API key."""
+        ...
+
+
+router = APIRouter()
+
+
+@router.post("/api-keys", response_model=CreateApiKeyResponse)
+async def create_api_key(
+    request: CreateApiKeyRequest,
+    current_user: AuthenticatedUser = Depends(verify_auth),
+    use_case: CreateApiKeyUseCase = Depends(get_create_api_key_use_case),
+) -> CreateApiKeyResponse:
+    """Create a new API key for programmatic access."""
+    if current_user.tenant_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User must be associated with a tenant to create API keys",
+        )
+    return await use_case.execute(request, current_user.tenant_id)
+
+
+@router.get("/api-keys", response_model=ListApiKeysResponse)
+async def list_api_keys(
+    current_user: AuthenticatedUser = Depends(verify_auth),
+    use_case: ListApiKeysUseCase = Depends(get_list_api_keys_use_case),
+) -> ListApiKeysResponse:
+    """List all API keys for the current tenant."""
+    if current_user.tenant_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User must be associated with a tenant to list API keys",
+        )
+    return await use_case.execute(current_user.tenant_id)
+
+
+@router.delete("/api-keys/{api_key_id}")
+async def delete_api_key(
+    api_key_id: str,
+    current_user: AuthenticatedUser = Depends(verify_auth),
+    use_case: DeleteApiKeyUseCase = Depends(get_delete_api_key_use_case),
+) -> dict[str, str]:
+    """Delete an API key."""
+    if current_user.tenant_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User must be associated with a tenant to delete API keys",
+        )
+    return await use_case.execute(api_key_id, current_user.tenant_id)
+</file>
+
+<file path="apps/api/app/features/auth/usecases/login_usecase.py">
+"""Use case for user login and token generation."""
+
+from contextlib import AbstractAsyncContextManager
+from datetime import UTC, datetime, timedelta
+from typing import Any, Callable, Protocol
+
+from fastapi import HTTPException, status
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.settings import get_settings
+from app.features.auth.dtos import LoginResponse
+from app.features.auth.models import RefreshToken, User
+
+
+class PasswordVerifier(Protocol):
+    """Protocol for password verification operations."""
+
+    def verify(self, plain_password: str, hashed_password: str) -> bool:
+        """Verify a password against its hash."""
+        ...
+
+
+class TokenCreator(Protocol):
+    """Protocol for JWT token creation operations."""
+
+    def __call__(
+        self, data: dict[str, Any], expires_delta: timedelta | None = None
+    ) -> str:
+        """Create an access token."""
+        ...
+
+
+class RefreshTokenCreator(Protocol):
+    """Protocol for refresh token creation operations."""
+
+    def create(self) -> str:
+        """Create a refresh token."""
+        ...
+
+    def hash(self, token: str) -> str:
+        """Hash a refresh token."""
+        ...
+
+
+class LoginUseCaseImpl:
+    """Implementation of the login use case."""
+
+    def __init__(
+        self,
+        password_verifier: PasswordVerifier,
+        token_creator: TokenCreator,
+        refresh_token_creator: RefreshTokenCreator,
+        get_db_session: Callable[[], AbstractAsyncContextManager[AsyncSession]],
+    ):
+        """Initialize the use case with dependencies.
+
+        Args:
+            password_verifier: Service for verifying passwords
+            token_creator: Service for creating access tokens
+            refresh_token_creator: Service for creating refresh tokens
+            get_db_session: Function to get database session
+        """
+        self.password_verifier = password_verifier
+        self.token_creator = token_creator
+        self.refresh_token_creator = refresh_token_creator
+        self.get_auth_db_session = get_db_session
+
+    async def execute(self, email: str, password: str) -> LoginResponse:
+        """Authenticate user and return JWT access token.
+
+        Args:
+            email: User's email address
+            password: User's password
+
+        Returns:
+            Response with access token
+
+        Raises:
+            HTTPException: With appropriate status codes for authentication errors
+        """
+        async with self.get_auth_db_session() as session:
+            # Find user by email
+            result = await session.execute(select(User).where(User.email == email))
+            user: User | None = result.scalar_one_or_none()
+
+            if not user or not self.password_verifier.verify(
+                password, user.hashed_password
+            ):
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Incorrect email or password",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+
+            # Check if account is locked
+            if user.locked_until and user.locked_until > datetime.now(UTC):
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Account is temporarily locked due to failed login attempts",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+
+            # Check if user is active
+            if not user.is_active:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Account is disabled",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+
+            # Reset failed login attempts and update user
+            user.failed_login_attempts = 0
+            user.locked_until = None
+
+            # Create access token with tenant info
+            access_token_expires = timedelta(minutes=30)  # 30 minutes
+
+            # Convert tenant_id to string only if it exists
+            tenant_id_str = str(user.tenant_id) if user.tenant_id else None
+
+            access_token = self.token_creator(
+                data={
+                    "sub": str(user.id),
+                    "tenant_id": tenant_id_str,  # <-- This can be None
+                    "role": user.role.value,  # <-- Add this
+                },
+                expires_delta=access_token_expires,
+            )
+
+            # Create and store refresh token
+            settings = get_settings()
+            refresh_token = self.refresh_token_creator.create()
+            refresh_token_hash = self.refresh_token_creator.hash(refresh_token)
+            refresh_token_expires = datetime.now(UTC) + timedelta(
+                days=settings.refresh_token_expire_days
+            )
+
+            db_refresh_token = RefreshToken(
+                token_hash=refresh_token_hash,
+                user_id=user.id,
+                expires_at=refresh_token_expires,
+                revoked=False,
+            )
+            session.add(db_refresh_token)
+            await session.commit()
+
+            return LoginResponse(
+                access_token=access_token,
+                refresh_token=refresh_token,
+                token_type="bearer",
+                expires_in=int(access_token_expires.total_seconds()),
+            )
+</file>
+
 <file path="apps/api/app/features/auth/models.py">
 """Database models for authentication and authorization."""
 
@@ -11931,6 +14195,9 @@ class User(Base):
     tenant: Mapped[Tenant | None] = relationship(
         back_populates="users"
     )  # <-- Make nullable
+    refresh_tokens: Mapped[list["RefreshToken"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
 
 
 class ApiKey(Base):
@@ -11963,6 +14230,36 @@ class ApiKey(Base):
     # Constraints
     __table_args__ = (
         UniqueConstraint("name", "tenant_id", name="unique_api_key_name_per_tenant"),
+    )
+
+
+class RefreshToken(Base):
+    """Refresh token model for session renewal."""
+
+    __tablename__ = "refresh_tokens"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    token_hash: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
+    )
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    revoked: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    replaced_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("refresh_tokens.id"), nullable=True
+    )
+
+    # Relationships
+    user: Mapped["User"] = relationship(back_populates="refresh_tokens")
+    replaced_by: Mapped["RefreshToken | None"] = relationship(
+        foreign_keys=[replaced_by_id], remote_side=[id]
     )
 </file>
 
@@ -12493,6 +14790,244 @@ watch(cytoscapeElements, (newElements, oldElements) => {
 <style scoped>
 /* Additional custom styles if needed */
 </style>
+</file>
+
+<file path="apps/api/app/features/auth/routes/login.py">
+"""Login route handler."""
+
+from typing import Any, Protocol
+
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
+
+from app.core.authentication import (
+    create_access_token,
+    create_refresh_token,
+    hash_refresh_token,
+    verify_auth,
+    verify_password,
+    verify_refresh_token,
+)
+from app.core.schemas import AuthenticatedUser
+from app.core.settings import get_settings
+from app.db.postgres.auth_session import get_auth_db_session
+from app.features.auth.dtos.auth_dto import (
+    LoginRequest,
+    LoginResponse,
+    RefreshTokenResponse,
+)
+from app.features.auth.models import RefreshToken, User
+from app.features.auth.usecases.login_usecase import LoginUseCaseImpl
+from app.features.auth.usecases.refresh_token_usecase import RefreshTokenUseCaseImpl
+
+
+class PasswordVerifierImpl:
+    """Wrapper for password verification to match protocol."""
+
+    def verify(self, plain_password: str, hashed_password: str) -> bool:
+        """Verify a password against its hash."""
+        return verify_password(plain_password, hashed_password)
+
+
+class TokenCreatorImpl:
+    """Wrapper for token creation to match protocol."""
+
+    def __call__(self, data: dict[str, Any], expires_delta=None) -> str:
+        """Create an access token."""
+        return create_access_token(data, expires_delta)
+
+
+class RefreshTokenCreatorImpl:
+    """Wrapper for refresh token creation to match protocol."""
+
+    def create(self) -> str:
+        """Create a refresh token."""
+        return create_refresh_token()
+
+    def hash(self, token: str) -> str:
+        """Hash a refresh token."""
+        return hash_refresh_token(token)
+
+
+class RefreshTokenVerifierImpl:
+    """Wrapper for refresh token verification to match protocol."""
+
+    def verify(self, plain_token: str, hashed_token: str) -> bool:
+        """Verify a refresh token against its hash."""
+        return verify_refresh_token(plain_token, hashed_token)
+
+
+class LoginUseCase(Protocol):
+    """Protocol for the login use case."""
+
+    async def execute(self, email: str, password: str) -> LoginResponse:
+        """Authenticate user and return token."""
+        ...
+
+
+class RefreshTokenUseCase(Protocol):
+    """Protocol for the refresh token use case."""
+
+    async def execute(self, refresh_token: str) -> RefreshTokenResponse:
+        """Refresh access token using refresh token."""
+        ...
+
+
+async def get_login_use_case() -> LoginUseCase:
+    """Dependency injection for the login use case."""
+    return LoginUseCaseImpl(
+        password_verifier=PasswordVerifierImpl(),
+        token_creator=TokenCreatorImpl(),
+        refresh_token_creator=RefreshTokenCreatorImpl(),
+        get_db_session=get_auth_db_session,
+    )
+
+
+async def get_refresh_token_use_case() -> RefreshTokenUseCase:
+    """Dependency injection for the refresh token use case."""
+    return RefreshTokenUseCaseImpl(
+        token_creator=TokenCreatorImpl(),
+        refresh_token_creator=RefreshTokenCreatorImpl(),
+        refresh_token_verifier=RefreshTokenVerifierImpl(),
+        get_db_session=get_auth_db_session,
+    )
+
+
+router = APIRouter()
+
+
+@router.post("/login")
+async def login_for_access_token(
+    response: Response,
+    login_data: LoginRequest,
+    use_case: LoginUseCase = Depends(get_login_use_case),
+) -> dict[str, str]:
+    """Authenticate user and set tokens in HTTP-only cookies."""
+    result = await use_case.execute(login_data.email, login_data.password)
+
+    # Get settings for environment-specific cookie configuration
+    settings = get_settings()
+    is_production = not settings.debug
+
+    # Set access token cookie
+    response.set_cookie(
+        key="access_token",
+        value=result.access_token,
+        httponly=True,  # Not accessible to JavaScript
+        secure=is_production,  # Only HTTPS in production
+        samesite="lax",  # CSRF protection
+        max_age=result.expires_in,  # 30 minutes
+        path="/",  # Available site-wide
+    )
+
+    # Set refresh token cookie
+    response.set_cookie(
+        key="refresh_token",
+        value=result.refresh_token,
+        httponly=True,
+        secure=is_production,
+        samesite="lax",
+        max_age=60 * 60 * 24 * 30,  # 30 days
+        path="/api/v1/auth",  # Only sent to auth endpoints
+    )
+
+    return {"message": "Login successful", "token_type": "bearer"}
+
+
+@router.post("/refresh")
+async def refresh_access_token(
+    response: Response,
+    refresh_token: str | None = Cookie(None),
+    use_case: RefreshTokenUseCase = Depends(get_refresh_token_use_case),
+) -> dict[str, str]:
+    """Refresh access token using refresh token from cookie."""
+    if not refresh_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token not found",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # Use case returns new tokens (already implements rotation)
+    result = await use_case.execute(refresh_token)
+
+    settings = get_settings()
+    is_production = not settings.debug
+
+    # Set NEW access token cookie
+    response.set_cookie(
+        key="access_token",
+        value=result.access_token,
+        httponly=True,
+        secure=is_production,
+        samesite="lax",
+        max_age=result.expires_in,
+        path="/",
+    )
+
+    # Set NEW refresh token cookie (rotated)
+    response.set_cookie(
+        key="refresh_token",
+        value=result.refresh_token,
+        httponly=True,
+        secure=is_production,
+        samesite="lax",
+        max_age=60 * 60 * 24 * 30,
+        path="/api/v1/auth",
+    )
+
+    return {"message": "Token refreshed successfully", "token_type": "bearer"}
+
+
+@router.post("/logout")
+async def logout(
+    response: Response,
+    refresh_token: str | None = Cookie(None),
+) -> dict[str, str]:
+    """Logout user and clear authentication cookies."""
+
+    # Optional: Revoke refresh token in database
+    if refresh_token:
+        async with get_auth_db_session() as session:
+            from sqlalchemy import select
+
+            result = await session.execute(
+                select(RefreshToken).where(RefreshToken.revoked.is_(False))
+            )
+            db_tokens = list(result.scalars().all())
+
+            # Find and revoke the matching token
+            for token in db_tokens:
+                if verify_refresh_token(refresh_token, token.token_hash):
+                    token.revoked = True
+                    await session.commit()
+                    break
+
+    # Clear both cookies
+    response.delete_cookie(key="access_token", path="/")
+    response.delete_cookie(key="refresh_token", path="/api/v1/auth")
+
+    return {"message": "Logged out successfully"}
+
+
+@router.get("/me")
+async def get_current_user_info(
+    current_user: AuthenticatedUser = Depends(verify_auth),
+) -> dict[str, str | None]:
+    """Get current authenticated user information."""
+    async with get_auth_db_session() as session:
+        user = await session.get(User, current_user.user_id)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found",
+            )
+
+        return {
+            "id": str(user.id),
+            "email": user.email,
+            "role": user.role.value,
+            "tenant_id": str(user.tenant_id) if user.tenant_id else None,
+        }
 </file>
 
 </files>

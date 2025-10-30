@@ -19,7 +19,8 @@ export const useApiFetch = createFetch({
       // If we get a 401 and it's not the refresh endpoint, try to refresh
       if (
         response?.status === 401 &&
-        !ctx.response?.url.includes("/auth/refresh")
+        !ctx.response?.url.includes("/auth/refresh") &&
+        !ctx.response?.url.includes("/auth/login")
       ) {
         console.log("Access token expired, attempting refresh...");
 
