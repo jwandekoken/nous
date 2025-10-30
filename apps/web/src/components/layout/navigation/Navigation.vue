@@ -1,16 +1,11 @@
 <script setup lang="ts">
-import { useRouter } from "vue-router";
-
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/features/login/composables/useAuth";
 
-const router = useRouter();
+const { logout } = useAuth();
 
-const handleLogout = () => {
-  // Clear authentication state
-  localStorage.removeItem("isLoggedIn");
-
-  // Redirect to login page
-  router.push("/login");
+const handleLogout = async () => {
+  await logout();
 };
 </script>
 

@@ -65,6 +65,7 @@ async def get_tenant_from_api_key(
     key: str | None = Depends(api_key_header),
 ) -> TenantInfo | None:
     """Get tenant info from API key authentication."""
+
     if not key or "." not in key:
         return None
 
@@ -107,6 +108,7 @@ async def get_tenant_from_jwt(
     user: AuthenticatedUser = Depends(verify_auth),
 ) -> TenantInfo | None:
     """Get tenant info from JWT authentication (from cookie)."""
+
     if not user or not user.tenant_id:
         return None
 
@@ -128,6 +130,9 @@ async def get_tenant_info(
 
     Prioritizes JWT over API key authentication.
     """
+    print("-----------> jwt_tenant:", jwt_tenant)
+    print("-----------> api_key_tenant:", api_key_tenant)
+
     if jwt_tenant:
         return jwt_tenant
 
