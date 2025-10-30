@@ -12,16 +12,22 @@ from .auth_dto import (
     CreateTenantResponse,
     CreateUserRequest,
     CreateUserResponse,
+    DeleteTenantResponse,
     ListApiKeysResponse,
     LoginRequest,
     LoginResponse,
     RefreshTokenRequest,
     RefreshTokenResponse,
+    UpdateTenantRequest,
+    UpdateTenantResponse,
 )
 
 __all__ = [
     "CreateTenantRequest",
     "CreateTenantResponse",
+    "UpdateTenantRequest",
+    "UpdateTenantResponse",
+    "DeleteTenantResponse",
     "CreateUserRequest",
     "CreateUserResponse",
     "LoginRequest",

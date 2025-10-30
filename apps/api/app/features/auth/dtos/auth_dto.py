@@ -100,3 +100,23 @@ class CreateUserResponse(BaseModel):
     user_id: str
     email: str
     role: UserRole
+
+
+class UpdateTenantRequest(BaseModel):
+    """Request model for updating a tenant."""
+
+    name: str
+
+
+class UpdateTenantResponse(BaseModel):
+    """Response model for successful tenant update."""
+
+    message: str
+    tenant_id: str
+
+
+class DeleteTenantResponse(BaseModel):
+    """Response model for successful tenant deletion."""
+
+    message: str
+    tenant_id: str
