@@ -5,18 +5,10 @@ import {
   login as loginUser,
   logout as logoutUser,
 } from "@/features/login/api/authApi";
-
-export interface LoginCredentials {
-  email: string;
-  password: string;
-}
-
-export interface CurrentUser {
-  id: string;
-  email: string;
-  role: string;
-  tenant_id: string | null;
-}
+import type {
+  LoginCredentials,
+  CurrentUser,
+} from "@/features/login/api/authApi";
 
 export function useAuth() {
   const router = useRouter();

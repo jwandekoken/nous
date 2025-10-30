@@ -1,5 +1,16 @@
 import { useApiFetch } from "@/api/useApiFetch";
-import type { CurrentUser, LoginCredentials } from "../composables/useAuth";
+
+export interface LoginCredentials {
+  email: string;
+  password: string;
+}
+
+export interface CurrentUser {
+  id: string;
+  email: string;
+  role: string;
+  tenant_id: string | null;
+}
 
 /**
  * Logs in the user with the given credentials.
