@@ -9,13 +9,12 @@ from pydantic import BaseModel
 from sqlalchemy import and_, or_, select
 
 from app.core.authentication import (
-    AuthenticatedUser,
-    get_current_user,
-    get_current_user_from_cookie,
     pwd_context,
+    verify_auth,
 )
+from app.core.schemas import AuthenticatedUser, UserRole
 from app.db.postgres.auth_session import get_auth_db_session
-from app.features.auth.models import ApiKey, Tenant, UserRole
+from app.features.auth.models import ApiKey, Tenant
 
 
 # A dependency factory
@@ -28,7 +27,7 @@ def require_roles(
     """
 
     async def role_checker(
-        user: AuthenticatedUser = Depends(get_current_user),
+        user: AuthenticatedUser = Depends(verify_auth),
     ) -> AuthenticatedUser:
         """
         The actual dependency that checks the user's role.
@@ -105,7 +104,7 @@ async def get_tenant_from_api_key(
 
 
 async def get_tenant_from_jwt(
-    user: AuthenticatedUser = Depends(get_current_user_from_cookie),
+    user: AuthenticatedUser = Depends(verify_auth),
 ) -> TenantInfo | None:
     """Get tenant info from JWT authentication (from cookie)."""
     if not user or not user.tenant_id:

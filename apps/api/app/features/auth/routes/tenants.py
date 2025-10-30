@@ -4,8 +4,9 @@ from typing import Protocol
 
 from fastapi import APIRouter, Depends
 
-from app.core.authentication import AuthenticatedUser, pwd_context
+from app.core.authentication import pwd_context
 from app.core.authorization import is_super_admin
+from app.core.schemas import AuthenticatedUser
 from app.db.postgres.auth_session import get_auth_db_session
 from app.db.postgres.graph_connection import get_graph_db_pool
 from app.features.auth.dtos import CreateTenantRequest, CreateTenantResponse

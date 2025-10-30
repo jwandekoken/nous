@@ -5,7 +5,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from app.core.authentication import get_current_user
+from app.core.authentication import verify_auth
 from app.core.schemas import AuthenticatedUser
 from app.db.postgres.auth_session import get_auth_db_session
 from app.features.auth.dtos import (
@@ -65,7 +65,7 @@ router = APIRouter()
 @router.post("/api-keys", response_model=CreateApiKeyResponse)
 async def create_api_key(
     request: CreateApiKeyRequest,
-    current_user: AuthenticatedUser = Depends(get_current_user),
+    current_user: AuthenticatedUser = Depends(verify_auth),
     use_case: CreateApiKeyUseCase = Depends(get_create_api_key_use_case),
 ) -> CreateApiKeyResponse:
     """Create a new API key for programmatic access."""
@@ -79,7 +79,7 @@ async def create_api_key(
 
 @router.get("/api-keys", response_model=ListApiKeysResponse)
 async def list_api_keys(
-    current_user: AuthenticatedUser = Depends(get_current_user),
+    current_user: AuthenticatedUser = Depends(verify_auth),
     use_case: ListApiKeysUseCase = Depends(get_list_api_keys_use_case),
 ) -> ListApiKeysResponse:
     """List all API keys for the current tenant."""
@@ -94,7 +94,7 @@ async def list_api_keys(
 @router.delete("/api-keys/{api_key_id}")
 async def delete_api_key(
     api_key_id: str,
-    current_user: AuthenticatedUser = Depends(get_current_user),
+    current_user: AuthenticatedUser = Depends(verify_auth),
     use_case: DeleteApiKeyUseCase = Depends(get_delete_api_key_use_case),
 ) -> dict[str, str]:
     """Delete an API key."""

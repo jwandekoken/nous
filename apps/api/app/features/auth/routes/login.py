@@ -7,8 +7,8 @@ from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
 from app.core.authentication import (
     create_access_token,
     create_refresh_token,
-    get_current_user_from_cookie,
     hash_refresh_token,
+    verify_auth,
     verify_password,
     verify_refresh_token,
 )
@@ -216,7 +216,7 @@ async def logout(
 
 @router.get("/me")
 async def get_current_user_info(
-    current_user: AuthenticatedUser = Depends(get_current_user_from_cookie),
+    current_user: AuthenticatedUser = Depends(verify_auth),
 ) -> dict[str, str | None]:
     """Get current authenticated user information."""
     async with get_auth_db_session() as session:
