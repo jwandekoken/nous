@@ -59,19 +59,6 @@ class CreateUserUseCaseImpl:
                 detail="Admin has no tenant",
             )
 
-        # Validate role restrictions
-        if request.role == UserRole.TENANT_ADMIN:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Cannot create another admin",
-            )
-
-        if request.role == UserRole.SUPER_ADMIN:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Cannot create a super admin",
-            )
-
         # Hash password
         hashed_password = self.password_hasher.hash(request.password)
 
@@ -82,7 +69,7 @@ class CreateUserUseCaseImpl:
                     email=request.email,
                     hashed_password=hashed_password,
                     tenant_id=admin_user.tenant_id,
-                    role=request.role,
+                    role=UserRole.TENANT_USER,
                 )
                 session.add(new_user)
                 await session.commit()
@@ -92,7 +79,7 @@ class CreateUserUseCaseImpl:
                     message="User created successfully",
                     user_id=str(new_user.id),
                     email=new_user.email,
-                    role=new_user.role,
+                    role=UserRole.TENANT_USER,
                 )
 
             except IntegrityError:
