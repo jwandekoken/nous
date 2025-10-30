@@ -1,10 +1,15 @@
 import { createApp } from "vue";
+import { createPinia } from "pinia";
 
 import router from "./router";
 import App from "./App.vue";
 import "./style.css";
 
 const app = createApp(App);
+const pinia = createPinia();
+
+// Register Pinia before router so store is available in route guards
+app.use(pinia);
 app.use(router);
 
 // Theme management based on system preference

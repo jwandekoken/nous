@@ -6,12 +6,17 @@ export const routes: RouteRecordRaw[] = [
   {
     path: "/",
     beforeEnter: async (_to, _from, next) => {
-      const { fetchCurrentUser } = await import("@/api/authApi");
-      const user = await fetchCurrentUser();
+      const { useAuthStore } = await import("@/stores/auth");
+      const authStore = useAuthStore();
 
-      if (!user) return next("/login");
+      // Check cached user from store (rehydrated from session storage)
+      if (!authStore.currentUser) {
+        await authStore.fetchUser();
+      }
 
-      switch (user.role) {
+      if (!authStore.currentUser) return next("/login");
+
+      switch (authStore.currentUser.role) {
         case "super_admin":
           return next("/tenants");
         case "tenant_admin":

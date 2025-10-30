@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/composables/useAuth";
+import { useAuthStore } from "@/stores/auth";
 
-const { logout } = useAuth();
+const authStore = useAuthStore();
 
 const handleLogout = async () => {
-  await logout();
+  await authStore.logout();
 };
 </script>
 

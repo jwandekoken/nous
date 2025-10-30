@@ -1,5 +1,6 @@
 import type { NavigationGuardNext, RouteLocationNormalized } from "vue-router";
-import { fetchCurrentUser, type UserRole } from "@/api/authApi";
+import { useAuthStore } from "@/stores/auth";
+import type { UserRole } from "@/api/authApi";
 
 /**
  * Requires authentication to access route
@@ -9,8 +10,15 @@ export const requireAuth = async (
   from: RouteLocationNormalized,
   next: NavigationGuardNext
 ) => {
-  const user = await fetchCurrentUser();
-  if (!user) {
+  const authStore = useAuthStore();
+
+  // Check if user is already cached in store (from session storage)
+  if (!authStore.currentUser) {
+    // Try to fetch user (will check session storage first, then API)
+    await authStore.fetchUser();
+  }
+
+  if (!authStore.currentUser) {
     console.log("Not authenticated, redirecting to login");
     next("/login");
   } else {
@@ -27,14 +35,22 @@ export const requireRole = (allowedRoles: UserRole[]) => {
     from: RouteLocationNormalized,
     next: NavigationGuardNext
   ) => {
-    const user = await fetchCurrentUser();
+    const authStore = useAuthStore();
 
-    if (!user) {
+    // User should already be fetched by requireAuth guard
+    // But double-check just in case
+    if (!authStore.currentUser) {
+      await authStore.fetchUser();
+    }
+
+    if (!authStore.currentUser) {
       return next("/login");
     }
 
-    if (!allowedRoles.includes(user.role)) {
-      console.warn(`User role ${user.role} not allowed for this route`);
+    if (!allowedRoles.includes(authStore.currentUser.role)) {
+      console.warn(
+        `User role ${authStore.currentUser.role} not allowed for this route`
+      );
       return next("/"); // Redirect to home (which will redirect to appropriate page)
     }
 
@@ -50,10 +66,11 @@ export const redirectAuthenticatedUser = async (
   from: RouteLocationNormalized,
   next: NavigationGuardNext
 ) => {
-  const user = await fetchCurrentUser();
-  if (user) {
+  const authStore = useAuthStore();
+
+  if (authStore.currentUser) {
     // User is authenticated, redirect to their role-appropriate page
-    switch (user.role) {
+    switch (authStore.currentUser.role) {
       case "super_admin":
         return next("/tenants");
       case "tenant_admin":

@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import { useRouter } from "vue-router";
-import { useAuth } from "@/composables/useAuth";
-import { fetchCurrentUser } from "@/api/authApi";
+import { useAuthStore } from "@/stores/auth";
 import { toast } from "vue-sonner";
 import {
   Card,
@@ -15,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
 const router = useRouter();
-const { login, isLoading, error: authError } = useAuth();
+const authStore = useAuthStore();
 
 // Form data
 const email = ref("");
@@ -28,7 +27,7 @@ const handleLogin = async () => {
     return;
   }
 
-  const success = await login({
+  const success = await authStore.login({
     email: email.value,
     password: password.value,
   });
@@ -36,22 +35,11 @@ const handleLogin = async () => {
   if (success) {
     console.log("Login successful, redirecting...");
 
-    // Fetch user and redirect based on role
-    const user = await fetchCurrentUser();
-    if (user) {
-      switch (user.role) {
-        case "super_admin":
-          router.push("/tenants");
-          break;
-        case "tenant_admin":
-          router.push("/users");
-          break;
-        default:
-          router.push("/graph");
-      }
-    }
+    // User is now cached in store and session storage
+    // Let root route handler determine destination based on role
+    router.push("/");
   } else {
-    toast.error(authError.value || "Invalid credentials");
+    toast.error(authStore.error || "Invalid credentials");
   }
 };
 </script>
@@ -89,8 +77,8 @@ const handleLogin = async () => {
             />
           </div>
 
-          <Button type="submit" :disabled="isLoading" size="lg">
-            <span v-if="isLoading">Signing in...</span>
+          <Button type="submit" :disabled="authStore.isLoading" size="lg">
+            <span v-if="authStore.isLoading">Signing in...</span>
             <span v-else>Sign In</span>
           </Button>
         </form>
