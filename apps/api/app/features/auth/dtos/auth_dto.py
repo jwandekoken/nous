@@ -91,7 +91,6 @@ class CreateUserRequest(BaseModel):
 
     email: str
     password: str
-    role: UserRole
 
 
 class CreateUserResponse(BaseModel):

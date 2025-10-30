@@ -57,7 +57,6 @@ class TestCreateUserUseCase:
         request = CreateUserRequest(
             email="newuser@example.com",
             password="testpassword",
-            role=UserRole.TENANT_USER,
         )
 
         # Act
@@ -112,7 +111,6 @@ class TestCreateUserUseCase:
         request = CreateUserRequest(
             email="duplicate@example.com",
             password="testpassword",
-            role=UserRole.TENANT_USER,
         )
 
         # Create first user
@@ -140,7 +138,6 @@ class TestCreateUserUseCase:
         request = CreateUserRequest(
             email="test@example.com",
             password="testpassword",
-            role=UserRole.TENANT_USER,
         )
 
         # Create an admin user without a tenant
@@ -156,58 +153,3 @@ class TestCreateUserUseCase:
             await use_case.execute(request, admin_without_tenant)
         assert excinfo.value.status_code == 400
         assert "admin has no tenant" in excinfo.value.detail.lower()
-
-    @pytest.mark.parametrize(
-        "role, expected_error",
-        [
-            (UserRole.TENANT_ADMIN, "Cannot create another admin"),
-            (UserRole.SUPER_ADMIN, "Cannot create a super admin"),
-        ],
-    )
-    async def test_create_user_invalid_roles(
-        self,
-        db_session: AsyncSession,
-        password_hasher: PasswordHasher,
-        role: UserRole,
-        expected_error: str,
-    ):
-        """Test that creating users with invalid roles fails."""
-
-        # Arrange - Create a tenant and admin user first
-        async with db_session.begin():
-            tenant = Tenant(name="test-tenant", age_graph_name="test_graph_789")
-            db_session.add(tenant)
-            await db_session.flush()
-
-            admin_user_model = User(
-                email="admin@example.com",
-                hashed_password=password_hasher.hash("adminpass"),
-                tenant_id=tenant.id,
-                role=UserRole.TENANT_ADMIN,
-            )
-            db_session.add(admin_user_model)
-            await db_session.flush()
-
-        tenant_admin_user = AuthenticatedUser(
-            user_id=admin_user_model.id,
-            tenant_id=tenant.id,
-            role=UserRole.TENANT_ADMIN,
-        )
-
-        use_case = CreateUserUseCaseImpl(
-            password_hasher=password_hasher,
-            get_db_session=lambda: db_session,  # type: ignore
-        )
-
-        request = CreateUserRequest(
-            email="test@example.com",
-            password="testpassword",
-            role=role,
-        )
-
-        # Act & Assert
-
-        with pytest.raises(HTTPException) as excinfo:
-            await use_case.execute(request, tenant_admin_user)
-        assert excinfo.value.status_code == 403
-        assert expected_error in excinfo.value.detail
