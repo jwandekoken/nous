@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/features/login/composables/useAuth";
+import { useAuth } from "@/composables/useAuth";
 
 const { logout } = useAuth();
 

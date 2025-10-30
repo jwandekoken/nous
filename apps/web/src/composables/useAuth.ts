@@ -4,11 +4,8 @@ import {
   fetchCurrentUser as fetchCurrentUserFromApi,
   login as loginUser,
   logout as logoutUser,
-} from "@/features/login/api/authApi";
-import type {
-  LoginCredentials,
-  CurrentUser,
-} from "@/features/login/api/authApi";
+} from "@/api/authApi";
+import type { LoginCredentials, CurrentUser } from "@/api/authApi";
 
 export function useAuth() {
   const router = useRouter();

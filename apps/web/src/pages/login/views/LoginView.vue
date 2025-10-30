@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import { useRouter } from "vue-router";
-import { useAuth } from "../composables/useAuth";
+import { useAuth } from "@/composables/useAuth";
+import { fetchCurrentUser } from "@/api/authApi";
 import { toast } from "vue-sonner";
 import {
   Card,
@@ -20,7 +21,7 @@ const { login, isLoading, error: authError } = useAuth();
 const email = ref("");
 const password = ref("");
 
-// Handle login submission
+// Handle login submission with role-based redirect
 const handleLogin = async () => {
   if (!email.value || !password.value) {
     toast.error("Please fill in all fields");
@@ -34,7 +35,21 @@ const handleLogin = async () => {
 
   if (success) {
     console.log("Login successful, redirecting...");
-    router.push("/");
+
+    // Fetch user and redirect based on role
+    const user = await fetchCurrentUser();
+    if (user) {
+      switch (user.role) {
+        case "super_admin":
+          router.push("/tenants");
+          break;
+        case "tenant_admin":
+          router.push("/users");
+          break;
+        default:
+          router.push("/graph");
+      }
+    }
   } else {
     toast.error(authError.value || "Invalid credentials");
   }

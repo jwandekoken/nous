@@ -5,10 +5,12 @@ export interface LoginCredentials {
   password: string;
 }
 
+export type UserRole = "super_admin" | "tenant_admin" | "tenant_user";
+
 export interface CurrentUser {
   id: string;
   email: string;
-  role: string;
+  role: UserRole;
   tenant_id: string | null;
 }
 

@@ -8,7 +8,7 @@ import { Navigation } from "@/components/layout/navigation";
 import {
   useFindEntityByIdentifier,
   type FindEntityParams,
-} from "@/features/graph/api/graphApi";
+} from "@/api/graphApi";
 
 // --- Cytoscape Refs ---
 const cyContainer = ref<HTMLDivElement | null>(null);
