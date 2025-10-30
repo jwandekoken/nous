@@ -1,13 +1,17 @@
 import { ref } from "vue";
 import { useRouter } from "vue-router";
-import { useApiFetch } from "@/api/useApiFetch";
+import {
+  fetchCurrentUser as fetchCurrentUserFromApi,
+  login as loginUser,
+  logout as logoutUser,
+} from "@/features/login/api/authApi";
 
-interface LoginCredentials {
+export interface LoginCredentials {
   email: string;
   password: string;
 }
 
-interface CurrentUser {
+export interface CurrentUser {
   id: string;
   email: string;
   role: string;
@@ -27,23 +31,14 @@ export function useAuth() {
     isLoading.value = true;
     error.value = null;
 
-    const {
-      execute,
-      statusCode,
-      error: fetchError,
-    } = useApiFetch("/auth/login", {
-      immediate: false,
-    })
-      .post(credentials)
-      .json<{ message: string; token_type: string }>();
+    const { execute, statusCode, error: fetchError } = loginUser(credentials);
 
     await execute();
 
     isLoading.value = false;
 
     if (statusCode.value && statusCode.value >= 200 && statusCode.value < 300) {
-      // Success - tokens are in cookies, fetch user info
-      await fetchCurrentUser();
+      // Success - tokens are in cookies, we can navigate to the home page
       return true;
     } else {
       error.value = fetchError.value?.message || "Login failed";
@@ -55,11 +50,7 @@ export function useAuth() {
    * Logout and clear session
    */
   const logout = async () => {
-    const { execute } = useApiFetch("/auth/logout", {
-      immediate: false,
-    })
-      .post()
-      .json();
+    const { execute } = logoutUser();
 
     await execute();
 
@@ -71,27 +62,12 @@ export function useAuth() {
    * Fetch current user information
    */
   const fetchCurrentUser = async () => {
-    const { execute, data, statusCode } = useApiFetch("/auth/me", {
-      immediate: false,
-    })
-      .get()
-      .json<CurrentUser>();
-
-    await execute();
-
-    if (statusCode.value && statusCode.value >= 200 && statusCode.value < 300) {
-      currentUser.value = data.value;
+    const user = await fetchCurrentUserFromApi();
+    if (user) {
+      currentUser.value = user;
       return true;
     }
-
     return false;
-  };
-
-  /**
-   * Check if user is authenticated
-   */
-  const checkAuth = async () => {
-    return await fetchCurrentUser();
   };
 
   return {
@@ -100,6 +76,6 @@ export function useAuth() {
     error,
     login,
     logout,
-    checkAuth,
+    fetchCurrentUser,
   };
 }
