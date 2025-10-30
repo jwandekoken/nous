@@ -139,6 +139,7 @@ async def postgres_pool(test_settings: Settings) -> AsyncGenerator[asyncpg.Pool,
     """Provide PostgreSQL connection pool for AGE operations.
 
     Creates a fresh pool for each test to avoid event loop issues.
+    Also creates and cleans the test_graph for graph-related tests.
     """
     global _test_db_initialized
 
@@ -172,7 +173,53 @@ async def postgres_pool(test_settings: Settings) -> AsyncGenerator[asyncpg.Pool,
         max_size=10,
     )
 
+    # Setup test graph for this test
+    graph_name = "test_graph"
+    conn = await pool.acquire()
+    try:
+        await conn.execute("LOAD 'age';")
+        await conn.execute("SET search_path = ag_catalog, '$user', public;")
+
+        # Create test_graph if it doesn't exist
+        graph_exists = await conn.fetchval(
+            "SELECT 1 FROM ag_graph WHERE name = $1;", graph_name
+        )
+        if not graph_exists:
+            await conn.execute(f"SELECT create_graph('{graph_name}');")
+
+        # Try to clear any existing data from the graph
+        # Use DROP + CREATE instead of DELETE to avoid segfaults
+        if graph_exists:
+            try:
+                await conn.execute(
+                    f"SELECT ag_catalog.drop_graph('{graph_name}', true);"
+                )
+            except Exception:
+                pass  # Ignore if drop fails
+            # Recreate the graph
+            await conn.execute(f"SELECT create_graph('{graph_name}');")
+    finally:
+        await pool.release(conn)
+
     yield pool
+
+    # Clean after test by dropping and recreating the graph
+    # This avoids the segfault from MATCH (n) DETACH DELETE n
+    conn = await pool.acquire()
+    try:
+        await conn.execute("LOAD 'age';")
+        await conn.execute("SET search_path = ag_catalog, '$user', public;")
+        try:
+            await conn.execute(f"SELECT ag_catalog.drop_graph('{graph_name}', true);")
+        except Exception:
+            pass  # Ignore if drop fails
+        # Recreate for next test
+        try:
+            await conn.execute(f"SELECT create_graph('{graph_name}');")
+        except Exception:
+            pass  # Ignore if create fails
+    finally:
+        await pool.release(conn)
 
     # Close pool after test
     await pool.close()
@@ -182,59 +229,6 @@ async def postgres_pool(test_settings: Settings) -> AsyncGenerator[asyncpg.Pool,
 def password_hasher() -> PasswordHasher:
     """Provide password hasher instance for tests."""
     return pwd_context
-
-
-@pytest_asyncio.fixture(autouse=True)
-async def clean_graph_data(postgres_pool: asyncpg.Pool) -> AsyncGenerator[None, None]:
-    """Clean AGE graph data before each test.
-
-    This fixture automatically runs before each test to ensure a clean state.
-    It creates a test_graph if needed and clears all data from it.
-    """
-    graph_name = "test_graph"
-
-    # Skip if pool is closed/closing (for tests that manage pool lifecycle)
-    if not postgres_pool.is_closing():
-        # Acquire connection and set it up
-        conn = await postgres_pool.acquire()
-        try:
-            await conn.execute("LOAD 'age';")
-            await conn.execute("SET search_path = ag_catalog, '$user', public;")
-
-            # Create test_graph if it doesn't exist
-            graph_exists = await conn.fetchval(
-                "SELECT 1 FROM ag_graph WHERE name = $1;", graph_name
-            )
-            if not graph_exists:
-                await conn.execute(f"SELECT create_graph('{graph_name}');")
-
-            # Clear all data from the graph
-            try:
-                await conn.execute(
-                    f"SELECT * FROM ag_catalog.cypher('{graph_name}', $$ MATCH (n) DETACH DELETE n $$) as (v agtype);"
-                )
-            except Exception:
-                # Ignore if graph is already empty
-                pass
-        finally:
-            await postgres_pool.release(conn)
-
-    yield
-
-    # Clean after test as well (for safety) - skip if pool is closed
-    if not postgres_pool.is_closing():
-        conn = await postgres_pool.acquire()
-        try:
-            await conn.execute("LOAD 'age';")
-            await conn.execute("SET search_path = ag_catalog, '$user', public;")
-            try:
-                await conn.execute(
-                    f"SELECT * FROM ag_catalog.cypher('{graph_name}', $$ MATCH (n) DETACH DELETE n $$) as (v agtype);"
-                )
-            except Exception:
-                pass
-        finally:
-            await postgres_pool.release(conn)
 
 
 def pytest_sessionfinish(session, exitstatus):
