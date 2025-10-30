@@ -1,7 +1,7 @@
 """Integration tests for AssimilateKnowledgeUseCaseImpl using real dependencies.
 
 This module provides integration tests for the AssimilateKnowledgeUseCaseImpl
-using the actual production implementations of ArcadedbRepository and LangChainFactExtractor.
+using the actual production implementations of AgeRepository and LangChainFactExtractor.
 """
 
 import uuid
@@ -9,7 +9,6 @@ import uuid
 import asyncpg
 import pytest
 
-from app.db.postgres.connection import get_db_pool, reset_db_pool
 from app.features.graph.dtos.knowledge_dto import (
     AssimilateKnowledgeRequest,
     AssimilateKnowledgeResponse,
@@ -22,31 +21,10 @@ from app.features.graph.usecases.assimilate_knowledge_usecase import (
 )
 
 
-@pytest.fixture(autouse=True)
-async def reset_db_connection():
-    """Reset database connection and clear data before each test."""
-    await reset_db_pool()
-
-    # Clear all data from the graph to ensure clean state
-    pool = await get_db_pool()
-    age_repo = AgeRepository(pool)
-
-    try:
-        await age_repo.clear_all_data()
-    except Exception:
-        pass  # Ignore errors if graph is already empty
-
-
-@pytest.fixture
-async def postgres_pool() -> asyncpg.Pool:
-    """PostgreSQL connection pool for integration tests."""
-    return await get_db_pool()
-
-
 @pytest.fixture
 async def age_repository(postgres_pool: asyncpg.Pool) -> AgeRepository:
     """Fixture to get an AgeRepository instance."""
-    return AgeRepository(postgres_pool)
+    return AgeRepository(postgres_pool, graph_name="test_graph")
 
 
 @pytest.fixture

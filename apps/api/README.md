@@ -101,6 +101,38 @@ The API will be available at:
 
 ### Testing
 
+The test suite uses a dedicated test database to ensure complete isolation from your development database. Tests automatically create and tear down the test database, making them safe to run at any time.
+
+#### Test Database Isolation
+
+Tests use a separate PostgreSQL database (`multimodel_db_test` by default) with the following features:
+
+- **Automatic setup**: Test database is created automatically when tests run
+- **Schema sync**: Tables are created from SQLAlchemy models (no migrations needed)
+- **AGE support**: AGE extension is installed and configured automatically
+- **Clean slate**: All data is cleaned between tests
+- **Safe teardown**: Test database is dropped after tests complete
+
+Your development database (`multimodel_db`) is never touched by tests.
+
+#### Configuration
+
+The test database is configured via environment variables or settings:
+
+```bash
+# Optional: Create .env.test for custom test configuration
+TESTING=true
+POSTGRES_DB=multimodel_db_test
+POSTGRES_USER=admin
+POSTGRES_PASSWORD=supersecretpassword
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+```
+
+The `TESTING=true` flag automatically switches to the test database.
+
+#### Running Tests
+
 Run all tests:
 
 ```bash
@@ -116,25 +148,36 @@ uv run pytest tests/ --cov=app --cov-report=html
 Run specific test file:
 
 ```bash
-uv run pytest tests/core/test_security.py -v
+uv run pytest tests/features/auth/usecases/test_signup_tenant_usecase_integration.py -v
+```
+
+Run only integration tests:
+
+```bash
+uv run pytest tests/ -m asyncio -v
 ```
 
 #### Integration Tests
 
-Run integration tests for EntityRepository (uses real PostgreSQL AGE database):
+Integration tests use real database connections and test the full stack:
 
 ```bash
-# Run all integration tests for entity repository
-uv run python -m pytest tests/features/graph/repositories/entity_repository/test_entity_repository_create_entity_integration.py -v
+# Run all graph repository integration tests
+uv run pytest tests/features/graph/repositories/test_age_repository_integration.py -v
 
-# Run specific integration test with detailed output
-uv run python -m pytest tests/features/graph/repositories/entity_repository/test_entity_repository_create_entity_integration.py::TestCreateEntityIntegration::test_create_entity_basic -v -s
+# Run auth integration tests
+uv run pytest tests/features/auth/usecases/test_signup_tenant_usecase_integration.py -v
 
-# Run integration tests with coverage
-uv run python -m pytest tests/features/graph/repositories/entity_repository/test_entity_repository_create_entity_integration.py --cov=app.features.graph.repositories.entity
+# Run specific test with detailed output
+uv run pytest tests/features/graph/usecases/test_assimilate_knowledge_usecase_integration.py::TestAssimilateKnowledgeUseCaseIntegration::test_assimilate_knowledge_basic -v -s
 ```
 
-**Note**: Integration tests connect to your actual PostgreSQL AGE database, so ensure your database is running and properly configured in your environment variables.
+**How It Works**:
+
+- Shared fixtures in `tests/conftest.py` manage the test database lifecycle
+- Each test gets a clean graph (AGE) state via autouse fixtures
+- Tables are created once per test session from models
+- Test database is automatically dropped after all tests complete
 
 ### Development Tools
 
@@ -191,7 +234,11 @@ uv run basedpyright app/ tests/
    # Or use a PostgreSQL service with AGE extension installed
    ```
 
-2. **Update connection settings in `.env`**:
+2. **Database Migrations**:
+
+   This project uses Alembic for database schema management. See the [migration documentation](migrations/README.md) for detailed instructions on creating, applying, and managing database migrations.
+
+3. **Update connection settings in `.env`**:
    ```env
    POSTGRES_USER=admin
    POSTGRES_PASSWORD=supersecretpassword

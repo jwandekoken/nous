@@ -6,18 +6,21 @@ import asyncpg
 import pytest
 
 from app.core.settings import get_settings
-from app.db.postgres.connection import close_db_pool, get_db_pool
+from app.db.postgres.graph_connection import (
+    close_graph_db_pool,
+    get_graph_db_pool,
+)
 
 
 @pytest.fixture
 async def postgres_pool() -> AsyncGenerator[asyncpg.Pool, None]:
     """Provide a connection pool and ensure it's closed after the test."""
-    pool = await get_db_pool()
+    pool = await get_graph_db_pool()
     try:
         yield pool
     finally:
         # Ensure the pool is closed after each test
-        await close_db_pool()
+        await close_graph_db_pool()
 
 
 class TestPostgresIntegration:
@@ -52,21 +55,21 @@ class TestPostgresIntegration:
         """Test the singleton behavior of the connection pool."""
         try:
             # First call should create a new pool
-            pool1 = await get_db_pool()
+            pool1 = await get_graph_db_pool()
             assert isinstance(pool1, asyncpg.Pool)
             assert not pool1.is_closing()
 
             # Second call should return the same pool instance
-            pool2 = await get_db_pool()
+            pool2 = await get_graph_db_pool()
             assert pool1 is pool2
 
             # Close the pool
-            await close_db_pool()
+            await close_graph_db_pool()
             assert pool1.is_closing()
 
             # The global _pool variable should be None now
             # Next call should create a new pool
-            new_pool = await get_db_pool()
+            new_pool = await get_graph_db_pool()
             assert isinstance(new_pool, asyncpg.Pool)
             assert new_pool is not pool1
 
@@ -74,7 +77,7 @@ class TestPostgresIntegration:
             pytest.skip(f"PostgreSQL server not available: {e}")
         finally:
             # Final cleanup
-            await close_db_pool()
+            await close_graph_db_pool()
 
     @pytest.mark.asyncio
     async def test_successful_connection_and_query(self, postgres_pool: asyncpg.Pool):

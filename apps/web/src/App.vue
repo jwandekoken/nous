@@ -1,12 +1,16 @@
+<script setup lang="ts">
+import { Toaster } from "@/components/ui/sonner";
+import "vue-sonner/style.css";
+
+// Main application component - router-view renders the current route component
+</script>
+
 <template>
   <div id="app">
     <router-view />
+    <Toaster />
   </div>
 </template>
-
-<script setup lang="ts">
-// Main application component - router-view renders the current route component
-</script>
 
 <style>
 #app {

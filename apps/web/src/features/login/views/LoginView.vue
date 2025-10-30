@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import { useRouter } from "vue-router";
+import { useAuth } from "../composables/useAuth";
+import { toast } from "vue-sonner";
 import {
   Card,
   CardContent,
@@ -10,45 +12,31 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const router = useRouter();
+const { login, isLoading, error: authError } = useAuth();
 
-// Reactive data
+// Form data
 const email = ref("");
 const password = ref("");
-const loading = ref(false);
-const errorMessage = ref("");
 
-// Methods
+// Handle login submission
 const handleLogin = async () => {
   if (!email.value || !password.value) {
-    errorMessage.value = "Please fill in all fields";
+    toast.error("Please fill in all fields");
     return;
   }
 
-  loading.value = true;
-  errorMessage.value = "";
+  const success = await login({
+    email: email.value,
+    password: password.value,
+  });
 
-  try {
-    // TODO: Implement actual login logic
-    console.log("Login attempt:", {
-      email: email.value,
-      password: password.value,
-    });
-
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-
-    // Mock successful login - set authentication state
-    localStorage.setItem("isLoggedIn", "true");
-
-    // Redirect to home after successful login
+  if (success) {
+    console.log("Login successful, redirecting...");
     router.push("/");
-  } catch (error) {
-    errorMessage.value = "Login failed. Please try again.";
-  } finally {
-    loading.value = false;
+  } else {
+    toast.error(authError.value || "Invalid credentials");
   }
 };
 </script>
@@ -86,14 +74,8 @@ const handleLogin = async () => {
             />
           </div>
 
-          <Alert v-if="errorMessage" variant="destructive">
-            <AlertDescription>
-              {{ errorMessage }}
-            </AlertDescription>
-          </Alert>
-
-          <Button type="submit" :disabled="loading" size="lg">
-            <span v-if="loading">Signing in...</span>
+          <Button type="submit" :disabled="isLoading" size="lg">
+            <span v-if="isLoading">Signing in...</span>
             <span v-else>Sign In</span>
           </Button>
         </form>

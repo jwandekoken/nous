@@ -1,50 +1,19 @@
 """Integration tests for AgeRepository using a real PostgreSQL/AGE connection."""
 
 import uuid
-from collections.abc import AsyncGenerator
 from datetime import datetime
-from typing import cast
 
 import asyncpg
 import pytest
 
-from app.core.settings import get_settings
-from app.db.postgres.connection import close_db_pool, get_db_pool
 from app.features.graph.models import Entity, Fact, HasIdentifier, Identifier, Source
 from app.features.graph.repositories.age_repository import AgeRepository
 
 
 @pytest.fixture
-async def postgres_pool() -> AsyncGenerator[asyncpg.Pool, None]:
-    """Provides a connection pool and ensures it's closed after the test."""
-    pool = await get_db_pool()
-    try:
-        yield pool
-    finally:
-        await close_db_pool()
-
-
-@pytest.fixture
 async def age_repository(postgres_pool: asyncpg.Pool) -> AgeRepository:
     """Fixture to get an AgeRepository instance."""
-    return AgeRepository(postgres_pool)
-
-
-@pytest.fixture(autouse=True)
-async def clean_graph_db(postgres_pool: asyncpg.Pool) -> None:
-    """Clean all data from the AGE graph before each test."""
-    settings = get_settings()
-    graph_name = settings.age_graph_name
-
-    async with postgres_pool.acquire() as conn:
-        conn = cast(asyncpg.Connection, conn)
-        async with conn.transaction():
-            await conn.execute("LOAD 'age';")
-            await conn.execute("SET search_path = ag_catalog, '$user', public;")
-            # The VACUUM command is used to reclaim storage occupied by dead tuples. In this case, it is used to clean the graph.
-            await conn.execute(
-                f"SELECT * from ag_catalog.cypher('{graph_name}', $$ MATCH (n) DETACH DELETE n $$) as (v agtype);"
-            )
+    return AgeRepository(postgres_pool, graph_name="test_graph")
 
 
 @pytest.fixture

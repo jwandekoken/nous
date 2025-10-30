@@ -1,4 +1,8 @@
-"""PostgreSQL database connection management."""
+"""PostgreSQL database connection management for graph operations.
+
+This module provides direct asyncpg connections for AGE graph operations and raw SQL queries.
+Used primarily by the graph features for Cypher queries and AGE-specific operations.
+"""
 
 import asyncpg
 
@@ -7,7 +11,7 @@ from app.core.settings import get_settings
 _pool: asyncpg.Pool | None = None
 
 
-async def get_db_pool() -> asyncpg.Pool:
+async def get_graph_db_pool() -> asyncpg.Pool:
     """Get the database connection pool as a dependency."""
     global _pool
     if _pool is None:
@@ -25,7 +29,7 @@ async def get_db_pool() -> asyncpg.Pool:
     return _pool
 
 
-async def close_db_pool() -> None:
+async def close_graph_db_pool() -> None:
     """Close the database connection pool."""
     global _pool
     if _pool:

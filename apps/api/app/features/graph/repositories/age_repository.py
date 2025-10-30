@@ -7,7 +7,6 @@ from uuid import UUID
 
 import asyncpg
 
-from app.core.settings import get_settings
 from app.features.graph.models import (
     DerivedFrom,
     Entity,
@@ -35,10 +34,12 @@ class AgeRepository(GraphRepository):
     pool: asyncpg.Pool
     graph_name: str
 
-    def __init__(self, pool: asyncpg.Pool):
-        """Initialize the repository with a database connection pool."""
+    def __init__(self, pool: asyncpg.Pool, graph_name: str):
+        """Initialize the repository with a database connection pool and graph name."""
         self.pool = pool
-        self.graph_name = get_settings().age_graph_name
+        self.graph_name = graph_name
+        if not graph_name:
+            raise ValueError("graph_name must be provided")
 
     @staticmethod
     def _escape_cypher_string(value: str) -> str:
