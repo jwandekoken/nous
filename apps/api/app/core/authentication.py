@@ -118,8 +118,6 @@ async def verify_auth(
     Raises:
         HTTPException 401 if not authenticated or token is invalid
     """
-    print("-----------> access_token:", access_token)
-    print("-----------> credentials:", credentials)
 
     # Try cookie first (web app authentication)
     if access_token:
