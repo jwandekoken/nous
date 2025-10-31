@@ -3,7 +3,7 @@
 from typing import Protocol
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 
 from app.core.authentication import pwd_context
 from app.core.authorization import is_super_admin
@@ -14,44 +14,15 @@ from app.features.auth.dtos import (
     CreateTenantRequest,
     CreateTenantResponse,
     DeleteTenantResponse,
+    ListTenantsRequest,
+    ListTenantsResponse,
     UpdateTenantRequest,
     UpdateTenantResponse,
 )
 from app.features.auth.usecases.delete_tenant_usecase import DeleteTenantUseCaseImpl
+from app.features.auth.usecases.list_tenants_usecase import ListTenantsUseCaseImpl
 from app.features.auth.usecases.signup_tenant_usecase import SignupTenantUseCaseImpl
 from app.features.auth.usecases.update_tenant_usecase import UpdateTenantUseCaseImpl
-
-
-class PasswordHasherImpl:
-    """Wrapper for password hashing to match protocol."""
-
-    def hash(self, secret: str | bytes, **kwargs) -> str:
-        """Hash a password or secret."""
-        return pwd_context.hash(secret, **kwargs)
-
-
-async def get_signup_tenant_use_case():
-    """Dependency injection for the signup tenant use case."""
-    return SignupTenantUseCaseImpl(
-        password_hasher=PasswordHasherImpl(),
-        get_db_session=get_auth_db_session,
-        get_db_pool=get_graph_db_pool,
-    )
-
-
-async def get_update_tenant_use_case():
-    """Dependency injection for the update tenant use case."""
-    return UpdateTenantUseCaseImpl(
-        get_db_session=get_auth_db_session,
-    )
-
-
-async def get_delete_tenant_use_case():
-    """Dependency injection for the delete tenant use case."""
-    return DeleteTenantUseCaseImpl(
-        get_db_session=get_auth_db_session,
-        get_db_pool=get_graph_db_pool,
-    )
 
 
 class SignupTenantUseCase(Protocol):
@@ -78,6 +49,53 @@ class DeleteTenantUseCase(Protocol):
     async def execute(self, tenant_id: UUID) -> DeleteTenantResponse:
         """Delete a tenant and its associated data."""
         ...
+
+
+class ListTenantsUseCase(Protocol):
+    """Protocol for the list tenants use case."""
+
+    async def execute(self, request: ListTenantsRequest) -> ListTenantsResponse:
+        """List tenants with pagination and filtering."""
+        ...
+
+
+class PasswordHasherImpl:
+    """Wrapper for password hashing to match protocol."""
+
+    def hash(self, secret: str | bytes, **kwargs) -> str:
+        """Hash a password or secret."""
+        return pwd_context.hash(secret, **kwargs)
+
+
+async def get_signup_tenant_use_case() -> SignupTenantUseCase:
+    """Dependency injection for the signup tenant use case."""
+    return SignupTenantUseCaseImpl(
+        password_hasher=PasswordHasherImpl(),
+        get_db_session=get_auth_db_session,
+        get_db_pool=get_graph_db_pool,
+    )
+
+
+async def get_update_tenant_use_case() -> UpdateTenantUseCase:
+    """Dependency injection for the update tenant use case."""
+    return UpdateTenantUseCaseImpl(
+        get_db_session=get_auth_db_session,
+    )
+
+
+async def get_delete_tenant_use_case() -> DeleteTenantUseCase:
+    """Dependency injection for the delete tenant use case."""
+    return DeleteTenantUseCaseImpl(
+        get_db_session=get_auth_db_session,
+        get_db_pool=get_graph_db_pool,
+    )
+
+
+async def get_list_tenants_use_case() -> ListTenantsUseCase:
+    """Dependency injection for the list tenants use case."""
+    return ListTenantsUseCaseImpl(
+        get_db_session=get_auth_db_session,
+    )
 
 
 router = APIRouter()
@@ -131,3 +149,33 @@ async def delete_tenant(
     Only super admins can delete tenants.
     """
     return await use_case.execute(tenant_id)
+
+
+@router.get("/tenants", response_model=ListTenantsResponse)
+async def list_tenants(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=100),
+    search: str | None = None,
+    sort_by: str = Query("created_at", pattern="^(name|created_at)$"),
+    sort_order: str = Query("desc", pattern="^(asc|desc)$"),
+    use_case: ListTenantsUseCase = Depends(get_list_tenants_use_case),
+    _: AuthenticatedUser = Depends(is_super_admin),
+) -> ListTenantsResponse:
+    """List all tenants with pagination and filtering.
+
+    This endpoint allows super admins to:
+    - Browse tenants with pagination
+    - Search tenants by name (case-insensitive)
+    - Sort by name or creation date
+    - Control page size (max 100)
+
+    Only super admins can list tenants.
+    """
+    request = ListTenantsRequest(
+        page=page,
+        page_size=page_size,
+        search=search,
+        sort_by=sort_by,
+        sort_order=sort_order,
+    )
+    return await use_case.execute(request)
