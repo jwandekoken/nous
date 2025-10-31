@@ -101,7 +101,7 @@ async def get_list_tenants_use_case() -> ListTenantsUseCase:
 router = APIRouter()
 
 
-@router.post("/create_tenant", response_model=CreateTenantResponse)
+@router.post("/tenants", response_model=CreateTenantResponse)
 async def create_tenant(
     request: CreateTenantRequest,
     use_case: SignupTenantUseCase = Depends(get_signup_tenant_use_case),
