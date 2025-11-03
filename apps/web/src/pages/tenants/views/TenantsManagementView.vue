@@ -329,11 +329,14 @@ onMounted(() => {
           </TableHeader>
           <TableBody>
             <TableRow v-for="tenant in displayedTenants" :key="tenant.id">
-              <TableCell class="font-medium">{{ tenant.name }}</TableCell>
+              <TableCell class="font-medium text-muted-foreground">{{
+                tenant.name
+              }}</TableCell>
               <TableCell>
-                <code class="text-xs bg-muted px-2 py-1 rounded">{{
-                  tenant.age_graph_name
-                }}</code>
+                <code
+                  class="text-xs bg-muted px-2 py-1 rounded text-muted-foreground"
+                  >{{ tenant.age_graph_name }}</code
+                >
               </TableCell>
               <TableCell>
                 <Badge variant="secondary">{{ tenant.user_count }}</Badge>
@@ -345,7 +348,7 @@ onMounted(() => {
                 <div class="flex gap-2 justify-end">
                   <Button
                     @click="openEditDialog(tenant)"
-                    variant="outline"
+                    variant="secondary"
                     size="sm"
                   >
                     Edit
@@ -369,9 +372,7 @@ onMounted(() => {
           class="px-6 py-4 border-t border-border flex items-center justify-between"
         >
           <p class="text-sm text-muted-foreground">
-            Page {{ currentPage }} of {{ totalPages }} ({{
-              totalTenants
-            }}
+            Page {{ currentPage }} of {{ totalPages }} ({{ totalTenants }}
             total)
           </p>
           <div class="flex gap-2">
