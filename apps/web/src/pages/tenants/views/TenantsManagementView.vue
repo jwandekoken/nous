@@ -277,7 +277,7 @@ onMounted(() => {
           <Input
             v-model="searchQuery"
             placeholder="Search tenants by name..."
-            class="w-full sm:w-80"
+            class="w-full sm:w-80 text-foreground"
             @keyup.enter="handleSearch"
           />
           <Button @click="handleSearch" variant="secondary"> Search </Button>
