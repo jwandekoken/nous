@@ -1,5 +1,5 @@
 import { defineStore } from "pinia";
-import { ref, computed } from "vue";
+import { ref, computed, watch } from "vue";
 import { useSessionStorage } from "@vueuse/core";
 import { useRouter } from "vue-router";
 import {
@@ -14,7 +14,14 @@ export const useAuthStore = defineStore("auth", () => {
   const router = useRouter();
 
   // State - currentUser synced with session storage
-  const currentUser = useSessionStorage<CurrentUser | null>("auth:user", null);
+  // Explicitly provide serializer to ensure proper JSON storage
+  const currentUser = useSessionStorage<CurrentUser | null>("auth:user", null, {
+    serializer: {
+      read: (v: string) => (v ? JSON.parse(v) : null),
+      write: (v: CurrentUser | null) => JSON.stringify(v),
+    },
+  });
+
   const isLoading = ref(false);
   const error = ref<string | null>(null);
 
@@ -56,8 +63,8 @@ export const useAuthStore = defineStore("auth", () => {
   };
 
   const fetchUser = async (): Promise<CurrentUser | null> => {
-    // If user is already cached in session storage, return it
-    if (currentUser.value) {
+    // If user is already cached in session storage AND has all required fields, return it
+    if (currentUser.value?.id && currentUser.value?.role) {
       return currentUser.value;
     }
 
