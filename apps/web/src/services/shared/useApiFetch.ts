@@ -18,7 +18,7 @@ export const useApiFetch = createFetch({
     headers: {
       "Content-Type": "application/json",
     },
-    credentials: "include", // ⭐ Critical: Send cookies with every request
+    credentials: "include", // Critical: Send cookies with every request
   },
 });
 

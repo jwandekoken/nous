@@ -8,7 +8,7 @@ import {
   fetchCurrentUser as fetchCurrentUserFromApi,
   type LoginCredentials,
   type CurrentUser,
-} from "@/api/authApi";
+} from "@/services/auth";
 
 export const useAuthStore = defineStore("auth", () => {
   const router = useRouter();

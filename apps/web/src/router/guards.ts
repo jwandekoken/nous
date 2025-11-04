@@ -1,6 +1,6 @@
 import type { NavigationGuardNext, RouteLocationNormalized } from "vue-router";
 import { useAuthStore } from "@/stores/auth";
-import type { UserRole } from "@/api/authApi";
+import type { UserRole } from "@/services/auth";
 
 /**
  * Requires authentication to access route

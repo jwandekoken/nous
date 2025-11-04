@@ -1,15 +1,11 @@
-import { useApiFetch } from "@/api";
+import { useApiFetch } from "@/services/shared";
 import type {
   GetEntityResponse,
   AssimilateKnowledgeRequest,
   AssimilateKnowledgeResponse,
-} from "@/types/api";
+  FindEntityParams,
+} from "./types";
 import { computed, toValue, type MaybeRefOrGetter } from "vue";
-
-export interface FindEntityParams {
-  type: string;
-  value: string;
-}
 
 export const useFindEntityByIdentifier = (
   params: MaybeRefOrGetter<FindEntityParams>

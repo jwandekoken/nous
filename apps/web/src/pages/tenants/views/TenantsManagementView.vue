@@ -29,7 +29,7 @@ import {
   type TenantSummary,
   type CreateTenantRequest,
   type UpdateTenantRequest,
-} from "@/api/authApi";
+} from "@/services/tenants";
 import { toast } from "vue-sonner";
 
 // State
