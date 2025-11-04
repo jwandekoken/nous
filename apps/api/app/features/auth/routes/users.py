@@ -26,6 +26,56 @@ from app.features.auth.usecases.update_user_usecase import UpdateUserUseCaseImpl
 router = APIRouter()
 
 
+class ListUsersUseCase(Protocol):
+    """Protocol for the list users use case."""
+
+    async def execute(
+        self, request: ListUsersRequest, admin_user: AuthenticatedUser
+    ) -> ListUsersResponse:
+        """List users with pagination and filtering."""
+        ...
+
+
+class GetUserUseCase(Protocol):
+    """Protocol for the get user use case."""
+
+    async def execute(
+        self, user_id: UUID, admin_user: AuthenticatedUser
+    ) -> GetUserResponse:
+        """Get a single user by ID."""
+        ...
+
+
+class UpdateUserUseCase(Protocol):
+    """Protocol for the update user use case."""
+
+    async def execute(
+        self, user_id: UUID, request: UpdateUserRequest, admin_user: AuthenticatedUser
+    ) -> UpdateUserResponse:
+        """Update a user."""
+        ...
+
+
+class DeleteUserUseCase(Protocol):
+    """Protocol for the delete user use case."""
+
+    async def execute(
+        self, user_id: UUID, admin_user: AuthenticatedUser
+    ) -> DeleteUserResponse:
+        """Delete a user and its associated data."""
+        ...
+
+
+class CreateUserUseCase(Protocol):
+    """Protocol for the create user use case."""
+
+    async def execute(
+        self, request: CreateUserRequest, admin_user: AuthenticatedUser
+    ) -> CreateUserResponse:
+        """Create a new user within a tenant."""
+        ...
+
+
 class PasswordHasherImpl:
     """Wrapper for password hashing to match protocol."""
 
@@ -69,56 +119,6 @@ async def get_delete_user_use_case():
     return DeleteUserUseCaseImpl(
         get_db_session=get_auth_db_session,
     )
-
-
-class CreateUserUseCase(Protocol):
-    """Protocol for the create user use case."""
-
-    async def execute(
-        self, request: CreateUserRequest, admin_user: AuthenticatedUser
-    ) -> CreateUserResponse:
-        """Create a new user within a tenant."""
-        ...
-
-
-class ListUsersUseCase(Protocol):
-    """Protocol for the list users use case."""
-
-    async def execute(
-        self, request: ListUsersRequest, admin_user: AuthenticatedUser
-    ) -> ListUsersResponse:
-        """List users with pagination and filtering."""
-        ...
-
-
-class GetUserUseCase(Protocol):
-    """Protocol for the get user use case."""
-
-    async def execute(
-        self, user_id: UUID, admin_user: AuthenticatedUser
-    ) -> GetUserResponse:
-        """Get a single user by ID."""
-        ...
-
-
-class UpdateUserUseCase(Protocol):
-    """Protocol for the update user use case."""
-
-    async def execute(
-        self, user_id: UUID, request: UpdateUserRequest, admin_user: AuthenticatedUser
-    ) -> UpdateUserResponse:
-        """Update a user."""
-        ...
-
-
-class DeleteUserUseCase(Protocol):
-    """Protocol for the delete user use case."""
-
-    async def execute(
-        self, user_id: UUID, admin_user: AuthenticatedUser
-    ) -> DeleteUserResponse:
-        """Delete a user and its associated data."""
-        ...
 
 
 @router.post(
