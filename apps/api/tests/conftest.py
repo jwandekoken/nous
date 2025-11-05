@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engin
 
 from app.core.authentication import pwd_context
 from app.core.settings import Settings, get_settings
-from app.features.auth.usecases.signup_tenant_usecase import PasswordHasher
+from app.features.auth.usecases.tenants.signup_tenant_usecase import PasswordHasher
 from tests.utils.database import (
     cleanup_age_graphs,
     create_all_tables,

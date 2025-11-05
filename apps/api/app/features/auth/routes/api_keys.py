@@ -13,9 +13,15 @@ from app.features.auth.dtos import (
     CreateApiKeyResponse,
     ListApiKeysResponse,
 )
-from app.features.auth.usecases.create_api_key_usecase import CreateApiKeyUseCaseImpl
-from app.features.auth.usecases.delete_api_key_usecase import DeleteApiKeyUseCaseImpl
-from app.features.auth.usecases.list_api_keys_usecase import ListApiKeysUseCaseImpl
+from app.features.auth.usecases.api_keys.create_api_key_usecase import (
+    CreateApiKeyUseCaseImpl,
+)
+from app.features.auth.usecases.api_keys.delete_api_key_usecase import (
+    DeleteApiKeyUseCaseImpl,
+)
+from app.features.auth.usecases.api_keys.list_api_keys_usecase import (
+    ListApiKeysUseCaseImpl,
+)
 
 
 async def get_create_api_key_use_case():

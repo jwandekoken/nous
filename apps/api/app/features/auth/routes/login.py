@@ -15,14 +15,16 @@ from app.core.authentication import (
 from app.core.schemas import AuthenticatedUser
 from app.core.settings import get_settings
 from app.db.postgres.auth_session import get_auth_db_session
-from app.features.auth.dtos.auth_dto import (
+from app.features.auth.dtos import (
     LoginRequest,
     LoginResponse,
     RefreshTokenResponse,
 )
 from app.features.auth.models import RefreshToken, User
-from app.features.auth.usecases.login_usecase import LoginUseCaseImpl
-from app.features.auth.usecases.refresh_token_usecase import RefreshTokenUseCaseImpl
+from app.features.auth.usecases.login.login_usecase import LoginUseCaseImpl
+from app.features.auth.usecases.login.refresh_token_usecase import (
+    RefreshTokenUseCaseImpl,
+)
 
 
 class PasswordVerifierImpl:

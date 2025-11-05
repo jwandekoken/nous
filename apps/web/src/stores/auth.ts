@@ -8,13 +8,20 @@ import {
   fetchCurrentUser as fetchCurrentUserFromApi,
   type LoginCredentials,
   type CurrentUser,
-} from "@/api/authApi";
+} from "@/services/auth";
 
 export const useAuthStore = defineStore("auth", () => {
   const router = useRouter();
 
   // State - currentUser synced with session storage
-  const currentUser = useSessionStorage<CurrentUser | null>("auth:user", null);
+  // Explicitly provide serializer to ensure proper JSON storage
+  const currentUser = useSessionStorage<CurrentUser | null>("auth:user", null, {
+    serializer: {
+      read: (v: string) => (v ? JSON.parse(v) : null),
+      write: (v: CurrentUser | null) => JSON.stringify(v),
+    },
+  });
+
   const isLoading = ref(false);
   const error = ref<string | null>(null);
 
@@ -56,8 +63,8 @@ export const useAuthStore = defineStore("auth", () => {
   };
 
   const fetchUser = async (): Promise<CurrentUser | null> => {
-    // If user is already cached in session storage, return it
-    if (currentUser.value) {
+    // If user is already cached in session storage AND has all required fields, return it
+    if (currentUser.value?.id && currentUser.value?.role) {
       return currentUser.value;
     }
 
