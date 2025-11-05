@@ -8,8 +8,10 @@ from sqlalchemy.future import select
 from app.core.schemas import UserRole
 from app.features.auth.dtos import CreateApiKeyRequest
 from app.features.auth.models import ApiKey, Tenant, User
-from app.features.auth.usecases.create_api_key_usecase import CreateApiKeyUseCaseImpl
-from app.features.auth.usecases.signup_tenant_usecase import PasswordHasher
+from app.features.auth.usecases.api_keys.create_api_key_usecase import (
+    CreateApiKeyUseCaseImpl,
+)
+from app.features.auth.usecases.tenants.signup_tenant_usecase import PasswordHasher
 
 # All fixtures are now provided by tests/conftest.py
 

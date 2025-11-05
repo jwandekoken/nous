@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.schemas import AuthenticatedUser, UserRole
 from app.features.auth.models import Tenant, User
-from app.features.auth.usecases.get_user_usecase import GetUserUseCaseImpl
+from app.features.auth.usecases.users.get_user_usecase import GetUserUseCaseImpl
 
 # All fixtures are now provided by tests/conftest.py
 
@@ -194,4 +194,3 @@ class TestGetUserUseCase:
         assert response.is_active is False  # Should reflect inactive status
         assert response.tenant_id == str(tenant.id)
         assert response.created_at is not None
-

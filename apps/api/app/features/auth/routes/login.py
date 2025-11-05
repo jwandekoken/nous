@@ -21,8 +21,10 @@ from app.features.auth.dtos.auth_dto import (
     RefreshTokenResponse,
 )
 from app.features.auth.models import RefreshToken, User
-from app.features.auth.usecases.login_usecase import LoginUseCaseImpl
-from app.features.auth.usecases.refresh_token_usecase import RefreshTokenUseCaseImpl
+from app.features.auth.usecases.login.login_usecase import LoginUseCaseImpl
+from app.features.auth.usecases.login.refresh_token_usecase import (
+    RefreshTokenUseCaseImpl,
+)
 
 
 class PasswordVerifierImpl:

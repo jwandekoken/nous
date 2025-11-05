@@ -8,7 +8,7 @@ from sqlalchemy.future import select
 
 from app.features.auth.dtos import CreateTenantRequest
 from app.features.auth.models import Tenant, User
-from app.features.auth.usecases.signup_tenant_usecase import (
+from app.features.auth.usecases.tenants.signup_tenant_usecase import (
     PasswordHasher,
     SignupTenantUseCaseImpl,
 )

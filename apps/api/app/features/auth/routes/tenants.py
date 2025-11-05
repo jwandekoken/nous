@@ -19,10 +19,18 @@ from app.features.auth.dtos import (
     UpdateTenantRequest,
     UpdateTenantResponse,
 )
-from app.features.auth.usecases.delete_tenant_usecase import DeleteTenantUseCaseImpl
-from app.features.auth.usecases.list_tenants_usecase import ListTenantsUseCaseImpl
-from app.features.auth.usecases.signup_tenant_usecase import SignupTenantUseCaseImpl
-from app.features.auth.usecases.update_tenant_usecase import UpdateTenantUseCaseImpl
+from app.features.auth.usecases.tenants.delete_tenant_usecase import (
+    DeleteTenantUseCaseImpl,
+)
+from app.features.auth.usecases.tenants.list_tenants_usecase import (
+    ListTenantsUseCaseImpl,
+)
+from app.features.auth.usecases.tenants.signup_tenant_usecase import (
+    SignupTenantUseCaseImpl,
+)
+from app.features.auth.usecases.tenants.update_tenant_usecase import (
+    UpdateTenantUseCaseImpl,
+)
 
 
 class SignupTenantUseCase(Protocol):

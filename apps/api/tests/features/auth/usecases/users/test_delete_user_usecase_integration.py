@@ -7,7 +7,7 @@ from sqlalchemy.future import select
 
 from app.core.schemas import AuthenticatedUser, UserRole
 from app.features.auth.models import RefreshToken, Tenant, User
-from app.features.auth.usecases.delete_user_usecase import DeleteUserUseCaseImpl
+from app.features.auth.usecases.users.delete_user_usecase import DeleteUserUseCaseImpl
 
 # All fixtures are now provided by tests/conftest.py
 
@@ -281,9 +281,7 @@ class TestDeleteUserUseCase:
 
         # Also verify we can't find it by email
         user_by_email = (
-            await db_session.execute(
-                select(User).filter_by(email="user@example.com")
-            )
+            await db_session.execute(select(User).filter_by(email="user@example.com"))
         ).scalar_one_or_none()
         assert user_by_email is None
 
@@ -350,4 +348,3 @@ class TestDeleteUserUseCase:
         ).scalar_one_or_none()
         assert admin_still_exists is not None
         assert admin_still_exists.email == "admin@example.com"
-

@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.schemas import AuthenticatedUser, UserRole
 from app.features.auth.dtos import ListUsersRequest
 from app.features.auth.models import Tenant, User
-from app.features.auth.usecases.list_users_usecase import ListUsersUseCaseImpl
+from app.features.auth.usecases.users.list_users_usecase import ListUsersUseCaseImpl
 
 # All fixtures are now provided by tests/conftest.py
 
@@ -494,4 +494,3 @@ class TestListUsersUseCase:
         assert response.page == 1
         assert response.page_size == 10
         assert response.total_pages == 0
-

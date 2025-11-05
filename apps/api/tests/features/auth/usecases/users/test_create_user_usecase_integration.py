@@ -10,7 +10,7 @@ from sqlalchemy.future import select
 from app.core.schemas import AuthenticatedUser, UserRole
 from app.features.auth.dtos import CreateUserRequest
 from app.features.auth.models import Tenant, User
-from app.features.auth.usecases.create_user_usecase import (
+from app.features.auth.usecases.users.create_user_usecase import (
     CreateUserUseCaseImpl,
     PasswordHasher,
 )

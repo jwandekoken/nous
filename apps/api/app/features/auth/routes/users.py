@@ -17,11 +17,11 @@ from app.features.auth.dtos import (
     UpdateUserRequest,
     UpdateUserResponse,
 )
-from app.features.auth.usecases.create_user_usecase import CreateUserUseCaseImpl
-from app.features.auth.usecases.delete_user_usecase import DeleteUserUseCaseImpl
-from app.features.auth.usecases.get_user_usecase import GetUserUseCaseImpl
-from app.features.auth.usecases.list_users_usecase import ListUsersUseCaseImpl
-from app.features.auth.usecases.update_user_usecase import UpdateUserUseCaseImpl
+from app.features.auth.usecases.users.create_user_usecase import CreateUserUseCaseImpl
+from app.features.auth.usecases.users.delete_user_usecase import DeleteUserUseCaseImpl
+from app.features.auth.usecases.users.get_user_usecase import GetUserUseCaseImpl
+from app.features.auth.usecases.users.list_users_usecase import ListUsersUseCaseImpl
+from app.features.auth.usecases.users.update_user_usecase import UpdateUserUseCaseImpl
 
 router = APIRouter()
 

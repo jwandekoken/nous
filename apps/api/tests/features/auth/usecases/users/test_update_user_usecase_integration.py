@@ -8,7 +8,7 @@ from sqlalchemy.future import select
 from app.core.schemas import AuthenticatedUser, UserRole
 from app.features.auth.dtos import UpdateUserRequest
 from app.features.auth.models import Tenant, User
-from app.features.auth.usecases.update_user_usecase import (
+from app.features.auth.usecases.users.update_user_usecase import (
     PasswordHasher,
     UpdateUserUseCaseImpl,
 )
@@ -508,4 +508,3 @@ class TestUpdateUserUseCase:
         assert user.email == original_email  # Unchanged
         assert user.role == original_role  # Unchanged
         assert user.hashed_password == original_password  # Unchanged
-

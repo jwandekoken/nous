@@ -10,7 +10,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.authentication import refresh_token_context
 from app.features.auth.dtos.auth_dto import RefreshTokenResponse
 from app.features.auth.models import RefreshToken, Tenant, User
-from app.features.auth.usecases.refresh_token_usecase import RefreshTokenUseCaseImpl
+from app.features.auth.usecases.login.refresh_token_usecase import (
+    RefreshTokenUseCaseImpl,
+)
 
 
 class TokenCreatorImpl:

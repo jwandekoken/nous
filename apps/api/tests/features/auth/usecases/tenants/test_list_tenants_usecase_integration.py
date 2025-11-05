@@ -5,7 +5,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.features.auth.dtos import ListTenantsRequest
 from app.features.auth.models import Tenant, User
-from app.features.auth.usecases.list_tenants_usecase import ListTenantsUseCaseImpl
+from app.features.auth.usecases.tenants.list_tenants_usecase import (
+    ListTenantsUseCaseImpl,
+)
 
 # All fixtures are now provided by tests/conftest.py
 

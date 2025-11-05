@@ -11,8 +11,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.authentication import get_password_hash
 from app.core.schemas import UserRole
 from app.features.auth.models import ApiKey, Tenant, User
-from app.features.auth.usecases.delete_api_key_usecase import DeleteApiKeyUseCaseImpl
-from app.features.auth.usecases.signup_tenant_usecase import PasswordHasher
+from app.features.auth.usecases.api_keys.delete_api_key_usecase import (
+    DeleteApiKeyUseCaseImpl,
+)
+from app.features.auth.usecases.tenants.signup_tenant_usecase import PasswordHasher
 
 # All fixtures are now provided by tests/conftest.py
 
