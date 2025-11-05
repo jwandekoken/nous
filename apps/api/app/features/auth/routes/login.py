@@ -15,7 +15,7 @@ from app.core.authentication import (
 from app.core.schemas import AuthenticatedUser
 from app.core.settings import get_settings
 from app.db.postgres.auth_session import get_auth_db_session
-from app.features.auth.dtos.auth_dto import (
+from app.features.auth.dtos import (
     LoginRequest,
     LoginResponse,
     RefreshTokenResponse,

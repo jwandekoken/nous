@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.authentication import pwd_context, refresh_token_context
-from app.features.auth.dtos.auth_dto import LoginRequest, LoginResponse
+from app.features.auth.dtos.login_dto import LoginRequest, LoginResponse
 from app.features.auth.models import RefreshToken, Tenant, User
 from app.features.auth.usecases.login.login_usecase import LoginUseCaseImpl
 
