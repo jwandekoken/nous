@@ -161,3 +161,16 @@ class GetEntityResponse(BaseModel):
     entity: EntityDto
     identifier: IdentifierWithRelationshipDto
     facts: list[FactWithSourceDto]
+
+
+class GetEntitySummaryResponse(BaseModel):
+    """Response for getting a natural language summary of entity data."""
+
+    summary: str = Field(
+        ...,
+        description="Natural language summary of the entity's facts and relationships, optimized for LLM consumption",
+    )
+    entity: EntityDto = Field(..., description="The entity being summarized")
+    identifier: IdentifierWithRelationshipDto = Field(
+        ..., description="The identifier used to look up the entity"
+    )
