@@ -32,16 +32,17 @@ class GetEntitySummaryUseCaseImpl:
         self.data_summarizer = data_summarizer
 
     async def execute(
-        self, identifier_value: str, identifier_type: str
+        self, identifier_value: str, identifier_type: str, lang: str | None = None
     ) -> GetEntitySummaryResponse:
         """Generate a natural language summary of entity data.
 
         Args:
             identifier_value: The identifier value (e.g., 'user@example.com')
             identifier_type: The identifier type (e.g., 'email', 'phone')
+            lang: Optional language code (e.g., 'pt-br', 'es', 'fr'). Defaults to English.
 
         Returns:
-            GetEntitySummaryResponse containing the summary, entity, and identifier
+            GetEntitySummaryResponse containing only the summary
 
         Raises:
             HTTPException: If the entity is not found (404) - propagated from GetEntityUseCaseImpl
@@ -54,16 +55,10 @@ class GetEntitySummaryUseCaseImpl:
         # Check if entity has facts - if not, skip LLM call to save costs
         if len(entity_data.facts) == 0:
             return GetEntitySummaryResponse(
-                summary="This entity has no recorded facts in the knowledge graph.",
-                entity=entity_data.entity,
-                identifier=entity_data.identifier,
+                summary="This entity has no recorded facts in the knowledge graph."
             )
 
         # Generate summary using the LLM
-        summary = await self.data_summarizer.summarize(entity_data)
+        summary = await self.data_summarizer.summarize(entity_data, lang=lang)
 
-        return GetEntitySummaryResponse(
-            summary=summary,
-            entity=entity_data.entity,
-            identifier=entity_data.identifier,
-        )
+        return GetEntitySummaryResponse(summary=summary)

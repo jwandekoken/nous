@@ -78,11 +78,14 @@ Generate a natural language summary that a Large Language Model can easily under
         structured_llm = llm.with_structured_output(SummaryOutput)
         self.chain = prompt | structured_llm
 
-    async def summarize(self, entity_data: GetEntityResponse) -> str:
+    async def summarize(
+        self, entity_data: GetEntityResponse, lang: str | None = None
+    ) -> str:
         """Generate a natural language summary of entity data.
 
         Args:
             entity_data: The complete entity data including facts and relationships
+            lang: Optional language code (e.g., 'pt-br', 'es', 'fr'). Defaults to English.
 
         Returns:
             A natural language summary string optimized for LLM consumption
@@ -93,10 +96,16 @@ Generate a natural language summary that a Large Language Model can easily under
         # Format the data as JSON for the LLM
         entity_json = json.dumps(entity_dict, indent=2, default=str)
 
+        # Build the human message with optional language instruction
+        human_message = ""
+        if lang:
+            human_message = f"Generate the summary in the language: {lang}.\n\n"
+        human_message += f"Here is the entity data to summarize:\n\n{entity_json}"
+
         # Call the LLM chain
         response: SummaryOutput = cast(
             SummaryOutput,
-            await self.chain.ainvoke({"entity_data": entity_json}),
+            await self.chain.ainvoke({"entity_data": human_message}),
         )
 
         return response.summary

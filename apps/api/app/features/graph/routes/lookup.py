@@ -34,7 +34,7 @@ class GetEntitySummaryUseCase(Protocol):
     """Protocol for the get entity summary use case."""
 
     async def execute(
-        self, identifier_value: str, identifier_type: str
+        self, identifier_value: str, identifier_type: str, lang: str | None = None
     ) -> GetEntitySummaryResponse:
         """Generate a natural language summary of entity data."""
         ...
@@ -88,6 +88,7 @@ async def get_entity(
 async def get_entity_summary(
     type: str,
     value: str,
+    lang: str | None = None,
     use_case: GetEntitySummaryUseCase = Depends(get_entity_summary_use_case),
 ) -> GetEntitySummaryResponse:
     """Generate a natural language summary of entity data.
@@ -95,5 +96,12 @@ async def get_entity_summary(
     This endpoint looks up an entity using an external identifier (e.g., email, phone)
     and returns a concise textual summary of all known facts and relationships.
     The summary is optimized for consumption by Large Language Models.
+
+    Args:
+        type: The identifier type (e.g., 'email', 'phone')
+        value: The identifier value (e.g., 'user@example.com')
+        lang: Optional language code for the summary (e.g., 'pt-br', 'es', 'fr'). Defaults to English.
     """
-    return await use_case.execute(identifier_value=value, identifier_type=type)
+    return await use_case.execute(
+        identifier_value=value, identifier_type=type, lang=lang
+    )

@@ -112,14 +112,14 @@ async def test_execute_with_facts(
     # Verify
     assert isinstance(result, GetEntitySummaryResponse)
     assert result.summary == expected_summary
-    assert result.entity == sample_entity_with_facts.entity
-    assert result.identifier == sample_entity_with_facts.identifier
 
     # Verify mocks were called correctly
     mock_get_entity_use_case.execute.assert_called_once_with(
         identifier_value="test@example.com", identifier_type="email"
     )
-    mock_data_summarizer.summarize.assert_called_once_with(sample_entity_with_facts)
+    mock_data_summarizer.summarize.assert_called_once_with(
+        sample_entity_with_facts, lang=None
+    )
 
 
 @pytest.mark.asyncio
@@ -141,8 +141,6 @@ async def test_execute_without_facts_skips_llm(
     # Verify
     assert isinstance(result, GetEntitySummaryResponse)
     assert result.summary == "This entity has no recorded facts in the knowledge graph."
-    assert result.entity == sample_entity_without_facts.entity
-    assert result.identifier == sample_entity_without_facts.identifier
 
     # Verify LLM was NOT called (cost optimization)
     mock_data_summarizer.summarize.assert_not_called()
@@ -192,4 +190,60 @@ async def test_execute_passes_correct_parameters(
     # Verify correct parameters were passed
     mock_get_entity_use_case.execute.assert_called_once_with(
         identifier_value="user@test.com", identifier_type="email"
+    )
+    mock_data_summarizer.summarize.assert_called_once_with(
+        sample_entity_with_facts, lang=None
+    )
+
+
+@pytest.mark.asyncio
+async def test_execute_with_language_parameter(
+    use_case, mock_get_entity_use_case, mock_data_summarizer, sample_entity_with_facts
+):
+    """Test that language parameter is correctly passed to summarizer."""
+    # Setup mocks
+    mock_get_entity_use_case.execute.return_value = sample_entity_with_facts
+    expected_summary = "Esta entidade vive em Paris com alta confiança."
+    mock_data_summarizer.summarize.return_value = expected_summary
+
+    # Execute with Portuguese language
+    result = await use_case.execute(
+        identifier_value="test@example.com", identifier_type="email", lang="pt-br"
+    )
+
+    # Verify
+    assert isinstance(result, GetEntitySummaryResponse)
+    assert result.summary == expected_summary
+
+    # Verify language was passed to summarizer
+    mock_data_summarizer.summarize.assert_called_once_with(
+        sample_entity_with_facts, lang="pt-br"
+    )
+
+
+@pytest.mark.asyncio
+async def test_execute_with_different_languages(
+    use_case, mock_get_entity_use_case, mock_data_summarizer, sample_entity_with_facts
+):
+    """Test that different language codes work correctly."""
+    # Setup mocks
+    mock_get_entity_use_case.execute.return_value = sample_entity_with_facts
+
+    # Test with Spanish
+    mock_data_summarizer.summarize.return_value = "Spanish summary"
+    await use_case.execute(
+        identifier_value="test@example.com", identifier_type="email", lang="es"
+    )
+    mock_data_summarizer.summarize.assert_called_with(
+        sample_entity_with_facts, lang="es"
+    )
+
+    # Test with French
+    mock_data_summarizer.summarize.reset_mock()
+    mock_data_summarizer.summarize.return_value = "French summary"
+    await use_case.execute(
+        identifier_value="test@example.com", identifier_type="email", lang="fr"
+    )
+    mock_data_summarizer.summarize.assert_called_with(
+        sample_entity_with_facts, lang="fr"
     )
