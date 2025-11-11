@@ -63,7 +63,7 @@ You will receive a JSON object with:
 Output:
 Generate a natural language summary that a Large Language Model can easily understand and use for context.""",
                 ),
-                ("human", "Here is the entity data to summarize:\n\n{entity_data}"),
+                ("human", "{entity_data}"),
             ]
         )
 
@@ -96,10 +96,10 @@ Generate a natural language summary that a Large Language Model can easily under
         # Format the data as JSON for the LLM
         entity_json = json.dumps(entity_dict, indent=2, default=str)
 
-        # Build the human message with optional language instruction
+        # Build the complete human message with optional language instruction
         human_message = ""
         if lang:
-            human_message = f"Generate the summary in the language: {lang}.\n\n"
+            human_message += f"Generate the summary in the language: {lang}.\n\n"
         human_message += f"Here is the entity data to summarize:\n\n{entity_json}"
 
         # Call the LLM chain
