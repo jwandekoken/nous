@@ -9,6 +9,7 @@ import {
   useFindEntityByIdentifier,
   type FindEntityParams,
 } from "@/services/graph";
+import NodeDetailPanel from "../components/NodeDetailPanel.vue";
 
 // --- Cytoscape Refs ---
 const cyContainer = ref<HTMLDivElement | null>(null);
@@ -18,6 +19,15 @@ const cyInstance = ref<Core | null>(null);
 const searchTypeInput = ref("email");
 const searchValueInput = ref("");
 const searchParams = ref<FindEntityParams>({ type: "", value: "" });
+
+// --- Selected Element State ---
+interface SelectedElement {
+  type: "node" | "edge";
+  data: Record<string, any>;
+}
+
+const selectedElement = ref<SelectedElement | null>(null);
+const isPanelOpen = computed(() => selectedElement.value !== null);
 
 // --- API Data ---
 const {
@@ -44,6 +54,11 @@ const handleSearch = () => {
 
   // Force a refetch even if parameters haven't changed
   executeSearch();
+};
+
+// --- Panel Logic ---
+const handleClosePanel = () => {
+  selectedElement.value = null;
 };
 
 // --- Cytoscape Data Transformation ---
@@ -217,12 +232,60 @@ onMounted(() => {
           selector: "node[type='Source']",
           style: { "background-color": "#a855f7" },
         },
+        // Selection styling
+        {
+          selector: "node:selected",
+          style: {
+            "border-width": 4,
+            "border-color": "#fbbf24",
+            "overlay-opacity": 0.2,
+            "overlay-color": "#fbbf24",
+          },
+        },
+        {
+          selector: "edge:selected",
+          style: {
+            width: 4,
+            "line-color": "#fbbf24",
+            "target-arrow-color": "#fbbf24",
+            "overlay-opacity": 0.2,
+            "overlay-color": "#fbbf24",
+          },
+        },
       ],
 
       layout: {
         name: "grid",
       },
     });
+
+    // Setup event listeners for node/edge selection
+    if (cyInstance.value) {
+      // Handle node clicks
+      cyInstance.value.on("tap", "node", (event) => {
+        const node = event.target;
+        selectedElement.value = {
+          type: "node",
+          data: node.data(),
+        };
+      });
+
+      // Handle edge clicks
+      cyInstance.value.on("tap", "edge", (event) => {
+        const edge = event.target;
+        selectedElement.value = {
+          type: "edge",
+          data: edge.data(),
+        };
+      });
+
+      // Handle background clicks to deselect
+      cyInstance.value.on("tap", (event) => {
+        if (event.target === cyInstance.value) {
+          selectedElement.value = null;
+        }
+      });
+    }
   }
 });
 
@@ -348,39 +411,62 @@ watch(cytoscapeElements, (newElements, oldElements) => {
         </div>
       </div>
 
-      <!-- Cytoscape Graph Visualization Area -->
-      <div
-        class="bg-card rounded-lg shadow-md border border-border overflow-hidden relative"
-        style="height: 600px"
-      >
-        <!-- Loading overlay -->
+      <!-- Graph and Panel Container -->
+      <div class="flex gap-4">
+        <!-- Cytoscape Graph Visualization Area -->
         <div
-          v-if="isSearching"
-          class="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10"
+          :class="[
+            'bg-card rounded-lg shadow-md border border-border overflow-hidden relative transition-all duration-300',
+            isPanelOpen ? 'flex-1' : 'w-full',
+          ]"
+          style="height: 600px"
         >
-          <div class="text-center">
-            <div
-              class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"
-            ></div>
-            <p class="text-sm text-muted-foreground">Loading graph data...</p>
+          <!-- Loading overlay -->
+          <div
+            v-if="isSearching"
+            class="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10"
+          >
+            <div class="text-center">
+              <div
+                class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"
+              ></div>
+              <p class="text-sm text-muted-foreground">Loading graph data...</p>
+            </div>
+          </div>
+
+          <!-- Cytoscape container -->
+          <div ref="cyContainer" class="w-full h-full"></div>
+
+          <!-- Empty state -->
+          <div
+            v-if="!isSearching && !entityData && !searchError"
+            class="absolute inset-0 flex items-center justify-center"
+          >
+            <div class="text-center text-muted-foreground">
+              <p class="text-lg mb-2">No data to display</p>
+              <p class="text-sm">
+                Search for an entity to visualize its knowledge graph
+              </p>
+            </div>
           </div>
         </div>
 
-        <!-- Cytoscape container -->
-        <div ref="cyContainer" class="w-full h-full"></div>
-
-        <!-- Empty state -->
-        <div
-          v-if="!isSearching && !entityData && !searchError"
-          class="absolute inset-0 flex items-center justify-center"
+        <!-- Detail Panel -->
+        <transition
+          enter-active-class="transition-all duration-300 ease-out"
+          leave-active-class="transition-all duration-300 ease-in"
+          enter-from-class="opacity-0 translate-x-4"
+          enter-to-class="opacity-100 translate-x-0"
+          leave-from-class="opacity-100 translate-x-0"
+          leave-to-class="opacity-0 translate-x-4"
         >
-          <div class="text-center text-muted-foreground">
-            <p class="text-lg mb-2">No data to display</p>
-            <p class="text-sm">
-              Search for an entity to visualize its knowledge graph
-            </p>
+          <div v-if="isPanelOpen" class="w-96 shrink-0" style="height: 600px">
+            <NodeDetailPanel
+              :selected-element="selectedElement"
+              @close="handleClosePanel"
+            />
           </div>
-        </div>
+        </transition>
       </div>
     </main>
   </div>
