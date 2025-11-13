@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "vue-sonner";
 import { useRemoveFact } from "@/services/graph";
+import { useAuthStore } from "@/stores/auth";
 
 interface SelectedElement {
   type: "node" | "edge";
@@ -35,6 +36,14 @@ const emit = defineEmits<{
   close: [];
   factDeleted: [entityId: string];
 }>();
+
+// Auth store
+const authStore = useAuthStore();
+
+// Check if user is tenant admin
+const isTenantAdmin = computed(() => {
+  return authStore.userRole === "tenant_admin";
+});
 
 // Delete fact state
 const isDeleteDialogOpen = ref(false);
@@ -235,7 +244,7 @@ const formatJSON = (obj: any) => {
             </div>
 
             <!-- Delete Fact Button -->
-            <div class="pt-4 border-t">
+            <div v-if="isTenantAdmin" class="pt-4 border-t">
               <Button
                 variant="destructive"
                 @click="handleDeleteClick"

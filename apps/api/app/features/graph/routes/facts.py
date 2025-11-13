@@ -5,7 +5,8 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Path
 
-from app.core.authorization import TenantInfo, get_tenant_info
+from app.core.authorization import TenantInfo, get_tenant_info, is_tenant_admin
+from app.core.schemas import AuthenticatedUser
 from app.db.postgres.graph_connection import get_graph_db_pool
 from app.features.graph.dtos.knowledge_dto import RemoveFactFromEntityResponse
 from app.features.graph.repositories.age_repository import AgeRepository
@@ -47,6 +48,7 @@ async def remove_fact_from_entity(
         ..., description="The fact's synthetic ID (e.g., 'Location:Paris')"
     ),
     use_case: RemoveFactFromEntityUseCase = Depends(get_remove_fact_use_case),
+    _admin_user: AuthenticatedUser = Depends(is_tenant_admin),
 ) -> RemoveFactFromEntityResponse:
     """Remove a fact from an entity.
 
