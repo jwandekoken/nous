@@ -544,3 +544,273 @@ class TestFindFactById:
         """Test finding a non-existent fact."""
         found = await age_repository.find_fact_by_id("non:existent")
         assert found is None
+
+
+class TestRemoveFactFromEntity:
+    """Integration tests for AgeRepository.remove_fact_from_entity method."""
+
+    @pytest.mark.asyncio
+    async def test_remove_fact_from_entity_basic(
+        self,
+        age_repository: AgeRepository,
+        test_entity: Entity,
+        test_identifier: Identifier,
+        test_has_identifier_relationship: HasIdentifier,
+        test_fact: Fact,
+        test_source: Source,
+    ) -> None:
+        """Test removing a fact that's only used by one entity (should delete fact and source)."""
+        # Arrange: Create entity with fact
+        _ = await age_repository.create_entity(
+            test_entity, test_identifier, test_has_identifier_relationship
+        )
+        _ = await age_repository.add_fact_to_entity(
+            entity_id=str(test_entity.id),
+            fact=test_fact,
+            source=test_source,
+            verb="lives_in",
+        )
+
+        # Verify fact and source exist
+        assert test_fact.fact_id is not None
+        fact_before = await age_repository.find_fact_by_id(test_fact.fact_id)
+        assert fact_before is not None
+        assert fact_before["source"] is not None
+        assert fact_before["source"].id == test_source.id
+
+        # Act: Remove the fact from the entity
+        result = await age_repository.remove_fact_from_entity(
+            str(test_entity.id), test_fact.fact_id
+        )
+
+        # Assert: Should return True
+        assert result is True
+
+        # Fact should be deleted (only used by this entity)
+        fact_after = await age_repository.find_fact_by_id(test_fact.fact_id)
+        assert fact_after is None
+
+        # Entity should no longer have the fact
+        entity_after = await age_repository.find_entity_by_id(str(test_entity.id))
+        assert entity_after is not None
+        assert len(entity_after["facts_with_sources"]) == 0
+
+    @pytest.mark.asyncio
+    async def test_remove_fact_from_entity_not_found(
+        self,
+        age_repository: AgeRepository,
+        test_entity: Entity,
+        test_identifier: Identifier,
+        test_has_identifier_relationship: HasIdentifier,
+    ) -> None:
+        """Test trying to remove a non-existent entity-fact connection (should return False)."""
+        # Arrange: Create entity without any facts
+        _ = await age_repository.create_entity(
+            test_entity, test_identifier, test_has_identifier_relationship
+        )
+
+        # Act: Try to remove a non-existent fact
+        result = await age_repository.remove_fact_from_entity(
+            str(test_entity.id), "Location:NonExistent"
+        )
+
+        # Assert: Should return False
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_remove_fact_from_entity_preserves_shared_fact(
+        self,
+        age_repository: AgeRepository,
+        test_entity: Entity,
+        test_identifier: Identifier,
+        test_has_identifier_relationship: HasIdentifier,
+        test_fact: Fact,
+        test_source: Source,
+    ) -> None:
+        """Test removing a fact from entity when fact is shared with another entity (should only remove relationship)."""
+        # Arrange: Create first entity with fact
+        _ = await age_repository.create_entity(
+            test_entity, test_identifier, test_has_identifier_relationship
+        )
+        _ = await age_repository.add_fact_to_entity(
+            entity_id=str(test_entity.id),
+            fact=test_fact,
+            source=test_source,
+            verb="lives_in",
+        )
+
+        # Create second entity with the same fact
+        second_entity = Entity()
+        second_identifier = Identifier(
+            value=f"second.{uuid.uuid4()}@example.com", type="email"
+        )
+        second_relationship = HasIdentifier(
+            from_entity_id=second_entity.id,
+            to_identifier_value=second_identifier.value,
+        )
+        _ = await age_repository.create_entity(
+            second_entity, second_identifier, second_relationship
+        )
+        _ = await age_repository.add_fact_to_entity(
+            entity_id=str(second_entity.id),
+            fact=test_fact,  # Same fact
+            source=test_source,  # Same source
+            verb="works_in",  # Different verb
+        )
+
+        # Act: Remove the fact from the first entity
+        assert test_fact.fact_id is not None
+        result = await age_repository.remove_fact_from_entity(
+            str(test_entity.id), test_fact.fact_id
+        )
+
+        # Assert: Should return True
+        assert result is True
+
+        # Fact should still exist (used by second entity)
+        fact_after = await age_repository.find_fact_by_id(test_fact.fact_id)
+        assert fact_after is not None
+
+        # First entity should not have the fact
+        first_entity_after = await age_repository.find_entity_by_id(str(test_entity.id))
+        assert first_entity_after is not None
+        assert len(first_entity_after["facts_with_sources"]) == 0
+
+        # Second entity should still have the fact
+        second_entity_after = await age_repository.find_entity_by_id(
+            str(second_entity.id)
+        )
+        assert second_entity_after is not None
+        assert len(second_entity_after["facts_with_sources"]) == 1
+        assert (
+            second_entity_after["facts_with_sources"][0]["fact"].fact_id
+            == test_fact.fact_id
+        )
+
+    @pytest.mark.asyncio
+    async def test_remove_fact_from_entity_preserves_shared_source(
+        self,
+        age_repository: AgeRepository,
+        test_entity: Entity,
+        test_identifier: Identifier,
+        test_has_identifier_relationship: HasIdentifier,
+        test_source: Source,
+    ) -> None:
+        """Test removing a fact that shares a source with another fact (should only delete fact, not source)."""
+        # Arrange: Create entity with two facts sharing the same source
+        _ = await age_repository.create_entity(
+            test_entity, test_identifier, test_has_identifier_relationship
+        )
+
+        # Add first fact with source
+        first_fact = Fact(name="Paris", type="Location")
+        _ = await age_repository.add_fact_to_entity(
+            entity_id=str(test_entity.id),
+            fact=first_fact,
+            source=test_source,
+            verb="lives_in",
+        )
+
+        # Add second fact with the same source
+        second_fact = Fact(name="Software Engineering", type="Skill")
+        _ = await age_repository.add_fact_to_entity(
+            entity_id=str(test_entity.id),
+            fact=second_fact,
+            source=test_source,  # Same source
+            verb="has_skill",
+        )
+
+        # Verify both facts exist
+        assert first_fact.fact_id is not None
+        assert second_fact.fact_id is not None
+        first_fact_before = await age_repository.find_fact_by_id(first_fact.fact_id)
+        assert first_fact_before is not None
+        second_fact_before = await age_repository.find_fact_by_id(second_fact.fact_id)
+        assert second_fact_before is not None
+
+        # Act: Remove the first fact from the entity
+        result = await age_repository.remove_fact_from_entity(
+            str(test_entity.id), first_fact.fact_id
+        )
+
+        # Assert: Should return True
+        assert result is True
+
+        # First fact should be deleted
+        first_fact_after = await age_repository.find_fact_by_id(first_fact.fact_id)
+        assert first_fact_after is None
+
+        # Second fact should still exist with its source
+        second_fact_after = await age_repository.find_fact_by_id(second_fact.fact_id)
+        assert second_fact_after is not None
+        assert second_fact_after["source"] is not None
+        assert second_fact_after["source"].id == test_source.id
+
+        # Entity should only have the second fact now
+        entity_after = await age_repository.find_entity_by_id(str(test_entity.id))
+        assert entity_after is not None
+        assert len(entity_after["facts_with_sources"]) == 1
+        assert (
+            entity_after["facts_with_sources"][0]["fact"].fact_id == second_fact.fact_id
+        )
+
+    @pytest.mark.asyncio
+    async def test_remove_fact_from_entity_removes_all_verbs(
+        self,
+        age_repository: AgeRepository,
+        test_entity: Entity,
+        test_identifier: Identifier,
+        test_has_identifier_relationship: HasIdentifier,
+        test_fact: Fact,
+        test_source: Source,
+    ) -> None:
+        """Test that ALL HAS_FACT relationships are removed regardless of verb when the same fact has multiple verbs."""
+        # Arrange: Create entity with the same fact connected with different verbs
+        _ = await age_repository.create_entity(
+            test_entity, test_identifier, test_has_identifier_relationship
+        )
+
+        # Add the same fact with different verbs
+        _ = await age_repository.add_fact_to_entity(
+            entity_id=str(test_entity.id),
+            fact=test_fact,
+            source=test_source,
+            verb="lives_in",
+        )
+        _ = await age_repository.add_fact_to_entity(
+            entity_id=str(test_entity.id),
+            fact=test_fact,
+            source=test_source,
+            verb="works_in",
+        )
+
+        # Verify entity has the fact (should appear once due to deduplication in query)
+        entity_before = await age_repository.find_entity_by_id(str(test_entity.id))
+        assert entity_before is not None
+        # Note: The find_entity_by_id query might return multiple results for different verbs
+        # Let's just check that facts exist
+        assert len(entity_before["facts_with_sources"]) >= 1
+
+        # Act: Remove the fact (should remove all relationships)
+        assert test_fact.fact_id is not None
+        result = await age_repository.remove_fact_from_entity(
+            str(test_entity.id), test_fact.fact_id
+        )
+
+        # Assert: Should return True
+        assert result is True
+
+        # Entity should not have any facts with this fact_id
+        entity_after = await age_repository.find_entity_by_id(str(test_entity.id))
+        assert entity_after is not None
+        # Filter facts to check if any match the removed fact_id
+        remaining_facts = [
+            f
+            for f in entity_after["facts_with_sources"]
+            if f["fact"].fact_id == test_fact.fact_id
+        ]
+        assert len(remaining_facts) == 0
+
+        # Fact should be deleted (only used by this entity)
+        fact_after = await age_repository.find_fact_by_id(test_fact.fact_id)
+        assert fact_after is None
