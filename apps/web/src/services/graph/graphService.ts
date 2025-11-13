@@ -4,6 +4,7 @@ import type {
   AssimilateKnowledgeRequest,
   AssimilateKnowledgeResponse,
   FindEntityParams,
+  RemoveFactFromEntityResponse,
 } from "./types";
 import { computed, toValue, type MaybeRefOrGetter } from "vue";
 
@@ -36,4 +37,9 @@ export const useAssimilateKnowledge = (payload: AssimilateKnowledgeRequest) => {
   // This returns the reactive useFetch object, which you can `await` or
   // use to track the state of the POST request.
   return useApiFetch(url).post(payload).json<AssimilateKnowledgeResponse>();
+};
+
+export const useRemoveFact = (entityId: string, factId: string) => {
+  const url = `/graph/entities/${entityId}/facts/${encodeURIComponent(factId)}`;
+  return useApiFetch(url).delete().json<RemoveFactFromEntityResponse>();
 };
