@@ -1,27 +1,5 @@
 import { useApiFetch } from "@/services/shared";
-import type { LoginCredentials, CurrentUser } from "./types";
-
-/**
- * Logs in the user with the given credentials.
- */
-export const login = (credentials: LoginCredentials) => {
-  return useApiFetch("/auth/login", {
-    immediate: false,
-  })
-    .post(credentials)
-    .json<{ message: string; token_type: string }>();
-};
-
-/**
- * Logs out the current user.
- */
-export const logout = () => {
-  return useApiFetch("/auth/logout", {
-    immediate: false,
-  })
-    .post()
-    .json();
-};
+import type { CurrentUser } from "./types";
 
 /**
  * Fetches the current user from the API.
@@ -39,5 +17,6 @@ export const fetchCurrentUser = async (): Promise<CurrentUser | null> => {
   if (statusCode.value === 200 && data.value) {
     return data.value;
   }
+
   return null;
 };

@@ -16,8 +16,13 @@
 
 ### 1. Formalize Auth Service APIs
 
-- Move the fetch logic that lives in `refreshAccessToken()` into `apps/web/src/services/auth/authService.ts` as `refreshTokens()`.
-- Re-export `refreshTokens` via `@/services/auth` so stores/components can call it, and let `useApiFetch` import from there instead of issuing raw `fetch`.
+- Break `apps/web/src/services/auth/authService.ts` into function-specific modules:
+  - `apps/web/src/services/auth/login.ts`
+  - `apps/web/src/services/auth/logout.ts`
+  - `apps/web/src/services/auth/fetchCurrentUser.ts`
+  - `apps/web/src/services/auth/refreshTokens.ts`
+- Move the fetch logic that lives in `refreshAccessToken()` into `refreshTokens.ts`. This file must **not** import `useApiFetch`; it should issue a direct `fetch` so it stays dependency-free.
+- Update `apps/web/src/services/auth/index.ts` to re-export all four helpers plus the existing types, keeping the public API unchanged for stores/components.
 - Return a typed payload (e.g., `{ message, token_type }`) to keep parity with `/auth/login`.
 
 ### 2. Add Automatic 401 Recovery in `useApiFetch`
@@ -25,7 +30,7 @@
 - Extend `createFetch` options with `afterFetch` / `onFetchError` hooks.
 - On every response, detect `401`:
   1. If a refresh attempt is not already in progress, acquire a simple mutex (e.g., module-level `let refreshingPromise: Promise<boolean> | null`).
-  2. Call `refreshTokens()`. If it succeeds, retry the original request once by re-running `fetch`.
+  2. Call `refreshTokens()` imported from `@/services/auth/refreshTokens`. Because this helper has no dependency on `useApiFetch`, it prevents circular imports.
   3. If refresh fails, reject the request so callers can handle logout.
 - Ensure the retry path propagates the retried response back to the original caller. VueUse’s `createFetch` lets us return `{ data, response }` from hooks.
 - Guard against infinite loops by only retrying once per request.
@@ -34,7 +39,10 @@
 
 - When `login()` resolves successfully (and whenever `fetchUser()` hydrates an existing user), start a `setTimeout` (or `useIntervalFn`) that calls `refreshTokens()` ~5 minutes before the access token TTL.
 - Store the timer ID in the Pinia store; reset/cancel it on `logout()`.
-- Allow developers to disable the scheduler via an env flag (useful for debugging or if backend TTL changes).
+- Allow developers to disable the scheduler via an env flag (useful for debugging or if backend TTL changes). Expose the following knobs:
+  - `VITE_DISABLE_REFRESH_SCHEDULER` (`"true"` disables timers entirely)
+  - `VITE_ACCESS_TOKEN_TTL_MS` (defaults to 30 minutes)
+  - `VITE_REFRESH_SCHEDULER_LEEWAY_MS` (defaults to 5 minutes before TTL elapses)
 
 ### 4. Application Bootstrap
 
@@ -47,6 +55,7 @@
   - Clear `currentUser` session storage.
   - Redirect to `/login`.
   - Optionally show a toast: “Session expired. Please sign in again.”
+- Expose a lightweight event emitter (e.g., `sessionEvents.ts`) that `useApiFetch` can call to signal “refresh failed” without importing the store directly; the store subscribes and executes the fallback flow.
 - Consider logging refresh failures (Sentry/console) with enough context for debugging but no sensitive data.
 
 ### 6. Validation Plan
