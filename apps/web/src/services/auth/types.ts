@@ -11,3 +11,8 @@ export interface CurrentUser {
   role: UserRole;
   tenant_id: string | null;
 }
+
+export interface RefreshTokensResponse {
+  message: string;
+  token_type: string;
+}

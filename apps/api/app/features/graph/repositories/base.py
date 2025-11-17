@@ -50,3 +50,7 @@ class GraphRepository(Protocol):
     async def find_fact_by_id(self, fact_id: str) -> FactWithOptionalSource | None:
         """Find a fact by its ID."""
         ...
+
+    async def remove_fact_from_entity(self, entity_id: str, fact_id: str) -> bool:
+        """Remove a fact from an entity. Returns True if deleted, False otherwise."""
+        ...

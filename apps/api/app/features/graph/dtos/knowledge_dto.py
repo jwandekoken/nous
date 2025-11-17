@@ -170,3 +170,21 @@ class GetEntitySummaryResponse(BaseModel):
         ...,
         description="Natural language summary of the entity's facts and relationships, optimized for LLM consumption",
     )
+
+
+class RemoveFactFromEntityRequest(BaseModel):
+    """Request to remove a fact from an entity."""
+
+    entity_id: UUID = Field(..., description="The entity's unique identifier")
+    fact_id: str = Field(
+        ..., description="The fact's synthetic ID (e.g., 'Location:Paris')"
+    )
+
+
+class RemoveFactFromEntityResponse(BaseModel):
+    """Response after removing a fact from an entity."""
+
+    success: bool = Field(..., description="Whether the fact was successfully removed")
+    message: str = Field(..., description="Human-readable message about the operation")
+    entity_id: UUID = Field(..., description="The entity's unique identifier")
+    fact_id: str = Field(..., description="The fact's synthetic ID that was removed")

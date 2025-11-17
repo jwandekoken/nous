@@ -61,6 +61,11 @@ const handleClosePanel = () => {
   selectedElement.value = null;
 };
 
+const handleFactDeleted = (_entityId: string) => {
+  // Refetch the entity data to refresh the graph
+  executeSearch();
+};
+
 // --- Cytoscape Data Transformation ---
 const cytoscapeElements = computed<ElementDefinition[]>(() => {
   if (!entityData.value) {
@@ -127,6 +132,7 @@ const cytoscapeElements = computed<ElementDefinition[]>(() => {
         name: fact.name,
         fact_type: fact.type,
         fact_id: fact.fact_id,
+        entity_id: entity.id,
       },
     });
 
@@ -464,6 +470,7 @@ watch(cytoscapeElements, (newElements, oldElements) => {
             <NodeDetailPanel
               :selected-element="selectedElement"
               @close="handleClosePanel"
+              @fact-deleted="handleFactDeleted"
             />
           </div>
         </transition>

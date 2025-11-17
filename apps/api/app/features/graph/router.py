@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends
 
 from app.core.authorization import get_tenant_info
 from app.features.graph.routes.assimilate import router as assimilate_router
+from app.features.graph.routes.facts import router as facts_router
 from app.features.graph.routes.lookup import router as lookup_router
 
 router = APIRouter(
@@ -15,3 +16,4 @@ router = APIRouter(
 # Include all route handlers
 router.include_router(assimilate_router)
 router.include_router(lookup_router)
+router.include_router(facts_router)

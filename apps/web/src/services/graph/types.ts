@@ -74,3 +74,10 @@ export interface FindEntityParams {
   type: string;
   value: string;
 }
+
+export interface RemoveFactFromEntityResponse {
+  success: boolean;
+  message: string;
+  entity_id: string;
+  fact_id: string;
+}

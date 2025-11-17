@@ -1,5 +1,6 @@
 ---
-alwaysApply: true
+description: Use this rule for all node.js package management operations
+alwaysApply: false
 ---
 
 # Node Package Manager: pnpm

@@ -875,3 +875,137 @@ class AgeRepository(GraphRepository):
             "fact": fact,
             "source": source,
         }
+
+    @override
+    async def remove_fact_from_entity(self, entity_id: str, fact_id: str) -> bool:
+        """
+        Remove a fact from an entity.
+
+        Deletes all HAS_FACT relationships between the entity and fact.
+        If the fact is only used by this entity, also deletes the fact itself.
+        If the source is only used by this fact, also deletes the source.
+
+        Returns:
+            True if the relationship was deleted, False if not found.
+        """
+        # 1. Check if the relationship exists
+        check_query = f"""
+        MATCH (e:Entity {{id: '{entity_id}'}})-[hf:HAS_FACT]->(f:Fact {{fact_id: '{fact_id}'}})
+        RETURN count(hf) AS relationship_count
+        """
+
+        record = await self._execute_cypher(
+            cypher_query=check_query,
+            as_clause="as (relationship_count agtype)",
+            fetch_mode="row",
+        )
+
+        if not record:
+            return False
+
+        record = cast(asyncpg.Record, record)
+        relationship_count_str = cast(str, record["relationship_count"])
+        relationship_count = int(relationship_count_str)
+
+        if relationship_count == 0:
+            return False
+
+        # 2. Count how many entities use this fact
+        count_usage_query = f"""
+        MATCH (e:Entity)-[:HAS_FACT]->(f:Fact {{fact_id: '{fact_id}'}})
+        RETURN count(e) AS entity_count
+        """
+
+        usage_record = await self._execute_cypher(
+            cypher_query=count_usage_query,
+            as_clause="as (entity_count agtype)",
+            fetch_mode="row",
+        )
+
+        usage_record = cast(asyncpg.Record, usage_record)
+        entity_count_str = cast(str, usage_record["entity_count"])
+        entity_count = int(entity_count_str)
+
+        # 3. Get the source ID before deleting
+        source_query = f"""
+        MATCH (f:Fact {{fact_id: '{fact_id}'}})-[:DERIVED_FROM]->(s:Source)
+        RETURN s.id AS source_id
+        """
+
+        source_record = await self._execute_cypher(
+            cypher_query=source_query,
+            as_clause="as (source_id agtype)",
+            fetch_mode="row",
+        )
+
+        source_id_str = None
+        if source_record:
+            source_record = cast(asyncpg.Record, source_record)
+            source_id_str = cast(str, source_record["source_id"])
+            # Check if source_id is not null
+            if source_id_str == "null":
+                source_id_str = None
+
+        # 4. Delete all HAS_FACT relationships between entity and fact
+        delete_relationships_query = f"""
+        MATCH (e:Entity {{id: '{entity_id}'}})-[hf:HAS_FACT]->(f:Fact {{fact_id: '{fact_id}'}})
+        DELETE hf
+        RETURN count(hf) AS deleted_count
+        """
+
+        _ = await self._execute_cypher(
+            cypher_query=delete_relationships_query,
+            as_clause="as (deleted_count agtype)",
+            fetch_mode="row",
+        )
+
+        # 5. If fact was only used by this entity, delete the fact
+        should_delete_fact = entity_count == relationship_count
+
+        if should_delete_fact:
+            delete_fact_query = f"""
+            MATCH (f:Fact {{fact_id: '{fact_id}'}})
+            DETACH DELETE f
+            RETURN true AS fact_deleted
+            """
+
+            _ = await self._execute_cypher(
+                cypher_query=delete_fact_query,
+                as_clause="as (fact_deleted agtype)",
+                fetch_mode="row",
+            )
+
+            # 6. If we deleted the fact and it had a source, check if source should be deleted
+            if source_id_str:
+                check_source_usage_query = f"""
+                MATCH (s:Source {{id: '{source_id_str}'}})
+                OPTIONAL MATCH (f:Fact)-[:DERIVED_FROM]->(s)
+                RETURN count(f) AS fact_count
+                """
+
+                source_usage_record = await self._execute_cypher(
+                    cypher_query=check_source_usage_query,
+                    as_clause="as (fact_count agtype)",
+                    fetch_mode="row",
+                )
+
+                if source_usage_record:
+                    source_usage_record = cast(asyncpg.Record, source_usage_record)
+                    fact_count_str = cast(str, source_usage_record["fact_count"])
+                    fact_count = int(fact_count_str)
+
+                    # If no facts reference this source, delete it
+                    if fact_count == 0:
+                        delete_source_query = f"""
+                        MATCH (s:Source {{id: '{source_id_str}'}})
+                        DETACH DELETE s
+                        RETURN true AS source_deleted
+                        """
+
+                        _ = await self._execute_cypher(
+                            cypher_query=delete_source_query,
+                            as_clause="as (source_deleted agtype)",
+                            fetch_mode="row",
+                        )
+
+        return True

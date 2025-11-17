@@ -1,6 +1,6 @@
 ---
-description: Always run Python commands using uv run instead of direct python execution
-alwaysApply: true
+description: Use this rule for all python commands
+alwaysApply: false
 ---
 
 # Python Command Execution with `uv`

@@ -40,25 +40,26 @@ const navigationItems = computed(() => {
 
   const items = [
     {
+      label: "Tenants Management",
+      to: "/tenants",
+      roles: ["super_admin"],
+    },
+    {
+      label: "Users Management",
+      to: "/users",
+      roles: ["tenant_admin"],
+    },
+    {
+      label: "API Keys",
+      to: "/api-keys",
+      roles: ["tenant_admin"],
+    },
+    {
       label: "Graph Explorer",
       to: "/graph",
       roles: ["tenant_admin", "tenant_user"],
     },
   ];
-
-  if (userRole === "super_admin") {
-    items.unshift({
-      label: "Tenants Management",
-      to: "/tenants",
-      roles: ["super_admin"],
-    });
-  } else if (userRole === "tenant_admin") {
-    items.unshift({
-      label: "Users Management",
-      to: "/users",
-      roles: ["tenant_admin"],
-    });
-  }
 
   return items.filter((item) => item.roles.includes(userRole));
 });

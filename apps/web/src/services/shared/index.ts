@@ -1,1 +1,1 @@
-export { useApiFetch, refreshAccessToken } from "./useApiFetch";
+export { useApiFetch } from "./useApiFetch";

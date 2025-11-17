@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import {
   Card,
   CardHeader,
@@ -10,6 +10,17 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { toast } from "vue-sonner";
+import { useRemoveFact } from "@/services/graph";
+import { useAuthStore } from "@/stores/auth";
 
 interface SelectedElement {
   type: "node" | "edge";
@@ -23,7 +34,57 @@ interface Props {
 const props = defineProps<Props>();
 const emit = defineEmits<{
   close: [];
+  factDeleted: [entityId: string];
 }>();
+
+// Auth store
+const authStore = useAuthStore();
+
+// Check if user is tenant admin
+const isTenantAdmin = computed(() => {
+  return authStore.userRole === "tenant_admin";
+});
+
+// Delete fact state
+const isDeleteDialogOpen = ref(false);
+const isDeleting = ref(false);
+
+// Delete fact handlers
+const handleDeleteClick = () => {
+  isDeleteDialogOpen.value = true;
+};
+
+const handleDeleteConfirm = async () => {
+  if (!props.selectedElement || props.selectedElement.type !== "node") return;
+
+  const factData = props.selectedElement.data;
+  const entityId = factData.entity_id;
+  const factId = factData.fact_id;
+
+  if (!entityId || !factId) {
+    toast.error("Cannot delete fact: missing entity ID or fact ID");
+    return;
+  }
+
+  isDeleting.value = true;
+
+  try {
+    const { data, error } = await useRemoveFact(entityId, factId);
+
+    if (error.value) {
+      toast.error(error.value.message || "Failed to delete fact");
+    } else if (data.value) {
+      toast.success(data.value.message || "Fact deleted successfully");
+      emit("factDeleted", entityId);
+      emit("close");
+    }
+  } catch (err) {
+    toast.error("An unexpected error occurred while deleting the fact");
+  } finally {
+    isDeleting.value = false;
+    isDeleteDialogOpen.value = false;
+  }
+};
 
 const elementType = computed(() => {
   if (!props.selectedElement) return null;
@@ -180,6 +241,21 @@ const formatJSON = (obj: any) => {
               <p class="mt-1 text-sm font-mono text-foreground break-all">
                 {{ selectedElement.data.id }}
               </p>
+            </div>
+
+            <!-- Delete Fact Button -->
+            <div v-if="isTenantAdmin" class="pt-4 border-t">
+              <Button
+                variant="destructive"
+                @click="handleDeleteClick"
+                :disabled="
+                  !selectedElement.data.fact_id ||
+                  !selectedElement.data.entity_id
+                "
+                class="w-full"
+              >
+                Delete Fact
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -343,6 +419,38 @@ const formatJSON = (obj: any) => {
         </CardContent>
       </Card>
     </div>
+
+    <!-- Delete Confirmation Dialog -->
+    <Dialog v-model:open="isDeleteDialogOpen">
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Delete Fact</DialogTitle>
+          <DialogDescription>
+            Are you sure you want to delete this fact? This action will remove
+            the fact from the entity. If the fact is only used by this entity,
+            the fact and its source will also be permanently deleted from the
+            graph.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button
+            variant="outline"
+            @click="isDeleteDialogOpen = false"
+            :disabled="isDeleting"
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="destructive"
+            @click="handleDeleteConfirm"
+            :disabled="isDeleting"
+          >
+            <span v-if="isDeleting">Deleting...</span>
+            <span v-else>Delete</span>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   </div>
 </template>
 
