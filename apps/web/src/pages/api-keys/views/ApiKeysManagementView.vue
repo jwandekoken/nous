@@ -315,9 +315,9 @@ onMounted(() => {
             </div>
             <div class="flex gap-2">
               <Input
-                :value="createdKey.api_key"
+                :model-value="createdKey.api_key"
                 readonly
-                class="font-mono text-xs flex-1 bg-card text-foreground"
+                class="font-mono text-xs flex-1"
               />
               <Button
                 type="button"
