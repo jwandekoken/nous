@@ -12,6 +12,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.features.auth.dtos import CreateTenantRequest, CreateTenantResponse
 from app.features.auth.models import Tenant, User, UserRole
+from app.features.graph.services.schema_service import (
+    GraphSchemaService,
+)
 
 
 class PasswordHasher(Protocol):
@@ -100,11 +103,9 @@ class SignupTenantUseCaseImpl:
                     # Create AGE graph
                     pool = await self.get_graph_db_pool()
                     async with pool.acquire() as conn:
-                        await conn.execute("LOAD 'age';")
-                        await conn.execute(
-                            "SET search_path = ag_catalog, '$user', public;"
+                        await GraphSchemaService.create_graph_and_schema(
+                            conn, graph_name
                         )
-                        await conn.execute("SELECT create_graph($1)", graph_name)
 
                     return CreateTenantResponse(
                         message="Tenant created successfully",
