@@ -4,12 +4,12 @@ A FastAPI application built with a modular, feature-based architecture supportin
 
 ## Architecture
 
-This project follows the modular architecture defined in [Project-architecture](docs/project_architecture.md), with tests properly separated from application code in a dedicated `tests/` directory.
+This project follows a modular architecture, with tests properly separated from application code in a dedicated `tests/` directory.
 
 ## Project Structure
 
 ```plaintext
-/nous-api/
+apps/api/
 ├── app/                          # Application source code
 │   ├── main.py                    # FastAPI app instance
 │   ├── core/                      # App-wide concerns
@@ -18,120 +18,102 @@ This project follows the modular architecture defined in [Project-architecture](
 │   ├── db/                       # Database connections
 │   │   ├── postgres/             # PostgreSQL AGE connection
 │   └── features/                 # Feature modules
-│       └── graph/                # Graph feature
-│           ├── models/           # Domain models
-│           ├── repositories/     # Data access layer
-│           ├── routes/           # API endpoints
-│           └── usecases/         # Business logic
+│       └── auth/                 # Example feature: Auth
+│           ├── dtos/             # Data Transfer Objects (Request/Response)
+│           ├── models.py         # Database models
+│           ├── router.py         # Main feature router
+│           ├── routes/           # API route handlers
+│           └── usecases/         # Business logic (Clean Architecture)
 ├── tests/                        # Test suite (mirrors app structure)
 │   ├── core/
-│   │   └── test_security.py      # Security tests
 │   ├── db/
-│   │   └── graph/
-│   │       └── test_graph.py     # Graph database tests
-│   └── features/
-│       └── graph/
-│           └── repositories/
-│               └── test_entity_repository_integration.py
+│   ├── features/
+│       └── auth/
+│           └── usecases/
+│               └── test_signup_tenant_usecase.py
 └── pyproject.toml                # Dependencies & config
 ```
 
 ## Features
 
-- ✅ **Modular Architecture**: Feature-based organization
+- ✅ **Modular Architecture**: Feature-based organization with Clean Architecture patterns (Use Cases)
 - ✅ **Graph Database Support**: PostgreSQL AGE Graph Database
 - ✅ **Database Integration**: PostgreSQL AGE accessed via native SQL queries
-- ✅ **Authentication**: JWT-based auth with password hashing
+- ✅ **Authentication**: Cookie-based auth with password hashing
 - ✅ **Test Suite**: Comprehensive test coverage with separated test directory
-- ✅ **Modern Python**: Type hints, async/await, Pydantic v2, SQLModel
+- ✅ **Modern Python**: Type hints, async/await, Pydantic v2, SQLAlchemy
 - ✅ **Development Tools**: Ruff linting/formatting, basedpyright type checking, pytest
 
-## Getting Started
+## Database Setup
 
-### Prerequisites
+For database setup (PostgreSQL with AGE extension), please refer to the [root README](../../README.md#how-to-start-the-database).
 
-- Python 3.12+
-- PostgreSQL with AGE extension (required, for graph database features)
-- `uv` package manager
+### Database Migrations
 
-### Installation
+This project uses Alembic for database schema management. See the [migration documentation](migrations/README.md) for detailed instructions on creating, applying, and managing database migrations.
 
-1. **Clone and setup**:
+## Development
+
+This project is part of a monorepo. For instructions on how to run the application, please refer to the [root README](../../README.md).
+
+### Adding New Features
+
+The project follows a Clean Architecture approach using **Use Cases**.
+
+1. **Create feature directory**:
 
    ```bash
-   git clone <repository>
-   cd nous-api
+   mkdir -p app/features/your_feature
    ```
 
-2. **Install dependencies using uv**:
+2. **Add the standard structure**:
 
-   ```bash
-   uv sync
+   - `dtos/` - Pydantic models for Requests and Responses
+   - `models.py` - Database models (SQLAlchemy/SQLModel)
+   - `router.py` - Main router that includes sub-routers from `routes/`
+   - `routes/` - API route handlers. These should be thin wrappers that delegate to Use Cases.
+   - `usecases/` - Business logic implementations.
+
+3. **Implement the Use Case Pattern**:
+
+   - Define a **Protocol** for your use case in the route file or a separate interface file.
+   - Implement the use case in `usecases/`.
+   - Inject the use case into the route handler using FastAPI's `Depends`.
+
+   **Example Route (`routes/items.py`)**:
+
+   ```python
+   from typing import Protocol
+   from fastapi import APIRouter, Depends
+   from app.features.your_feature.dtos import CreateItemRequest, ItemResponse
+
+   class CreateItemUseCase(Protocol):
+       async def execute(self, request: CreateItemRequest) -> ItemResponse: ...
+
+   async def get_create_item_use_case() -> CreateItemUseCase:
+       return CreateItemUseCaseImpl(...)
+
+   @router.post("/items")
+   async def create_item(
+       request: CreateItemRequest,
+       use_case: CreateItemUseCase = Depends(get_create_item_use_case)
+   ):
+       return await use_case.execute(request)
    ```
 
-3. **Set up environment variables**:
-   ```bash
-   cp .env.example .env
-   # Edit .env with your database credentials
+4. **Include router in main app**:
+   ```python
+   from app.features.your_feature.router import router
+   app.include_router(router, prefix="/api/v1")
    ```
-
-### Running the Application
-
-**Development server (recommended)**:
-
-```bash
-uv run fastapi dev app/main.py
-```
-
-**Alternative methods**:
-
-```bash
-# Using uvicorn directly
-uv run uvicorn app.main:app --reload
-
-# Using the main module
-uv run python -m app.main
-```
-
-The API will be available at:
-
-- **API**: http://localhost:8000
-- **Docs**: http://localhost:8000/docs
-- **Health**: http://localhost:8000/health
 
 ### Testing
 
-The test suite uses a dedicated test database to ensure complete isolation from your development database. Tests automatically create and tear down the test database, making them safe to run at any time.
-
-#### Test Database Isolation
-
-Tests use a separate PostgreSQL database (`multimodel_db_test` by default) with the following features:
-
-- **Automatic setup**: Test database is created automatically when tests run
-- **Schema sync**: Tables are created from SQLAlchemy models (no migrations needed)
-- **AGE support**: AGE extension is installed and configured automatically
-- **Clean slate**: All data is cleaned between tests
-- **Safe teardown**: Test database is dropped after tests complete
-
-Your development database (`multimodel_db`) is never touched by tests.
-
-#### Configuration
-
-The test database is configured via environment variables or settings:
-
-```bash
-# Optional: Create .env.test for custom test configuration
-TESTING=true
-POSTGRES_DB=multimodel_db_test
-POSTGRES_USER=admin
-POSTGRES_PASSWORD=supersecretpassword
-POSTGRES_HOST=localhost
-POSTGRES_PORT=5432
-```
-
-The `TESTING=true` flag automatically switches to the test database.
+The test suite uses a dedicated test database to ensure complete isolation from your development database.
 
 #### Running Tests
+
+You can run tests from the root of the monorepo using `pnpm turbo test`, or directly from this directory using `uv`:
 
 Run all tests:
 
@@ -179,6 +161,16 @@ uv run pytest tests/features/graph/usecases/test_assimilate_knowledge_usecase_in
 - Tables are created once per test session from models
 - Test database is automatically dropped after all tests complete
 
+#### Test Database Isolation
+
+Tests use a separate PostgreSQL database (`multimodel_db_test` by default) with the following features:
+
+- **Automatic setup**: Test database is created automatically when tests run
+- **Schema sync**: Tables are created from SQLAlchemy models (no migrations needed)
+- **AGE support**: AGE extension is installed and configured automatically
+- **Clean slate**: All data is cleaned between tests
+- **Safe teardown**: Test database is dropped after tests complete
+
 ### Development Tools
 
 **Format and lint code**:
@@ -188,106 +180,11 @@ uv run ruff format app/
 uv run ruff check app/ tests/
 ```
 
-**Fix linting issues automatically**:
-
-```bash
-uv run ruff check app/ tests/ --fix
-```
-
 **Type checking**:
 
 ```bash
 uv run basedpyright app/ tests/
 ```
-
-## API Endpoints
-
-### Authentication
-
-- `POST /api/v1/auth/token` - Login and get access token
-
-### Users
-
-- `POST /api/v1/users/` - Create new user
-- `GET /api/v1/users/me` - Get current user info
-- `GET /api/v1/users/` - List users (authenticated)
-- `GET /api/v1/users/{user_id}` - Get user by ID
-- `PUT /api/v1/users/{user_id}` - Update user
-- `DELETE /api/v1/users/{user_id}` - Delete user
-- `POST /api/v1/users/{user_id}/friends/{friend_id}` - Add friend
-- `GET /api/v1/users/{user_id}/friends` - Get user's friends
-
-### Health
-
-- `GET /health` - Health check
-
-## Database Setup
-
-### PostgreSQL AGE Graph Database
-
-1. **Setup PostgreSQL with AGE extension** (required):
-
-   The application uses PostgreSQL with the AGE extension for graph database functionality.
-
-   ```bash
-   # Install PostgreSQL and AGE extension (see compose/postgres/ for Docker setup)
-   # Or use a PostgreSQL service with AGE extension installed
-   ```
-
-2. **Database Migrations**:
-
-   This project uses Alembic for database schema management. See the [migration documentation](migrations/README.md) for detailed instructions on creating, applying, and managing database migrations.
-
-3. **Update connection settings in `.env`**:
-   ```env
-   POSTGRES_USER=admin
-   POSTGRES_PASSWORD=supersecretpassword
-   POSTGRES_HOST=localhost
-   POSTGRES_PORT=5432
-   POSTGRES_DB=multimodel_db
-   AGE_GRAPH_NAME=nous
-   ```
-
-## Development
-
-### Adding New Features
-
-1. **Create feature directory**:
-
-   ```bash
-   mkdir -p app/features/your_feature
-   ```
-
-2. **Add the standard files**:
-
-   - `router.py` - API endpoints
-   - `service.py` - Business logic
-   - `schemas.py` - Pydantic models
-   - `models.py` - SQLModel database models
-   - `graph_models.py` - PostgreSQL AGE models (if needed)
-
-3. **Add corresponding tests in `tests/` directory**:
-
-   Create the test directory structure:
-
-   ```bash
-   mkdir -p tests/features/your_feature
-   ```
-
-   Add test files:
-
-   - `tests/features/your_feature/test_router.py`
-   - `tests/features/your_feature/test_service.py`
-
-4. **Include router in main app**:
-   ```python
-   from app.features.your_feature.router import router
-   app.include_router(router, prefix="/api/v1")
-   ```
-
-### Environment Variables
-
-All configuration is handled through environment variables. See `.env.example` for available options.
 
 ## Contributing
 
