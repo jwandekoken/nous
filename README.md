@@ -4,7 +4,7 @@ Welcome to the `nous` project monorepo. This repository contains all the code fo
 
 This project is managed as a **polyglot (Python + TypeScript) monorepo** using **pnpm Workspaces** and **Turborepo**.
 
-- **`pnpm`** manages the JavaScript dependencies and workspaces.
+- **`pnpm`** manages the JavaScript **dependencies** and workspaces.
 - **`Turborepo`** orchestrates tasks (like `dev`, `test`, `lint`) across all projects.
 - **`uv`** manages the Python dependencies and virtual environment for the `api`.
 
@@ -12,18 +12,9 @@ This project is managed as a **polyglot (Python + TypeScript) monorepo** using *
 
 Before you begin, ensure you have the following tools installed:
 
-1.  **Node.js**: Version `22.12.0` or higher is required. We recommend using a version manager like [nvm](https://github.com/nvm-sh/nvm) to easily switch between Node.js versions.
-2.  **pnpm**: The recommended way to install is via `corepack` (which comes with Node.js):
-    ```bash
-    corepack enable
-    ```
-3.  **uv**: The Python package manager used by the `api`.
-    ```bash
-    # (macOS/Linux)
-    curl -LsSf https://astral.sh/uv/install.sh | sh
-    # (Windows)
-    powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
-    ```
+1.  **Node.js**: Version `24.11.0` or higher is required. We recommend using [nvm](https://github.com/nvm-sh/nvm).
+2.  **pnpm**: The JavaScript package manager. [Installation guide](https://pnpm.io/installation).
+3.  **uv**: The Python package manager. [Installation guide](https://docs.astral.sh/uv/getting-started/installation/).
 
 ## 1. Initial Setup
 
@@ -66,6 +57,18 @@ To get your environment ready, run these commands from the root (`nous/`) direct
 ## 2. Development Workflow
 
 All commands should be run from the **root of the monorepo**.
+
+### How to Start the Database
+
+We use Docker Compose to run the PostgreSQL database with Apache AGE and pgvector extensions.
+
+```bash
+docker compose up -d
+```
+
+The database will be available on port `5432`.
+
+> **Note:** In the future, we will package both the api and the web also in the docker-compose setup (we wont do it now).
 
 ### How to Start the API
 
