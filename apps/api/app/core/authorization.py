@@ -104,7 +104,7 @@ async def get_tenant_from_api_key(
         return TenantInfo(tenant_id=tenant.id, graph_name=tenant.age_graph_name)
 
 
-async def get_tenant_from_jwt(
+async def get_tenant_from_cookie(
     user: AuthenticatedUser = Depends(verify_auth),
 ) -> TenantInfo | None:
     """Get tenant info from JWT authentication (from cookie)."""
@@ -123,18 +123,18 @@ async def get_tenant_from_jwt(
 
 
 async def get_tenant_info(
-    jwt_tenant: TenantInfo | None = Depends(get_tenant_from_jwt),
+    cookie_tenant: TenantInfo | None = Depends(get_tenant_from_cookie),
     api_key_tenant: TenantInfo | None = Depends(get_tenant_from_api_key),
 ) -> TenantInfo:
     """Master dependency that resolves tenant info from either JWT or API key.
 
     Prioritizes JWT over API key authentication.
     """
-    print("-----------> jwt_tenant:", jwt_tenant)
+    print("-----------> cookie_tenant:", cookie_tenant)
     print("-----------> api_key_tenant:", api_key_tenant)
 
-    if jwt_tenant:
-        return jwt_tenant
+    if cookie_tenant:
+        return cookie_tenant
 
     if api_key_tenant:
         return api_key_tenant

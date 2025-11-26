@@ -4,8 +4,7 @@ import secrets
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
-from fastapi import Cookie, Depends, HTTPException, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi import Cookie, HTTPException, status
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 
@@ -17,8 +16,6 @@ pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 
 # Refresh token hashing context - using argon2
 refresh_token_context = CryptContext(schemes=["argon2"], deprecated="auto")
-
-optional_security = HTTPBearer(auto_error=False)
 
 
 def verify_token(token: str) -> dict[str, str | int]:
@@ -105,12 +102,8 @@ def verify_refresh_token(plain_token: str, hashed_token: str) -> bool:
 
 async def verify_auth(
     access_token: str | None = Cookie(None, alias="access_token"),
-    credentials: HTTPAuthorizationCredentials | None = Depends(optional_security),
 ) -> AuthenticatedUser:
-    """Verify authentication from either cookie or Authorization header.
-
-    Tries cookie-based authentication first (for web app users),
-    then falls back to header-based authentication (for programmatic access).
+    """Verify authentication from cookie.
 
     Returns:
         AuthenticatedUser with user_id, tenant_id, and role
@@ -119,7 +112,7 @@ async def verify_auth(
         HTTPException 401 if not authenticated or token is invalid
     """
 
-    # Try cookie first (web app authentication)
+    # Try cookie (web app authentication)
     if access_token:
         payload = verify_token(access_token)
 
@@ -147,36 +140,7 @@ async def verify_auth(
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
-    # Try Authorization header (programmatic authentication)
-    if credentials:
-        token = credentials.credentials
-        payload = verify_token(token)
-
-        user_id = payload.get("sub")
-        tenant_id = payload.get("tenant_id")
-        role_str = payload.get("role")
-
-        if user_id is None or role_str is None:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Token missing required user or role information",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-
-        try:
-            return AuthenticatedUser(
-                user_id=UUID(str(user_id)),
-                tenant_id=UUID(str(tenant_id)) if tenant_id else None,
-                role=UserRole(role_str),
-            )
-        except ValueError:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid user, tenant, or role format in token",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-
-    # Neither method provided authentication credentials
+    # No authentication credentials provided
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Not authenticated",
