@@ -146,3 +146,16 @@ async def verify_auth(
         detail="Not authenticated",
         headers={"WWW-Authenticate": "Bearer"},
     )
+
+
+async def verify_auth_optional(
+    access_token: str | None = Cookie(None, alias="access_token"),
+) -> AuthenticatedUser | None:
+    """Verify authentication from cookie, but return None if not authenticated.
+
+    This allows for fallback authentication methods (like API keys) to be attempted.
+    """
+    if not access_token:
+        return None
+
+    return await verify_auth(access_token)

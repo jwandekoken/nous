@@ -11,6 +11,7 @@ from sqlalchemy import and_, or_, select
 from app.core.authentication import (
     pwd_context,
     verify_auth,
+    verify_auth_optional,
 )
 from app.core.schemas import AuthenticatedUser, UserRole
 from app.db.postgres.auth_session import get_auth_db_session
@@ -105,7 +106,7 @@ async def get_tenant_from_api_key(
 
 
 async def get_tenant_from_cookie(
-    user: AuthenticatedUser = Depends(verify_auth),
+    user: AuthenticatedUser | None = Depends(verify_auth_optional),
 ) -> TenantInfo | None:
     """Get tenant info from JWT authentication (from cookie)."""
 
