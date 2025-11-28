@@ -83,8 +83,9 @@ async def run_migrations_online() -> None:
     )
 
     async with connectable.connect() as connection:
-        await connection.execute(text("CREATE EXTENSION IF NOT EXISTS vector;"))
         await connection.execute(text("CREATE EXTENSION IF NOT EXISTS age;"))
+        # vector extension is crashing the db - debug later
+        # await connection.execute(text("CREATE EXTENSION IF NOT EXISTS vector;"))
         await connection.commit()
         await connection.run_sync(do_run_migrations)
 

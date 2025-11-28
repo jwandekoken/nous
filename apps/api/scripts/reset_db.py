@@ -34,6 +34,11 @@ async def reset_database(delete_migrations: bool):
 
     try:
         async with engine.begin() as conn:
+            # 0. Drop extensions (to clean up ag_catalog and others)
+            print("🔌 Dropping extensions...")
+            await conn.execute(text("DROP EXTENSION IF EXISTS age CASCADE;"))
+            await conn.execute(text("DROP EXTENSION IF EXISTS vector CASCADE;"))
+
             # 1. Drop all tenant schemas
             print("🔍 Finding tenant schemas...")
             result = await conn.execute(
@@ -60,10 +65,8 @@ async def reset_database(delete_migrations: bool):
             print("✨ Recreating public schema...")
             await conn.execute(text("CREATE SCHEMA public;"))
 
-            # 3. Install extensions
-            print("🔧 Installing extensions...")
-            await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector;"))
-            await conn.execute(text("CREATE EXTENSION IF NOT EXISTS age;"))
+            # 3. Recreate extensions
+            # AGE Extension is being created at the `apps/api/migrations/env.py` file, before applying the migrations
 
             print("✅ Database reset successfully.")
 
