@@ -10,6 +10,9 @@ Alembic works by comparing the state of your SQLAlchemy models (e.g., in `app/fe
 
 - `env.py`: This is the main runtime configuration script for Alembic. It's where we programmatically define how to connect to our database and where Alembic should look for our SQLAlchemy models (`target_metadata`) to detect changes for autogeneration.
 
+  > [!NOTE]
+  > We have customized `env.py` to automatically create the PostgreSQL `age` extension (if it doesn't exist) whenever migrations are run in "online" mode. This ensures the extension is always available, even if you reset your migration files.
+
 - `script.py.mako`: This is a Mako template file that Alembic uses to generate new migration files. You can edit this file to change the structure of the generated revision scripts.
 
 - `versions/`: This directory contains all the migration scripts. Each file in this directory represents a sequential change to the database schema. These scripts contain two main functions: `upgrade()` to apply the changes and `downgrade()` to revert them.

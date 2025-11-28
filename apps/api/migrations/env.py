@@ -4,7 +4,7 @@ import sys
 from logging.config import fileConfig
 
 from alembic import context
-from sqlalchemy import pool
+from sqlalchemy import pool, text
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 # add your model's MetaData object here
@@ -83,6 +83,8 @@ async def run_migrations_online() -> None:
     )
 
     async with connectable.connect() as connection:
+        await connection.execute(text("CREATE EXTENSION IF NOT EXISTS age;"))
+        await connection.commit()
         await connection.run_sync(do_run_migrations)
 
     await connectable.dispose()
