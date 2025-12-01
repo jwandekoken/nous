@@ -16,3 +16,17 @@ export interface RefreshTokensResponse {
   message: string;
   token_type: string;
 }
+
+export interface SetupRequiredResponse {
+  setup_required: boolean;
+}
+
+export interface SetupAdminRequest {
+  email: string;
+  password: string;
+}
+
+export interface SetupAdminResponse {
+  message: string;
+  email: string;
+}

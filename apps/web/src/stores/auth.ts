@@ -8,8 +8,11 @@ import {
   logout as logoutUser,
   fetchCurrentUser as fetchCurrentUserFromApi,
   refreshTokens,
+  checkSetupRequired as checkSetupRequiredApi,
+  setupAdmin as setupAdminApi,
   type LoginCredentials,
   type CurrentUser,
+  type SetupAdminRequest,
 } from "@/services/auth";
 import { onSessionExpired } from "@/services/auth/sessionEvents";
 
@@ -41,6 +44,7 @@ export const useAuthStore = defineStore("auth", () => {
 
   const isLoading = ref(false);
   const error = ref<string | null>(null);
+  const isSetupRequired = ref<boolean | null>(null);
   let refreshSchedulerId: ReturnType<typeof setTimeout> | null = null;
 
   const clearRefreshScheduler = () => {
@@ -144,6 +148,50 @@ export const useAuthStore = defineStore("auth", () => {
     return null;
   };
 
+  const checkSetupRequired = async (): Promise<boolean> => {
+    if (isSetupRequired.value !== null) {
+      return isSetupRequired.value;
+    }
+
+    const { data, error: fetchError } = await checkSetupRequiredApi();
+
+    if (fetchError.value) {
+      console.error("Failed to check setup requirement", fetchError.value);
+      // Default to false to avoid blocking if API fails? Or true to be safe?
+      // Let's assume false if we can't reach API, or maybe we should let it fail.
+      // For now, let's just return false but not cache it if error.
+      return false;
+    }
+
+    if (data.value) {
+      isSetupRequired.value = data.value.setup_required;
+      return data.value.setup_required;
+    }
+
+    return false;
+  };
+
+  const setupAdmin = async (data: SetupAdminRequest): Promise<boolean> => {
+    isLoading.value = true;
+    error.value = null;
+
+    const { execute, statusCode, error: fetchError } = setupAdminApi(data);
+
+    await execute();
+
+    isLoading.value = false;
+
+    // Check if statusCode is available and indicates success
+    if (statusCode.value && statusCode.value >= 200 && statusCode.value < 300) {
+      isSetupRequired.value = false;
+      return true;
+    } else {
+      // If statusCode is missing or indicates failure
+      error.value = fetchError.value?.message || "Setup failed";
+      return false;
+    }
+  };
+
   const clearError = () => {
     error.value = null;
   };
@@ -153,6 +201,7 @@ export const useAuthStore = defineStore("auth", () => {
     currentUser,
     isLoading,
     error,
+    isSetupRequired,
     // Getters
     isAuthenticated,
     userRole,
@@ -161,5 +210,7 @@ export const useAuthStore = defineStore("auth", () => {
     logout,
     fetchUser,
     clearError,
+    checkSetupRequired,
+    setupAdmin,
   };
 });
