@@ -35,6 +35,11 @@ export const routes: RouteRecordRaw[] = [
     component: () => import("@/pages/login/views/LoginView.vue"),
     beforeEnter: redirectAuthenticatedUser,
   },
+  {
+    path: "/setup",
+    name: "Setup",
+    component: () => import("@/pages/setup/views/SetupAdminView.vue"),
+  },
 
   // ==================== GRAPH EXPLORER ====================
   {

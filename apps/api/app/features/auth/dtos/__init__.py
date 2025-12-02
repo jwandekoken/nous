@@ -12,6 +12,11 @@ from .login_dto import (
     RefreshTokenRequest,
     RefreshTokenResponse,
 )
+from .setup_dto import (
+    SetupAdminRequest,
+    SetupAdminResponse,
+    SetupRequiredResponse,
+)
 from .tenants_dto import (
     CreateTenantRequest,
     CreateTenantResponse,
@@ -60,4 +65,7 @@ __all__ = [
     "ListTenantsRequest",
     "TenantSummary",
     "ListTenantsResponse",
+    "SetupAdminRequest",
+    "SetupAdminResponse",
+    "SetupRequiredResponse",
 ]
