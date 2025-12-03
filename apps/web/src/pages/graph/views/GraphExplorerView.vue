@@ -148,24 +148,28 @@ const cytoscapeElements = computed<ElementDefinition[]>(() => {
       },
     });
 
-    // Add Source Node (if it exists and not already processed)
-    if (source && !processedSources.has(source.id)) {
-      processedSources.add(source.id);
+    // Add Source Node and Edge (if source exists)
+    if (source) {
       const sourceId = `source-${source.id}`;
 
-      elements.push({
-        group: "nodes",
-        data: {
-          id: sourceId,
-          label: `Source\n(${source.content.substring(0, 20)}...)`,
-          type: "Source",
-          content: source.content,
-          timestamp: source.timestamp,
-          source_id: source.id,
-        },
-      });
+      // Only add the source node if we haven't already
+      if (!processedSources.has(source.id)) {
+        processedSources.add(source.id);
 
-      // Edge: Fact -> Source
+        elements.push({
+          group: "nodes",
+          data: {
+            id: sourceId,
+            label: `Source\n(${source.content.substring(0, 20)}...)`,
+            type: "Source",
+            content: source.content,
+            timestamp: source.timestamp,
+            source_id: source.id,
+          },
+        });
+      }
+
+      // Always add the edge from Fact to Source
       elements.push({
         group: "edges",
         data: {

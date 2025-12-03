@@ -113,39 +113,38 @@ async def verify_auth(
     """
 
     # Try cookie (web app authentication)
-    if access_token:
-        payload = verify_token(access_token)
+    if not access_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
-        user_id = payload.get("sub")
-        tenant_id = payload.get("tenant_id")
-        role_str = payload.get("role")
+    payload = verify_token(access_token)
 
-        if user_id is None or role_str is None:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Token missing required user or role information",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
+    user_id = payload.get("sub")
+    tenant_id = payload.get("tenant_id")
+    role_str = payload.get("role")
 
-        try:
-            return AuthenticatedUser(
-                user_id=UUID(str(user_id)),
-                tenant_id=UUID(str(tenant_id)) if tenant_id else None,
-                role=UserRole(role_str),
-            )
-        except ValueError:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid user, tenant, or role format in token",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
+    if user_id is None or role_str is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token missing required user or role information",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
-    # No authentication credentials provided
-    raise HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Not authenticated",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
+    try:
+        return AuthenticatedUser(
+            user_id=UUID(str(user_id)),
+            tenant_id=UUID(str(tenant_id)) if tenant_id else None,
+            role=UserRole(role_str),
+        )
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid user, tenant, or role format in token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
 
 async def verify_auth_optional(

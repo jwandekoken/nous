@@ -131,8 +131,6 @@ async def get_tenant_info(
 
     Prioritizes JWT over API key authentication.
     """
-    print("-----------> cookie_tenant:", cookie_tenant)
-    print("-----------> api_key_tenant:", api_key_tenant)
 
     if cookie_tenant:
         return cookie_tenant
