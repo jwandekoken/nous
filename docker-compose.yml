@@ -7,7 +7,6 @@ services:
     command: >
       postgres
       -c shared_preload_libraries=age
-      -c search_path=ag_catalog,"$$user",public
     environment:
       - POSTGRES_USER=admin
       - POSTGRES_PASSWORD=supersecretpassword
