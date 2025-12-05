@@ -37,7 +37,6 @@ async def reset_database(delete_migrations: bool):
             # 0. Drop extensions (to clean up ag_catalog and others)
             print("🔌 Dropping extensions...")
             await conn.execute(text("DROP EXTENSION IF EXISTS age CASCADE;"))
-            await conn.execute(text("DROP EXTENSION IF EXISTS vector CASCADE;"))
 
             # 1. Drop all tenant schemas
             print("🔍 Finding tenant schemas...")

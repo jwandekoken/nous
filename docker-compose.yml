@@ -2,17 +2,12 @@ services:
   db:
     build:
       context: ./docker/postgres
-    container_name: postgres_age_pgvector
+    container_name: postgres_age
     restart: unless-stopped
-    # ---------------------------------------------------------------------------
-    # FIX: Only preload 'age'.
-    # pgvector v0.5.1 can load on demand, preventing the startup crash.
-    # ---------------------------------------------------------------------------
     command: >
       postgres
       -c shared_preload_libraries=age
       -c search_path=ag_catalog,"$$user",public
-      -c jit=off
     environment:
       - POSTGRES_USER=admin
       - POSTGRES_PASSWORD=supersecretpassword

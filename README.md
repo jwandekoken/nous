@@ -60,7 +60,7 @@ All commands should be run from the **root of the monorepo**.
 
 ### How to Start the Database
 
-We use Docker Compose to run the PostgreSQL database with Apache AGE and pgvector extensions.
+We use Docker Compose to run the PostgreSQL database with the Apache AGE extension.
 
 ```bash
 docker compose up -d
