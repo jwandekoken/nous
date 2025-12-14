@@ -23,7 +23,7 @@ class GraphSchemaService:
         # Create edge labels
         await conn.execute(f"SELECT create_elabel('{graph_name}', 'HAS_IDENTIFIER');")
         await conn.execute(f"SELECT create_elabel('{graph_name}', 'HAS_FACT');")
-        await conn.execute(f"SELECT create_elabel('{graph_name}', 'HAS_SOURCE');")
+        await conn.execute(f"SELECT create_elabel('{graph_name}', 'DERIVED_FROM');")
 
     @staticmethod
     async def create_graph_and_schema(
