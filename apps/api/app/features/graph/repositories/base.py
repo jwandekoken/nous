@@ -42,7 +42,6 @@ class GraphRepository(Protocol):
         source: Source,
         verb: str,
         confidence_score: float = 1.0,
-        create_source: bool = True,
     ) -> AddFactToEntityResult:
         """Add a fact to an entity."""
         ...

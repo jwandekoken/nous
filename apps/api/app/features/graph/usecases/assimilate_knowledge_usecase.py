@@ -109,7 +109,7 @@ class AssimilateKnowledgeUseCaseImpl:
         assimilated_facts: list[AssimilatedFactDto] = []
 
         # 4. Create and link facts to entity
-        for i, fact_data in enumerate(extracted_facts_data):
+        for fact_data in extracted_facts_data:
             # Create fact model
             fact = Fact(name=fact_data.name, type=fact_data.type)
 
@@ -118,15 +118,12 @@ class AssimilateKnowledgeUseCaseImpl:
                 raise ValueError(f"Fact ID cannot be None for fact: {fact.name}")
 
             # Add fact to entity using repository method
-            # Create source only for the first fact
-            create_source = i == 0
             result = await self.repository.add_fact_to_entity(
                 entity_id=str(entity.id),
                 fact=fact,
                 source=source,
                 verb=fact_data.verb,
                 confidence_score=fact_data.confidence_score,
-                create_source=create_source,
             )
 
             # Add to response
