@@ -60,6 +60,84 @@ This section captures implementation-relevant discoveries from the current codeb
      - Return a compact graph-context bundle for LLM consumption
   - **Plan action:** Add a new step for retrieval endpoints/usecases (e.g., “search memories” and “expand from anchors”).
 
+### E.1) API Retrieval Contract (Option A: opt-in params, no breaking changes)
+
+We will **keep the existing lookup endpoints and response models**, and add **optional query params** that enable vector-gated Graph-RAG behavior.
+
+- **Existing endpoints (unchanged by default)**:
+
+  - `GET /api/v1/graph/entities/lookup?type=...&value=...` → `GetEntityResponse`
+  - `GET /api/v1/graph/entities/lookup/summary?type=...&value=...` → `GetEntitySummaryResponse`
+
+- **Default behavior (no RAG params)**:
+
+  - `/lookup`: returns _all facts_ for the entity (current behavior).
+  - `/lookup/summary`: summarizes _all facts_ for the entity (current behavior).
+
+- **RAG behavior (opt-in)**:
+  - If `rag_query` is present, the server will perform:
+    1. Resolve entity via existing identifier lookup (`type` + `value`)
+    2. Vector search (Qdrant) constrained by `tenant_id` and `entity_id`
+    3. Convert vector hits → graph anchors
+    4. Verify anchors in AGE (prevent cross-entity leakage)
+    5. Fetch and return a **subset of facts** (fact-only response)
+
+#### E.1.1) Query params
+
+- **`rag_query: str | None`**
+
+  - Conversational user turn (free text).
+  - If omitted/empty → identical behavior to today.
+
+- **`rag_top_k: int`** (default: 10)
+
+  - Number of vector candidates to retrieve before graph verification.
+
+- **`rag_min_score: float | None`**
+
+  - Optional similarity threshold for filtering vector hits before graph verification.
+
+- **`rag_mode: "semantic" | "episodic" | "hybrid"`** (default: `"semantic"`)
+
+  - Controls which vector collection(s) are searched.
+  - **Important**: regardless of mode, the public API remains **fact-only** (see below).
+
+- **`rag_expand_hops: int`** (default: 0)
+  - Optional graph expansion depth starting from verified anchors.
+  - `0` returns only matched facts; `1` may include adjacent facts depending on expansion rules.
+
+#### E.1.2) Fact-only response semantics (episodic is a selector, not a returned object)
+
+We will **not** return episodic windows/sources as first-class objects in lookup responses at this stage.
+
+- **Semantic mode**:
+
+  - Qdrant hits return `relationship_key` / (`fact_id`, `verb`)
+  - AGE verification ensures the relationship exists for the resolved entity
+  - Response `facts[]` is filtered to verified hits (plus any optional expansion)
+
+- **Episodic mode (selector-only)**:
+
+  - Qdrant hits return `source_id`
+  - AGE resolves facts attached to those sources (scoped to the resolved entity)
+  - Response still returns **facts only**; episodic windows are not returned directly
+
+- **Hybrid mode**:
+  - Union semantic-selected facts + episodic-selected facts (dedupe by `relationship_key` / (`fact_id`, `verb`))
+  - Apply `rag_expand_hops` if enabled
+
+#### E.1.3) Optional RAG debug metadata (opt-in, does not change default behavior)
+
+We may add an **optional** field to the response DTO(s) to surface retrieval provenance when requested.
+
+- **DTO field**: `rag_debug: RagDebugDto | None = None`
+- **Enabled by**: a query param like `rag_debug=true` (default false)
+- **Contains** (suggested minimal shape):
+  - `mode`, `top_k`, `min_score`
+  - `vector_hits`: list of `{collection, score, anchor_type, anchor_id, relationship_key?}`
+  - `verified_anchors`: list of anchors that passed AGE verification
+  - `timings_ms` (optional): `{vector_search, graph_verify, graph_fetch}`
+
 ## F) Docker / Runtime Gotchas
 
 - When running under Docker Compose, Qdrant host will typically be `qdrant` (service name), not `localhost`.
