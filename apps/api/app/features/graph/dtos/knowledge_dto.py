@@ -75,7 +75,7 @@ class AssimilateKnowledgeRequest(BaseModel):
     )
     history: list[str] | None = Field(
         default=None,
-        description="Optional list of previous conversational turns for context.",
+        description="Optional list of previous conversational turns for context. Format: 'Role: Message' (e.g. 'User: Hi', 'Agent: Hello').",
     )
 
 
