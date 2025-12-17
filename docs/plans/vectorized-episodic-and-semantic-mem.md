@@ -14,11 +14,70 @@ This section captures implementation-relevant discoveries from the current codeb
   - **Decision:** Standardize on `gemini-embedding-001` with **768** dimensions (`embedding_dim = 768`).
   - **Plan action:** Add settings for `embedding_model` and `embedding_dim` (single source of truth) and a migration rule when models/dims change:
     - Fail fast and require a manual migration, or
-    - Create versioned collections (e.g., `semantic_memory_v2`) and route reads/writes accordingly.
+    - Create versioned collections (e.g., `agent_memory_v2`) and route reads/writes accordingly.
+
+- **Unified Collection with Type Discriminator**
+
+  - **Decision:** Use a **single collection** (`agent_memory`) for both semantic and episodic memory types.
+  - **Rationale:**
+    - Simpler infrastructure management (one collection to create, monitor, backup)
+    - Qdrant is optimized for payload filtering — filtering by `type` adds negligible overhead when indexed
+    - Enables unified search across memory types if needed in the future
+    - Both memory types share the same embedding model/dimensions
+  - **Discriminator:** A mandatory `type` field in the payload (`"semantic"` or `"episodic"`).
+  - **Alternative (when to use separate collections):** Only if memory types require different vector dimensions, different distance metrics, or vastly different retention policies.
 
 - **Make vector writes idempotent**
   - **Plan action:** Use deterministic Qdrant point IDs:
     - Semantic: `relationship_key = "{entity_id}:{verb}:{fact_id}"`, then `point_id = hash(tenant_id, relationship_key)` (or UUIDv5).
+    - Episodic (future): `window_key = "{entity_id}:{source_id}:{window_index}"`, then `point_id = hash(tenant_id, window_key)`.
+
+## A.1) Payload Indexes (Critical for Performance)
+
+Qdrant requires explicit payload index creation for efficient filtering. Without indexes, filters perform full scans. The following indexes **must** be created during collection initialization:
+
+| Field       | Index Type | Rationale                                                                                                                     |
+| ----------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `tenant_id` | `keyword`  | **Mandatory.** Every query filters by tenant for isolation. High cardinality but always in filter.                            |
+| `entity_id` | `keyword`  | **Mandatory.** Semantic searches are scoped to a specific entity. Used in every semantic query.                               |
+| `type`      | `keyword`  | **Mandatory.** Discriminator for memory type (`semantic` / `episodic`). Low cardinality, highly selective.                    |
+| `fact_id`   | `keyword`  | **Recommended.** Enables efficient deletion/update by fact ID. Used for idempotent operations and cleanup.                    |
+| `verb`      | `keyword`  | **Optional.** Enables filtering by relationship type (e.g., "find all hobbies" = `verb=enjoys`). Useful for advanced queries. |
+
+**Index creation example (in `init_db.py`):**
+
+```python
+from qdrant_client.models import PayloadSchemaType
+
+# Create indexes for efficient filtering
+await client.create_payload_index(
+    collection_name="agent_memory",
+    field_name="tenant_id",
+    field_schema=PayloadSchemaType.KEYWORD,
+)
+await client.create_payload_index(
+    collection_name="agent_memory",
+    field_name="entity_id",
+    field_schema=PayloadSchemaType.KEYWORD,
+)
+await client.create_payload_index(
+    collection_name="agent_memory",
+    field_name="type",
+    field_schema=PayloadSchemaType.KEYWORD,
+)
+await client.create_payload_index(
+    collection_name="agent_memory",
+    field_name="fact_id",
+    field_schema=PayloadSchemaType.KEYWORD,
+)
+await client.create_payload_index(
+    collection_name="agent_memory",
+    field_name="verb",
+    field_schema=PayloadSchemaType.KEYWORD,
+)
+```
+
+**Note:** Index creation is idempotent — calling `create_payload_index` on an existing index is a no-op.
 
 ## B) Multi-Tenancy Enforcement (match existing FastAPI + AGE approach)
 
@@ -175,9 +234,9 @@ Create the connection and initialization logic.
 
 - `connection.py`: Returns a singleton `AsyncQdrantClient`.
 - `init_db.py`:
-  - Checks if `semantic_memory` collection exists.
-  - If not, creates it with `Cosine` distance.
-  - **Critical:** Creates payload indexes on `tenant_id`, `entity_id` for fast filtering.
+  - Checks if `agent_memory` collection exists.
+  - If not, creates it with `Cosine` distance and `embedding_dim` vector size.
+  - **Critical:** Creates payload indexes as defined in **Section A.1** (`tenant_id`, `entity_id`, `type`, `fact_id`, `verb`) for efficient filtering.
 
 ## Step 3: Repository Layer (`apps/api/app/features/graph/repositories/`)
 
@@ -185,17 +244,18 @@ Create `vector_repository.py` to abstract the Qdrant client. This ensures `tenan
 
 ```python
 class VectorRepository:
-    def __init__(self, client, tenant_id: str):
+    def __init__(self, client, tenant_id: str, collection_name: str = "agent_memory"):
         self.client = client
         self.tenant_id = tenant_id
+        self.collection_name = collection_name
 
     async def add_semantic(self, entity_id: UUID, fact: Fact, verb: str):
         # relationship_key must uniquely represent the assertion in the graph:
         # f"{entity_id}:{verb}:{fact.fact_id}"
         # Construct text: f"The entity {verb} {fact.type}: {fact.name}"
         # Embed text
-        # Upsert to 'semantic_memory' collection
-        # Payload includes: tenant_id, entity_id, fact_id, verb, relationship_key
+        # Upsert to collection with type="semantic" in payload
+        # Payload includes: tenant_id, entity_id, fact_id, verb, relationship_key, type
 ```
 
 ## Step 4: Use Case Integration (`assimilate_knowledge_usecase.py`)
@@ -236,13 +296,13 @@ Add Qdrant fixtures alongside existing PostgreSQL fixtures:
 ```python
 import pytest_asyncio
 from qdrant_client import AsyncQdrantClient
-from qdrant_client.models import Distance, VectorParams
+from qdrant_client.models import Distance, VectorParams, PayloadSchemaType
 
 @pytest_asyncio.fixture(scope="function")
 async def qdrant_client(test_settings: Settings) -> AsyncGenerator[AsyncQdrantClient, None]:
     """Provide Qdrant client for vector operations tests.
 
-    Creates a fresh client for each test and cleans up the semantic_memory collection after.
+    Creates a fresh client for each test and cleans up the agent_memory collection after.
     """
     client = AsyncQdrantClient(
         host=test_settings.qdrant_host,
@@ -250,7 +310,7 @@ async def qdrant_client(test_settings: Settings) -> AsyncGenerator[AsyncQdrantCl
     )
 
     # Ensure collection exists for tests
-    collection_name = "semantic_memory_test"
+    collection_name = "agent_memory_test"
     try:
         await client.delete_collection(collection_name)
     except Exception:
@@ -263,6 +323,14 @@ async def qdrant_client(test_settings: Settings) -> AsyncGenerator[AsyncQdrantCl
             distance=Distance.COSINE,
         ),
     )
+
+    # Create payload indexes (matching production setup from Section A.1)
+    for field in ["tenant_id", "entity_id", "type", "fact_id", "verb"]:
+        await client.create_payload_index(
+            collection_name=collection_name,
+            field_name=field,
+            field_schema=PayloadSchemaType.KEYWORD,
+        )
 
     yield client
 
@@ -297,7 +365,7 @@ async def vector_repository(
     return VectorRepository(
         client=qdrant_client,
         tenant_id="test_tenant",
-        collection_name="semantic_memory_test",
+        collection_name="agent_memory_test",
     )
 
 
@@ -397,12 +465,12 @@ class TestVectorRepositorySearchSemantic:
         repo_tenant_a = VectorRepository(
             client=qdrant_client,
             tenant_id="tenant_a",
-            collection_name="semantic_memory_test",
+            collection_name="agent_memory_test",
         )
         repo_tenant_b = VectorRepository(
             client=qdrant_client,
             tenant_id="tenant_b",
-            collection_name="semantic_memory_test",
+            collection_name="agent_memory_test",
         )
 
         # Add fact from tenant A
@@ -483,7 +551,7 @@ async def assimilate_usecase_with_vectors(
     vector_repo = VectorRepository(
         client=qdrant_client,
         tenant_id="test_tenant",
-        collection_name="semantic_memory_test",
+        collection_name="agent_memory_test",
     )
     fact_extractor = LangChainFactExtractor()
 
