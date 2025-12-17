@@ -740,3 +740,538 @@ This section outlines a potential future enhancement to add **Vectorized Episodi
 - **Deferred vectorization:** Process episodic windows asynchronously or in batch, rather than at assimilation time.
 
 When revisiting this feature, the key principle remains: **"Vectors are Entry Points; Graphs are the Truth."** Any episodic solution must ensure the vector's semantic content aligns with its graph anchor.
+
+---
+
+# 5. Implementation Tasks
+
+This section breaks down the vectorized semantic memory implementation into discrete, manageable tasks. Each task is designed to be independently implementable while maintaining clear dependencies.
+
+## Task Overview
+
+| Task # | Name                                 | Depends On | Estimated Effort |
+| ------ | ------------------------------------ | ---------- | ---------------- |
+| 1      | Configuration & Settings             | -          | Small            |
+| 2      | Qdrant Database Layer                | Task 1     | Medium           |
+| 3      | Embedding Service                    | Task 1     | Small            |
+| 4      | Vector Repository                    | Task 2, 3  | Medium           |
+| 5      | Qdrant Test Infrastructure           | Task 2     | Small            |
+| 6      | Vector Repository Tests              | Task 4, 5  | Medium           |
+| 7      | Assimilate UseCase Integration       | Task 4     | Medium           |
+| 8      | Assimilate UseCase Integration Tests | Task 6, 7  | Medium           |
+| 9      | RAG Lookup Query Parameters          | Task 4     | Small            |
+| 10     | RAG Lookup UseCase                   | Task 9     | Medium           |
+| 11     | RAG Lookup Tests                     | Task 10    | Medium           |
+| 12     | Documentation & Cleanup              | All        | Small            |
+
+---
+
+## Task 1: Configuration & Settings
+
+**Goal:** Add Qdrant connection and embedding configuration to `settings.py`.
+
+**Files to modify:**
+
+- `apps/api/app/core/settings.py`
+
+**Changes:**
+
+```python
+# Add to Settings class:
+
+# Qdrant
+qdrant_host: str = Field(default="localhost", description="Qdrant host")
+qdrant_port: int = Field(default=6333, description="Qdrant HTTP port")
+
+# Embeddings
+embedding_model: str = Field(default="gemini-embedding-001", description="Embedding model name")
+embedding_dim: int = Field(default=768, description="Embedding vector dimension (Qdrant vector_size)")
+
+# Collection
+vector_collection_name: str = Field(default="agent_memory", description="Qdrant collection name for agent memory")
+```
+
+**Acceptance Criteria:**
+
+- [ ] Settings include `qdrant_host`, `qdrant_port`, `embedding_model`, `embedding_dim`, `vector_collection_name`
+- [ ] Settings load correctly from environment variables
+- [ ] Default values work for local development (localhost:6333)
+- [ ] Tests pass with existing functionality unchanged
+
+---
+
+## Task 2: Qdrant Database Layer
+
+**Goal:** Create Qdrant connection management and collection initialization.
+
+**Files to create:**
+
+- `apps/api/app/db/qdrant/__init__.py`
+- `apps/api/app/db/qdrant/connection.py`
+- `apps/api/app/db/qdrant/init_db.py`
+
+**connection.py responsibilities:**
+
+- Singleton `AsyncQdrantClient` factory
+- Connection pool management similar to PostgreSQL pattern
+- Graceful shutdown support
+
+**init_db.py responsibilities:**
+
+- Create `agent_memory` collection if not exists
+- Configure vector parameters (768 dim, cosine distance)
+- Create all payload indexes (tenant_id, entity_id, type, fact_id, verb)
+- Idempotent - safe to call multiple times
+
+**Files to modify:**
+
+- `apps/api/app/main.py` - Add Qdrant initialization to lifespan
+
+**Acceptance Criteria:**
+
+- [ ] `get_qdrant_client()` returns singleton AsyncQdrantClient
+- [ ] `close_qdrant_client()` properly closes connection
+- [ ] `init_qdrant_db()` creates collection with correct configuration
+- [ ] All payload indexes created per Section A.1
+- [ ] Lifespan initializes Qdrant on startup, closes on shutdown
+- [ ] No errors when Qdrant already initialized (idempotent)
+
+---
+
+## Task 3: Embedding Service
+
+**Goal:** Create a service for generating text embeddings using Google's Gemini.
+
+**Files to create:**
+
+- `apps/api/app/features/graph/services/embedding_service.py`
+
+**EmbeddingService responsibilities:**
+
+- Wrap `langchain-google-genai` embeddings
+- Expose async `embed_text(text: str) -> list[float]`
+- Use configured model (`gemini-embedding-001`)
+- Handle errors gracefully (rate limits, API failures)
+
+**Acceptance Criteria:**
+
+- [ ] `EmbeddingService.embed_text()` returns 768-dimensional vector
+- [ ] Same text produces consistent embeddings
+- [ ] Service is injectable and testable
+- [ ] Uses `GOOGLE_API_KEY` from settings
+
+---
+
+## Task 4: Vector Repository
+
+**Goal:** Create repository for Qdrant vector operations with tenant isolation.
+
+**Files to create:**
+
+- `apps/api/app/features/graph/repositories/vector_repository.py`
+
+**VectorRepository class:**
+
+```python
+class VectorRepository:
+    def __init__(
+        self,
+        client: AsyncQdrantClient,
+        embedding_service: EmbeddingService,
+        tenant_id: str,
+        collection_name: str = "agent_memory"
+    ):
+        ...
+
+    async def add_semantic(
+        self,
+        entity_id: UUID,
+        fact: Fact,
+        verb: str
+    ) -> bool:
+        """Add semantic memory vector for a fact."""
+        ...
+
+    async def search_semantic(
+        self,
+        entity_id: UUID,
+        query_text: str,
+        top_k: int = 10,
+        min_score: float | None = None
+    ) -> list[SemanticSearchResult]:
+        """Search semantic memories for an entity."""
+        ...
+
+    async def delete_semantic(
+        self,
+        entity_id: UUID,
+        fact_id: str,
+        verb: str
+    ) -> bool:
+        """Delete semantic memory vector for a fact."""
+        ...
+
+    async def delete_all_for_entity(
+        self,
+        entity_id: UUID
+    ) -> int:
+        """Delete all vectors for an entity. Returns count deleted."""
+        ...
+```
+
+**Key implementation details:**
+
+- Deterministic point IDs using UUIDv5: `uuid5(NAMESPACE, f"{tenant_id}:{entity_id}:{verb}:{fact_id}")`
+- Synthetic sentence generation: `"The entity {verb} {fact.type}: {fact.name}"`
+- All queries MUST filter by `tenant_id` - enforced at repository level
+- Payload includes: `tenant_id`, `entity_id`, `fact_id`, `verb`, `relationship_key`, `type="semantic"`
+
+**Files to modify:**
+
+- `apps/api/app/features/graph/repositories/__init__.py` - Export VectorRepository
+
+**Acceptance Criteria:**
+
+- [ ] `add_semantic()` creates vector with correct payload
+- [ ] Point IDs are deterministic (idempotent upserts)
+- [ ] `search_semantic()` always filters by `tenant_id` and `entity_id`
+- [ ] `delete_semantic()` removes vector by relationship_key
+- [ ] All operations handle Qdrant errors gracefully
+
+---
+
+## Task 5: Qdrant Test Infrastructure
+
+**Goal:** Add Qdrant fixtures to test infrastructure.
+
+**Files to modify:**
+
+- `apps/api/tests/conftest.py`
+
+**New fixtures:**
+
+```python
+@pytest_asyncio.fixture(scope="function")
+async def qdrant_client(test_settings: Settings) -> AsyncGenerator[AsyncQdrantClient, None]:
+    """Provide Qdrant client with test collection."""
+    ...
+
+@pytest_asyncio.fixture(scope="function")
+async def embedding_service() -> EmbeddingService:
+    """Provide embedding service for tests."""
+    ...
+```
+
+**Test collection behavior:**
+
+- Use `agent_memory_test` collection name
+- Create fresh collection before each test
+- Create all payload indexes
+- Delete collection after test
+
+**Acceptance Criteria:**
+
+- [ ] `qdrant_client` fixture provides working client
+- [ ] Test collection created with correct configuration
+- [ ] Indexes created matching production setup
+- [ ] Cleanup happens after each test
+- [ ] Existing tests continue to pass
+
+---
+
+## Task 6: Vector Repository Tests
+
+**Goal:** Comprehensive tests for VectorRepository.
+
+**Files to create:**
+
+- `apps/api/tests/features/graph/repositories/test_vector_repository.py`
+
+**Test classes:**
+
+- `TestVectorRepositoryAddSemantic` - Add operations
+- `TestVectorRepositorySearchSemantic` - Search operations
+- `TestVectorRepositoryDeleteSemantic` - Delete operations
+- `TestVectorRepositoryTenantIsolation` - Multi-tenant security
+
+**Key test cases:**
+
+- Basic add/search/delete flow
+- Idempotent adds (same fact twice = one vector)
+- Tenant isolation (Tenant A cannot see Tenant B's data)
+- Search relevance (location query finds location fact)
+- Min score filtering
+- Entity scoping (search is scoped to entity)
+
+**Acceptance Criteria:**
+
+- [ ] All CRUD operations tested
+- [ ] Tenant isolation verified
+- [ ] Idempotency verified
+- [ ] Search relevance validated
+- [ ] Tests pass in CI
+
+---
+
+## Task 7: Assimilate UseCase Integration
+
+**Goal:** Integrate vector repository into the assimilate knowledge flow.
+
+**Files to modify:**
+
+- `apps/api/app/features/graph/usecases/assimilate_knowledge_usecase.py`
+- `apps/api/app/features/graph/routes/assimilate.py`
+
+**Changes to AssimilateKnowledgeUseCaseImpl:**
+
+```python
+class AssimilateKnowledgeUseCaseImpl:
+    def __init__(
+        self,
+        repository: GraphRepository,
+        fact_extractor: FactExtractor,
+        vector_repository: VectorRepository | None = None  # Optional for backward compat
+    ):
+        ...
+
+    async def execute(self, request: AssimilateKnowledgeRequest) -> AssimilateKnowledgeResponse:
+        # ... existing logic ...
+
+        for fact_data in extracted_facts:
+            result = await self.repository.add_fact_to_entity(...)
+
+            # [NEW] Add to semantic memory if vector_repository is available
+            if self.vector_repository:
+                await self.vector_repository.add_semantic(
+                    entity_id=entity.id,
+                    fact=result["fact"],
+                    verb=result["has_fact_relationship"].verb
+                )
+```
+
+**Changes to assimilate.py route:**
+
+- Inject `VectorRepository` into use case via dependency
+- Create `EmbeddingService` instance
+- Get Qdrant client from connection pool
+
+**Acceptance Criteria:**
+
+- [ ] Facts are vectorized during assimilation
+- [ ] Backward compatible (works without vector_repository)
+- [ ] Errors in vectorization logged but don't fail assimilation (graceful degradation)
+- [ ] Vectors include correct metadata (tenant_id, entity_id, fact_id, verb, type)
+
+---
+
+## Task 8: Assimilate UseCase Integration Tests
+
+**Goal:** Test the full assimilation flow with vectorization.
+
+**Files to create:**
+
+- `apps/api/tests/features/graph/usecases/test_assimilate_knowledge_with_vectors.py`
+
+**Test scenarios:**
+
+- Assimilate content → verify vectors created
+- Assimilate multiple facts → verify all vectorized
+- Search for facts by semantic query
+- Vector-to-graph consistency (vectors point to real graph data)
+
+**Acceptance Criteria:**
+
+- [ ] Integration tests verify full flow
+- [ ] Graph and vector stores stay in sync
+- [ ] Semantic search finds relevant facts
+
+---
+
+## Task 9: RAG Lookup Query Parameters
+
+**Goal:** Add optional RAG query parameters to lookup endpoints.
+
+**Files to modify:**
+
+- `apps/api/app/features/graph/dtos/knowledge_dto.py`
+- `apps/api/app/features/graph/routes/lookup.py`
+
+**New DTOs:**
+
+```python
+class RagDebugHit(BaseModel):
+    """Debug info for a single vector hit."""
+    fact_id: str
+    verb: str
+    score: float
+    verified: bool
+
+class RagDebugDto(BaseModel):
+    """Optional RAG debug metadata."""
+    query: str
+    top_k: int
+    min_score: float | None
+    vector_hits: list[RagDebugHit]
+    verified_count: int
+    timings_ms: dict[str, float] | None = None
+```
+
+**Modified lookup endpoints:**
+
+```python
+@router.get("/entities/lookup", response_model=GetEntityResponse)
+async def get_entity(
+    type: str,
+    value: str,
+    # New optional RAG params
+    rag_query: str | None = None,
+    rag_top_k: int = 10,
+    rag_min_score: float | None = None,
+    rag_expand_hops: int = 0,
+    rag_debug: bool = False,
+    use_case: GetEntityUseCase = Depends(get_get_entity_use_case),
+) -> GetEntityResponse:
+    ...
+```
+
+**Acceptance Criteria:**
+
+- [ ] New query params defined and documented
+- [ ] Without RAG params → existing behavior unchanged
+- [ ] DTOs support debug metadata
+- [ ] OpenAPI spec updated with new params
+
+---
+
+## Task 10: RAG Lookup UseCase
+
+**Goal:** Implement vector-gated retrieval logic for entity lookup.
+
+**Files to modify:**
+
+- `apps/api/app/features/graph/usecases/get_entity_usecase.py`
+- `apps/api/app/features/graph/routes/lookup.py`
+
+**New logic in GetEntityUseCaseImpl.execute():**
+
+```python
+async def execute(
+    self,
+    identifier_value: str,
+    identifier_type: str,
+    rag_query: str | None = None,
+    rag_top_k: int = 10,
+    rag_min_score: float | None = None,
+    rag_expand_hops: int = 0,
+) -> GetEntityResponse:
+    # 1. Resolve entity (existing)
+    entity_result = await self.repository.find_entity_by_identifier(...)
+
+    if not rag_query:
+        # 2a. No RAG → return all facts (existing behavior)
+        return await self._build_full_response(entity_result)
+
+    # 2b. RAG mode → vector search
+    vector_hits = await self.vector_repository.search_semantic(
+        entity_id=entity.id,
+        query_text=rag_query,
+        top_k=rag_top_k,
+        min_score=rag_min_score,
+    )
+
+    # 3. Verify hits in graph (prevent cross-entity leakage)
+    verified_fact_ids = await self._verify_facts_in_graph(
+        entity_id=entity.id,
+        fact_ids=[hit.fact_id for hit in vector_hits]
+    )
+
+    # 4. Build filtered response with only verified facts
+    return await self._build_filtered_response(entity_result, verified_fact_ids)
+```
+
+**Acceptance Criteria:**
+
+- [ ] Without `rag_query` → all facts returned (unchanged)
+- [ ] With `rag_query` → only matching facts returned
+- [ ] Graph verification prevents cross-entity data leakage
+- [ ] `rag_expand_hops` allows adjacent fact inclusion
+- [ ] Performance acceptable (<500ms for typical queries)
+
+---
+
+## Task 11: RAG Lookup Tests
+
+**Goal:** Test the RAG-enabled lookup functionality.
+
+**Files to create:**
+
+- `apps/api/tests/features/graph/usecases/test_get_entity_with_rag.py`
+- `apps/api/tests/features/graph/routes/test_lookup_rag.py`
+
+**Test scenarios:**
+
+- Lookup without RAG → full facts list
+- Lookup with RAG → filtered facts list
+- RAG returns relevant facts first
+- Graph verification rejects orphan vectors
+- rag_min_score filtering works
+- rag_debug returns metadata
+
+**Acceptance Criteria:**
+
+- [ ] All RAG scenarios tested
+- [ ] Backward compatibility verified
+- [ ] Graph verification tested
+- [ ] Debug mode tested
+
+---
+
+## Task 12: Documentation & Cleanup
+
+**Goal:** Update documentation and clean up any loose ends.
+
+**Files to modify:**
+
+- `apps/api/README.md` - Add vector memory section
+- `docs/plans/vectorized-episodic-and-semantic-mem.md` - Mark completed tasks
+- `.env.example` - Add Qdrant environment variables
+
+**Documentation updates:**
+
+- How to set up Qdrant (docker-compose already has it)
+- Environment variables for vector configuration
+- API usage examples for RAG queries
+- Architecture diagram update (if exists)
+
+**Acceptance Criteria:**
+
+- [ ] README documents vector memory feature
+- [ ] Environment variables documented
+- [ ] API examples provided
+- [ ] Plan document updated with completion status
+
+---
+
+## Implementation Order Recommendation
+
+For a phased rollout, implement tasks in this order:
+
+### Phase 1: Foundation (Tasks 1-3)
+
+Set up configuration, Qdrant connection, and embedding service. No user-facing changes.
+
+### Phase 2: Core Vector Operations (Tasks 4-6)
+
+Implement and test the VectorRepository. Can be developed in parallel with Phase 1 completion.
+
+### Phase 3: Write Path (Tasks 7-8)
+
+Integrate vectorization into the assimilate flow. This enables semantic memory creation.
+
+### Phase 4: Read Path (Tasks 9-11)
+
+Implement RAG-enabled lookup. This enables semantic retrieval.
+
+### Phase 5: Polish (Task 12)
+
+Documentation and cleanup after all features are working
