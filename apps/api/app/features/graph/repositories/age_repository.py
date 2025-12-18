@@ -487,7 +487,7 @@ class AgeRepository(GraphRepository):
 
             # Check if this fact is used by other entities
             check_query = f"""
-            MATCH (f:Fact {{fact_id: '{fact_id}'}})
+            MATCH (f:Fact {{fact_id: '{self._escape_cypher_string(fact_id)}'}})
             MATCH (e:Entity)-[:HAS_FACT]->(f)
             RETURN count(e) AS usage_count
             """
@@ -561,7 +561,7 @@ class AgeRepository(GraphRepository):
         for fact_id in facts_to_delete:
             # Get the source ID before deleting the fact
             source_query = f"""
-            MATCH (f:Fact {{fact_id: '{fact_id}'}})
+            MATCH (f:Fact {{fact_id: '{self._escape_cypher_string(fact_id)}'}})
             OPTIONAL MATCH (f)-[:DERIVED_FROM]->(s:Source)
             RETURN s.id AS source_id
             """
@@ -574,7 +574,7 @@ class AgeRepository(GraphRepository):
 
             # Delete the fact
             delete_fact_query = f"""
-            MATCH (f:Fact {{fact_id: '{fact_id}'}})
+            MATCH (f:Fact {{fact_id: '{self._escape_cypher_string(fact_id)}'}})
             DETACH DELETE f
             RETURN true AS fact_deleted
             """
@@ -692,7 +692,7 @@ class AgeRepository(GraphRepository):
         check_query = f"""
         MATCH (e:Entity {{id: '{entity_id}'}})-[hf:HAS_FACT {{
             verb: '{self._escape_cypher_string(verb)}'
-        }}]->(f:Fact {{fact_id: '{fact.fact_id}'}})
+        }}]->(f:Fact {{fact_id: '{self._escape_cypher_string(fact.fact_id)}'}})
         RETURN hf AS relationship
         """
 
@@ -733,7 +733,7 @@ class AgeRepository(GraphRepository):
         cypher_query = f"""
         MATCH (e:Entity {{id: '{entity_id}'}})
         MERGE (f:Fact {{
-            fact_id: '{fact.fact_id}',
+            fact_id: '{self._escape_cypher_string(fact.fact_id)}',
             name: '{self._escape_cypher_string(fact.name)}',
             type: '{self._escape_cypher_string(fact.type)}'
         }})
@@ -827,7 +827,7 @@ class AgeRepository(GraphRepository):
     async def find_fact_by_id(self, fact_id: str) -> FactWithOptionalSource | None:
         """Find a fact by its ID."""
         cypher_query = f"""
-        MATCH (f:Fact {{fact_id: '{fact_id}'}})
+        MATCH (f:Fact {{fact_id: '{self._escape_cypher_string(fact_id)}'}})
         OPTIONAL MATCH (f)-[df:DERIVED_FROM]->(s:Source)
         RETURN {{
             fact: f,
@@ -890,7 +890,7 @@ class AgeRepository(GraphRepository):
         """
         # 1. Check if the relationship exists
         check_query = f"""
-        MATCH (e:Entity {{id: '{entity_id}'}})-[hf:HAS_FACT]->(f:Fact {{fact_id: '{fact_id}'}})
+        MATCH (e:Entity {{id: '{entity_id}'}})-[hf:HAS_FACT]->(f:Fact {{fact_id: '{self._escape_cypher_string(fact_id)}'}})
         RETURN count(hf) AS relationship_count
         """
 
@@ -912,7 +912,7 @@ class AgeRepository(GraphRepository):
 
         # 2. Count how many entities use this fact
         count_usage_query = f"""
-        MATCH (e:Entity)-[:HAS_FACT]->(f:Fact {{fact_id: '{fact_id}'}})
+        MATCH (e:Entity)-[:HAS_FACT]->(f:Fact {{fact_id: '{self._escape_cypher_string(fact_id)}'}})
         RETURN count(e) AS entity_count
         """
 
@@ -928,7 +928,7 @@ class AgeRepository(GraphRepository):
 
         # 3. Get the source ID before deleting
         source_query = f"""
-        MATCH (f:Fact {{fact_id: '{fact_id}'}})-[:DERIVED_FROM]->(s:Source)
+        MATCH (f:Fact {{fact_id: '{self._escape_cypher_string(fact_id)}'}})-[:DERIVED_FROM]->(s:Source)
         RETURN s.id AS source_id
         """
 
@@ -948,7 +948,7 @@ class AgeRepository(GraphRepository):
 
         # 4. Delete all HAS_FACT relationships between entity and fact
         delete_relationships_query = f"""
-        MATCH (e:Entity {{id: '{entity_id}'}})-[hf:HAS_FACT]->(f:Fact {{fact_id: '{fact_id}'}})
+        MATCH (e:Entity {{id: '{entity_id}'}})-[hf:HAS_FACT]->(f:Fact {{fact_id: '{self._escape_cypher_string(fact_id)}'}})
         DELETE hf
         RETURN count(hf) AS deleted_count
         """
@@ -964,7 +964,7 @@ class AgeRepository(GraphRepository):
 
         if should_delete_fact:
             delete_fact_query = f"""
-            MATCH (f:Fact {{fact_id: '{fact_id}'}})
+            MATCH (f:Fact {{fact_id: '{self._escape_cypher_string(fact_id)}'}})
             DETACH DELETE f
             RETURN true AS fact_deleted
             """
