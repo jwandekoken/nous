@@ -749,22 +749,24 @@ This section breaks down the vectorized semantic memory implementation into disc
 
 ## Task Overview
 
-| Task # | Name                                 | Depends On | Estimated Effort |
-| ------ | ------------------------------------ | ---------- | ---------------- |
-| 1      | Configuration & Settings             | -          | Small            |
-| 2      | Qdrant Database Layer                | Task 1     | Medium           |
-| 3      | Embedding Service                    | Task 1     | Small            |
-| 4      | Vector Repository                    | Task 2, 3  | Medium           |
-| 5      | Qdrant Test Infrastructure           | Task 2     | Small            |
-| 6      | Vector Repository Tests              | Task 4, 5  | Medium           |
-| 7      | Assimilate UseCase Integration       | Task 4     | Medium           |
-| 8      | Assimilate UseCase Integration Tests | Task 6, 7  | Medium           |
-| 9      | RAG Lookup Query Parameters          | Task 4     | Small            |
-| 10     | RAG Lookup UseCase                   | Task 9     | Medium           |
-| 11     | RAG Lookup Tests                     | Task 10    | Medium           |
-| 12     | Documentation & Cleanup              | All        | Small            |
+| Task # | Name                                 | Depends On | Estimated Effort | Status  |
+| ------ | ------------------------------------ | ---------- | ---------------- | ------- |
+| 1      | Configuration & Settings             | -          | Small            | ✅ Done |
+| 2      | Qdrant Database Layer                | Task 1     | Medium           | ✅ Done |
+| 3      | Embedding Service                    | Task 1     | Small            | ✅ Done |
+| 4      | Vector Repository                    | Task 2, 3  | Medium           | ✅ Done |
+| 5      | Qdrant Test Infrastructure           | Task 2     | Small            | ⬜ TODO |
+| 6      | Vector Repository Tests              | Task 4, 5  | Medium           | ⬜ TODO |
+| 7      | Assimilate UseCase Integration       | Task 4     | Medium           | ⬜ TODO |
+| 8      | Assimilate UseCase Integration Tests | Task 6, 7  | Medium           | ⬜ TODO |
+| 9      | RAG Lookup Query Parameters          | Task 4     | Small            | ⬜ TODO |
+| 10     | RAG Lookup UseCase                   | Task 9     | Medium           | ⬜ TODO |
+| 11     | RAG Lookup Tests                     | Task 10    | Medium           | ⬜ TODO |
+| 12     | Documentation & Cleanup              | All        | Small            | ⬜ TODO |
 
 ---
+
+> [!NOTE] > **Status: ✅ IMPLEMENTED** — Settings added in `apps/api/app/core/settings.py`
 
 ## Task 1: Configuration & Settings
 
@@ -793,12 +795,14 @@ vector_collection_name: str = Field(default="agent_memory", description="Qdrant 
 
 **Acceptance Criteria:**
 
-- [ ] Settings include `qdrant_host`, `qdrant_port`, `embedding_model`, `embedding_dim`, `vector_collection_name`
-- [ ] Settings load correctly from environment variables
-- [ ] Default values work for local development (localhost:6333)
-- [ ] Tests pass with existing functionality unchanged
+- [x] Settings include `qdrant_host`, `qdrant_port`, `embedding_model`, `embedding_dim`, `vector_collection_name`
+- [x] Settings load correctly from environment variables
+- [x] Default values work for local development (localhost:6333)
+- [x] Tests pass with existing functionality unchanged
 
 ---
+
+> [!NOTE] > **Status: ✅ IMPLEMENTED** — Files created in `apps/api/app/db/qdrant/`
 
 ## Task 2: Qdrant Database Layer
 
@@ -829,14 +833,16 @@ vector_collection_name: str = Field(default="agent_memory", description="Qdrant 
 
 **Acceptance Criteria:**
 
-- [ ] `get_qdrant_client()` returns singleton AsyncQdrantClient
-- [ ] `close_qdrant_client()` properly closes connection
-- [ ] `init_qdrant_db()` creates collection with correct configuration
-- [ ] All payload indexes created per Section A.1
+- [x] `get_qdrant_client()` returns singleton AsyncQdrantClient
+- [x] `close_qdrant_client()` properly closes connection
+- [x] `init_qdrant_db()` creates collection with correct configuration
+- [x] All payload indexes created per Section A.1
 - [ ] Lifespan initializes Qdrant on startup, closes on shutdown
-- [ ] No errors when Qdrant already initialized (idempotent)
+- [x] No errors when Qdrant already initialized (idempotent)
 
 ---
+
+> [!NOTE] > **Status: ✅ IMPLEMENTED** — Service created at `apps/api/app/features/graph/services/embedding_service.py`
 
 ## Task 3: Embedding Service
 
@@ -855,12 +861,14 @@ vector_collection_name: str = Field(default="agent_memory", description="Qdrant 
 
 **Acceptance Criteria:**
 
-- [ ] `EmbeddingService.embed_text()` returns 768-dimensional vector
-- [ ] Same text produces consistent embeddings
-- [ ] Service is injectable and testable
-- [ ] Uses `GOOGLE_API_KEY` from settings
+- [x] `EmbeddingService.embed_text()` returns 768-dimensional vector
+- [x] Same text produces consistent embeddings
+- [x] Service is injectable and testable
+- [x] Uses `GOOGLE_API_KEY` from settings
 
 ---
+
+> [!NOTE] > **Status: ✅ IMPLEMENTED** — Repository created at `apps/api/app/features/graph/repositories/vector_repository.py`
 
 ## Task 4: Vector Repository
 
@@ -932,11 +940,11 @@ class VectorRepository:
 
 **Acceptance Criteria:**
 
-- [ ] `add_semantic()` creates vector with correct payload
-- [ ] Point IDs are deterministic (idempotent upserts)
-- [ ] `search_semantic()` always filters by `tenant_id` and `entity_id`
-- [ ] `delete_semantic()` removes vector by relationship_key
-- [ ] All operations handle Qdrant errors gracefully
+- [x] `add_semantic()` creates vector with correct payload
+- [x] Point IDs are deterministic (idempotent upserts)
+- [x] `search_semantic()` always filters by `tenant_id` and `entity_id`
+- [x] `delete_semantic()` removes vector by relationship_key
+- [x] All operations handle Qdrant errors gracefully
 
 ---
 
