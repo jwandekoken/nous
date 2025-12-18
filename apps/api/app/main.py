@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.settings import get_settings
 from app.db.postgres.auth_session import init_auth_db_session
 from app.db.postgres.graph_connection import close_graph_db_pool, get_graph_db_pool
+from app.db.qdrant import close_qdrant_client, get_qdrant_client, init_qdrant_db
 from app.features.auth.router import router as auth_router
 from app.features.graph.router import router as graph_router
 
@@ -28,12 +29,19 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
     _ = await get_graph_db_pool()
     print("Graph database connection pool created.")
 
+    # Initialize Qdrant vector database
+    qdrant_client = await get_qdrant_client()
+    await init_qdrant_db(qdrant_client)
+    print("Qdrant vector database initialized.")
+
     yield
 
     # Shutdown
     print("Shutting down application")
     await close_graph_db_pool()
-    print("Database connection pool closed.")
+    print("Graph database connection pool closed.")
+    await close_qdrant_client()
+    print("Qdrant client closed.")
 
 
 def create_app() -> FastAPI:
