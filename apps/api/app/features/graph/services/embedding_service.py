@@ -40,7 +40,7 @@ class EmbeddingService:
         """Get the embedding dimension for this service.
 
         Returns:
-            The embedding vector dimension (768 for gemini-embedding-001).
+            The embedding vector dimension (default 768, configurable via settings).
         """
         return self._settings.embedding_dim
 
@@ -51,10 +51,15 @@ class EmbeddingService:
             text: The text to embed.
 
         Returns:
-            A list of floats representing the embedding vector (768 dimensions).
+            A list of floats representing the embedding vector.
+            Dimension is controlled by embedding_dim setting (default 768).
         """
-        # GoogleGenerativeAIEmbeddings.aembed_query is the async method
-        embedding = await self._embeddings.aembed_query(text)
+        # GoogleGenerativeAIEmbeddings.aembed_query with output_dimensionality
+        # Note: output_dimensionality must be passed to the method, not constructor
+        embedding = await self._embeddings.aembed_query(
+            text,
+            output_dimensionality=self._settings.embedding_dim,
+        )
         return embedding
 
     async def embed_texts(self, texts: list[str]) -> list[list[float]]:
@@ -65,7 +70,11 @@ class EmbeddingService:
 
         Returns:
             A list of embedding vectors.
+            Dimension is controlled by embedding_dim setting (default 768).
         """
-        # GoogleGenerativeAIEmbeddings.aembed_documents is the async batch method
-        embeddings = await self._embeddings.aembed_documents(texts)
+        # GoogleGenerativeAIEmbeddings.aembed_documents with output_dimensionality
+        embeddings = await self._embeddings.aembed_documents(
+            texts,
+            output_dimensionality=self._settings.embedding_dim,
+        )
         return embeddings

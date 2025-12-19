@@ -13,11 +13,14 @@ from collections.abc import AsyncGenerator
 import asyncpg
 import pytest
 import pytest_asyncio
+from qdrant_client import AsyncQdrantClient
+from qdrant_client.models import Distance, PayloadSchemaType, VectorParams
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 
 from app.core.authentication import pwd_context
 from app.core.settings import Settings, get_settings
 from app.features.auth.usecases.tenants.signup_tenant_usecase import PasswordHasher
+from app.features.graph.services.embedding_service import EmbeddingService
 from tests.utils.database import (
     cleanup_age_graphs,
     create_all_tables,
@@ -223,6 +226,83 @@ async def postgres_pool(test_settings: Settings) -> AsyncGenerator[asyncpg.Pool,
 
     # Close pool after test
     await pool.close()
+
+
+# =============================================================================
+# Qdrant Fixtures
+# =============================================================================
+
+TEST_QDRANT_COLLECTION = "agent_memory_test"
+
+
+@pytest_asyncio.fixture(scope="function")
+async def qdrant_client(
+    test_settings: Settings,
+) -> AsyncGenerator[AsyncQdrantClient, None]:
+    """Provide Qdrant client with test collection.
+
+    Creates a fresh client and test collection for each test.
+    The collection is configured with the same parameters as production
+    and includes all required payload indexes.
+    """
+    client = AsyncQdrantClient(
+        host=test_settings.qdrant_host,
+        port=test_settings.qdrant_port,
+    )
+
+    # Delete collection if it exists (clean slate for each test)
+    try:
+        await client.delete_collection(TEST_QDRANT_COLLECTION)
+    except Exception:
+        pass  # Collection might not exist
+
+    # Create test collection with production configuration
+    await client.create_collection(
+        collection_name=TEST_QDRANT_COLLECTION,
+        vectors_config=VectorParams(
+            size=test_settings.embedding_dim,
+            distance=Distance.COSINE,
+        ),
+    )
+
+    # Create payload indexes matching production setup (Section A.1 of plan)
+    indexes_to_create = [
+        ("tenant_id", PayloadSchemaType.KEYWORD),
+        ("entity_id", PayloadSchemaType.KEYWORD),
+        ("type", PayloadSchemaType.KEYWORD),
+        ("fact_id", PayloadSchemaType.KEYWORD),
+        ("verb", PayloadSchemaType.KEYWORD),
+    ]
+
+    for field_name, field_schema in indexes_to_create:
+        try:
+            await client.create_payload_index(
+                collection_name=TEST_QDRANT_COLLECTION,
+                field_name=field_name,
+                field_schema=field_schema,
+            )
+        except Exception:
+            pass  # Index might already exist
+
+    yield client
+
+    # Cleanup after test
+    try:
+        await client.delete_collection(TEST_QDRANT_COLLECTION)
+    except Exception:
+        pass  # Ignore cleanup errors
+
+    await client.close()
+
+
+@pytest_asyncio.fixture(scope="function")
+async def embedding_service(test_settings: Settings) -> EmbeddingService:
+    """Provide embedding service for tests.
+
+    Uses the real Google embeddings API. Requires GOOGLE_API_KEY
+    to be set in the test environment.
+    """
+    return EmbeddingService(settings=test_settings)
 
 
 @pytest.fixture

@@ -12,6 +12,7 @@ This section captures implementation-relevant discoveries from the current codeb
 
   - Qdrant requires `vector_size` at collection creation time.
   - **Decision:** Standardize on `gemini-embedding-001` with **768** dimensions (`embedding_dim = 768`).
+  - **Important:** The model's default output is 3072 dimensions. To get 768, you must pass `output_dimensionality=768` to the `embed_query()`/`embed_documents()` methods (not the constructor). The model uses Matryoshka Representation Learning (MRL), so smaller dimensions are still high quality.
   - **Plan action:** Add settings for `embedding_model` and `embedding_dim` (single source of truth) and a migration rule when models/dims change:
     - Fail fast and require a manual migration, or
     - Create versioned collections (e.g., `agent_memory_v2`) and route reads/writes accordingly.
@@ -91,8 +92,9 @@ await client.create_payload_index(
 
 - **Embedding model choice should match dependencies**
   - Current dependencies include `langchain-google-genai`; the plan's default `text-embedding-3-small` implies OpenAI.
-  - **Decision:** Use Google embeddings via `langchain-google-genai` with `gemini-embedding-001` (**768 dims**).
+  - **Decision:** Use Google embeddings via `langchain-google-genai` with `gemini-embedding-001` (**768 dims**, via `output_dimensionality` parameter).
   - **Plan action:** Treat `embedding_dim=768` as the Qdrant collection `vector_size` and fail fast if config and collection schema disagree.
+  - **Implementation note:** The `EmbeddingService.embed_text()` method must pass `output_dimensionality=embedding_dim` to the underlying Google API. This is done via `aembed_query(text, output_dimensionality=...)`, NOT in the constructor.
 
 ## D) Retrieval Workflows (Anchor & Expand)
 
@@ -755,7 +757,7 @@ This section breaks down the vectorized semantic memory implementation into disc
 | 2      | Qdrant Database Layer                | Task 1     | Medium           | ✅ Done |
 | 3      | Embedding Service                    | Task 1     | Small            | ✅ Done |
 | 4      | Vector Repository                    | Task 2, 3  | Medium           | ✅ Done |
-| 5      | Qdrant Test Infrastructure           | Task 2     | Small            | ⬜ TODO |
+| 5      | Qdrant Test Infrastructure           | Task 2     | Small            | ✅ Done |
 | 6      | Vector Repository Tests              | Task 4, 5  | Medium           | ⬜ TODO |
 | 7      | Assimilate UseCase Integration       | Task 4     | Medium           | ⬜ TODO |
 | 8      | Assimilate UseCase Integration Tests | Task 6, 7  | Medium           | ⬜ TODO |
@@ -948,13 +950,19 @@ class VectorRepository:
 
 ---
 
+> [!NOTE] > **Status: ✅ IMPLEMENTED** — Fixtures added in `apps/api/tests/conftest.py`, smoke tests in `apps/api/tests/features/graph/test_qdrant_fixtures.py`
+
 ## Task 5: Qdrant Test Infrastructure
 
 **Goal:** Add Qdrant fixtures to test infrastructure.
 
-**Files to modify:**
+**Files modified:**
 
 - `apps/api/tests/conftest.py`
+
+**Files created:**
+
+- `apps/api/tests/features/graph/test_qdrant_fixtures.py`
 
 **New fixtures:**
 
@@ -965,7 +973,7 @@ async def qdrant_client(test_settings: Settings) -> AsyncGenerator[AsyncQdrantCl
     ...
 
 @pytest_asyncio.fixture(scope="function")
-async def embedding_service() -> EmbeddingService:
+async def embedding_service(test_settings: Settings) -> EmbeddingService:
     """Provide embedding service for tests."""
     ...
 ```
@@ -977,13 +985,18 @@ async def embedding_service() -> EmbeddingService:
 - Create all payload indexes
 - Delete collection after test
 
+**Implementation notes:**
+
+- Fixed `EmbeddingService` to pass `output_dimensionality=768` to embed methods (Gemini default is 3072)
+- Point IDs in Qdrant must be UUID or integer (not arbitrary strings)
+
 **Acceptance Criteria:**
 
-- [ ] `qdrant_client` fixture provides working client
-- [ ] Test collection created with correct configuration
-- [ ] Indexes created matching production setup
-- [ ] Cleanup happens after each test
-- [ ] Existing tests continue to pass
+- [x] `qdrant_client` fixture provides working client
+- [x] Test collection created with correct configuration (768 dim, COSINE)
+- [x] Indexes created matching production setup (tenant_id, entity_id, type, fact_id, verb)
+- [x] Cleanup happens after each test
+- [x] Existing tests continue to pass (59/62 — 3 pre-existing failures unrelated)
 
 ---
 
