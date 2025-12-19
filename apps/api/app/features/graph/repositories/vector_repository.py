@@ -22,9 +22,7 @@ from app.features.graph.services.embedding_service import EmbeddingService
 
 # Namespace for generating deterministic UUIDs (UUIDv5)
 # Using a custom namespace based on our domain
-VECTOR_NAMESPACE = uuid.UUID(
-    "6ba7b810-9dad-11d1-80b4-00c04fd430c8"
-)  # UUID namespace DNS
+VECTOR_NAMESPACE = uuid.NAMESPACE_DNS
 
 
 @dataclass
@@ -162,7 +160,7 @@ class VectorRepository:
         )
 
         # Upsert the point (idempotent due to deterministic ID)
-        await self.client.upsert(
+        _ = await self.client.upsert(
             collection_name=self.collection_name,
             points=[point],
         )
@@ -211,25 +209,42 @@ class VectorRepository:
             ]
         )
 
-        # Perform the search
-        results = await self.client.search(
+        # Perform the search using query_points (the async API method)
+        response = await self.client.query_points(
             collection_name=self.collection_name,
-            query_vector=query_embedding,
+            query=query_embedding,
             query_filter=search_filter,
             limit=top_k,
             score_threshold=min_score,
+            with_payload=True,
         )
 
-        # Convert to SemanticSearchResult
-        return [
-            SemanticSearchResult(
-                fact_id=hit.payload["fact_id"],  # type: ignore[index]
-                verb=hit.payload["verb"],  # type: ignore[index]
-                relationship_key=hit.payload["relationship_key"],  # type: ignore[index]
-                score=hit.score,
+        # Convert to SemanticSearchResult with null-safety checks
+        results: list[SemanticSearchResult] = []
+        for hit in response.points:
+            # Skip results with missing payload (shouldn't happen with with_payload=True)
+            if hit.payload is None:
+                continue
+
+            # Safely extract payload fields
+            fact_id = hit.payload.get("fact_id")
+            verb = hit.payload.get("verb")
+            relationship_key = hit.payload.get("relationship_key")
+
+            # Skip results with incomplete payload data
+            if fact_id is None or verb is None or relationship_key is None:
+                continue
+
+            results.append(
+                SemanticSearchResult(
+                    fact_id=str(fact_id),
+                    verb=str(verb),
+                    relationship_key=str(relationship_key),
+                    score=hit.score,
+                )
             )
-            for hit in results
-        ]
+
+        return results
 
     async def delete_semantic(
         self,
@@ -251,7 +266,7 @@ class VectorRepository:
         """
         point_id = self._generate_point_id(entity_id, verb, fact_id)
 
-        await self.client.delete(
+        _ = await self.client.delete(
             collection_name=self.collection_name,
             points_selector=PointIdsList(points=[point_id]),
         )
