@@ -758,7 +758,7 @@ This section breaks down the vectorized semantic memory implementation into disc
 | 3      | Embedding Service                    | Task 1     | Small            | ✅ Done |
 | 4      | Vector Repository                    | Task 2, 3  | Medium           | ✅ Done |
 | 5      | Qdrant Test Infrastructure           | Task 2     | Small            | ✅ Done |
-| 6      | Vector Repository Tests              | Task 4, 5  | Medium           | ⬜ TODO |
+| 6      | Vector Repository Tests              | Task 4, 5  | Medium           | ✅ Done |
 | 7      | Assimilate UseCase Integration       | Task 4     | Medium           | ⬜ TODO |
 | 8      | Assimilate UseCase Integration Tests | Task 6, 7  | Medium           | ⬜ TODO |
 | 9      | RAG Lookup Query Parameters          | Task 4     | Small            | ⬜ TODO |
@@ -1000,20 +1000,24 @@ async def embedding_service(test_settings: Settings) -> EmbeddingService:
 
 ---
 
+> [!NOTE] > **Status: ✅ IMPLEMENTED** — Tests created at `apps/api/tests/features/graph/repositories/test_vector_repository.py`
+
 ## Task 6: Vector Repository Tests
 
 **Goal:** Comprehensive tests for VectorRepository.
 
-**Files to create:**
+**Files created:**
 
 - `apps/api/tests/features/graph/repositories/test_vector_repository.py`
 
-**Test classes:**
+**Test classes (25 tests total):**
 
-- `TestVectorRepositoryAddSemantic` - Add operations
-- `TestVectorRepositorySearchSemantic` - Search operations
-- `TestVectorRepositoryDeleteSemantic` - Delete operations
-- `TestVectorRepositoryTenantIsolation` - Multi-tenant security
+- `TestVectorRepositoryAddSemantic` - Add operations (6 tests)
+- `TestVectorRepositorySearchSemantic` - Search operations (7 tests)
+- `TestVectorRepositoryDeleteSemantic` - Delete operations (4 tests)
+- `TestVectorRepositoryDeleteAllForEntity` - Bulk delete operations (3 tests)
+- `TestVectorRepositoryTenantIsolation` - Multi-tenant security (3 tests)
+- `TestVectorRepositoryEntityScoping` - Entity boundary tests (2 tests)
 
 **Key test cases:**
 
@@ -1023,14 +1027,18 @@ async def embedding_service(test_settings: Settings) -> EmbeddingService:
 - Search relevance (location query finds location fact)
 - Min score filtering
 - Entity scoping (search is scoped to entity)
+- Different verbs create separate vectors
+- Correct payload storage verification
+- Results ordered by score
+- Delete all for entity with isolation
 
 **Acceptance Criteria:**
 
-- [ ] All CRUD operations tested
-- [ ] Tenant isolation verified
-- [ ] Idempotency verified
-- [ ] Search relevance validated
-- [ ] Tests pass in CI
+- [x] All CRUD operations tested
+- [x] Tenant isolation verified
+- [x] Idempotency verified
+- [x] Search relevance validated
+- [ ] Tests pass in CI (requires valid GOOGLE_API_KEY)
 
 ---
 
