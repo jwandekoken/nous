@@ -55,10 +55,10 @@ def test_fact_profession() -> Fact:
 
 
 class TestVectorRepositoryAddSemantic:
-    """Integration tests for VectorRepository.add_semantic method."""
+    """Integration tests for VectorRepository.add_semantic_memory method."""
 
     @pytest.mark.asyncio
-    async def test_add_semantic_basic(
+    async def test_add_semantic_memory_basic(
         self,
         vector_repository: VectorRepository,
         test_fact: Fact,
@@ -67,7 +67,7 @@ class TestVectorRepositoryAddSemantic:
         entity_id = uuid.uuid4()
 
         # Act
-        result = await vector_repository.add_semantic(
+        result = await vector_repository.add_semantic_memory(
             entity_id=entity_id,
             fact=test_fact,
             verb="lives_in",
@@ -77,7 +77,7 @@ class TestVectorRepositoryAddSemantic:
         assert result is True
 
     @pytest.mark.asyncio
-    async def test_add_semantic_creates_searchable_vector(
+    async def test_add_semantic_memory_creates_searchable_vector(
         self,
         vector_repository: VectorRepository,
         test_fact: Fact,
@@ -86,14 +86,14 @@ class TestVectorRepositoryAddSemantic:
         entity_id = uuid.uuid4()
 
         # Add the semantic vector
-        await vector_repository.add_semantic(
+        await vector_repository.add_semantic_memory(
             entity_id=entity_id,
             fact=test_fact,
             verb="lives_in",
         )
 
         # Search for it
-        results = await vector_repository.search_semantic(
+        results = await vector_repository.search_semantic_memory(
             entity_id=entity_id,
             query_text="Where does this person live?",
             top_k=10,
@@ -105,7 +105,7 @@ class TestVectorRepositoryAddSemantic:
         assert results[0].verb == "lives_in"
 
     @pytest.mark.asyncio
-    async def test_add_semantic_is_idempotent(
+    async def test_add_semantic_memory_is_idempotent(
         self,
         vector_repository: VectorRepository,
         test_fact: Fact,
@@ -114,11 +114,11 @@ class TestVectorRepositoryAddSemantic:
         entity_id = uuid.uuid4()
 
         # Add twice
-        await vector_repository.add_semantic(entity_id, test_fact, "lives_in")
-        await vector_repository.add_semantic(entity_id, test_fact, "lives_in")
+        await vector_repository.add_semantic_memory(entity_id, test_fact, "lives_in")
+        await vector_repository.add_semantic_memory(entity_id, test_fact, "lives_in")
 
         # Assert: Should have only one point (due to deterministic ID)
-        results = await vector_repository.search_semantic(
+        results = await vector_repository.search_semantic_memory(
             entity_id=entity_id,
             query_text="location",
             top_k=10,
@@ -126,7 +126,7 @@ class TestVectorRepositoryAddSemantic:
         assert len(results) == 1
 
     @pytest.mark.asyncio
-    async def test_add_semantic_different_verbs_creates_separate_vectors(
+    async def test_add_semantic_memory_different_verbs_creates_separate_vectors(
         self,
         vector_repository: VectorRepository,
         test_fact: Fact,
@@ -135,11 +135,11 @@ class TestVectorRepositoryAddSemantic:
         entity_id = uuid.uuid4()
 
         # Add same fact with different verbs
-        await vector_repository.add_semantic(entity_id, test_fact, "lives_in")
-        await vector_repository.add_semantic(entity_id, test_fact, "works_in")
+        await vector_repository.add_semantic_memory(entity_id, test_fact, "lives_in")
+        await vector_repository.add_semantic_memory(entity_id, test_fact, "works_in")
 
         # Assert: Should have two vectors
-        results = await vector_repository.search_semantic(
+        results = await vector_repository.search_semantic_memory(
             entity_id=entity_id,
             query_text="Paris",
             top_k=10,
@@ -149,17 +149,17 @@ class TestVectorRepositoryAddSemantic:
         assert verbs == {"lives_in", "works_in"}
 
     @pytest.mark.asyncio
-    async def test_add_semantic_stores_correct_payload(
+    async def test_add_semantic_memory_stores_correct_payload(
         self,
         vector_repository: VectorRepository,
         qdrant_client: AsyncQdrantClient,
         test_fact: Fact,
     ) -> None:
-        """Test that add_semantic stores the correct payload metadata."""
+        """Test that add_semantic_memory stores the correct payload metadata."""
         entity_id = uuid.uuid4()
 
         # Add the semantic vector
-        await vector_repository.add_semantic(
+        await vector_repository.add_semantic_memory(
             entity_id=entity_id,
             fact=test_fact,
             verb="lives_in",
@@ -190,11 +190,11 @@ class TestVectorRepositoryAddSemantic:
         )
 
     @pytest.mark.asyncio
-    async def test_add_semantic_raises_on_missing_fact_id(
+    async def test_add_semantic_memory_raises_on_missing_fact_id(
         self,
         vector_repository: VectorRepository,
     ) -> None:
-        """Test that add_semantic raises ValueError if fact has no fact_id."""
+        """Test that add_semantic_memory raises ValueError if fact has no fact_id."""
         entity_id = uuid.uuid4()
         # Create a fact without triggering the model validator
         # This is a bit tricky since Pydantic auto-generates fact_id
@@ -204,7 +204,7 @@ class TestVectorRepositoryAddSemantic:
         object.__setattr__(fact, "fact_id", None)
 
         with pytest.raises(ValueError, match="Fact must have a fact_id"):
-            await vector_repository.add_semantic(
+            await vector_repository.add_semantic_memory(
                 entity_id=entity_id,
                 fact=fact,
                 verb="test",
@@ -212,10 +212,10 @@ class TestVectorRepositoryAddSemantic:
 
 
 class TestVectorRepositorySearchSemantic:
-    """Integration tests for VectorRepository.search_semantic method."""
+    """Integration tests for VectorRepository.search_semantic_memory method."""
 
     @pytest.mark.asyncio
-    async def test_search_semantic_finds_relevant_fact(
+    async def test_search_semantic_memory_finds_relevant_fact(
         self,
         vector_repository: VectorRepository,
         test_fact: Fact,
@@ -226,14 +226,16 @@ class TestVectorRepositorySearchSemantic:
         entity_id = uuid.uuid4()
 
         # Add multiple facts
-        await vector_repository.add_semantic(entity_id, test_fact, "lives_in")
-        await vector_repository.add_semantic(entity_id, test_fact_hobby, "enjoys")
-        await vector_repository.add_semantic(
+        await vector_repository.add_semantic_memory(entity_id, test_fact, "lives_in")
+        await vector_repository.add_semantic_memory(
+            entity_id, test_fact_hobby, "enjoys"
+        )
+        await vector_repository.add_semantic_memory(
             entity_id, test_fact_profession, "works_as"
         )
 
         # Search for location-related query
-        results = await vector_repository.search_semantic(
+        results = await vector_repository.search_semantic_memory(
             entity_id=entity_id,
             query_text="Where does this person live?",
             top_k=3,
@@ -244,7 +246,7 @@ class TestVectorRepositorySearchSemantic:
         assert results[0].fact_id == "Location:Paris"
 
     @pytest.mark.asyncio
-    async def test_search_semantic_finds_hobby_fact(
+    async def test_search_semantic_memory_finds_hobby_fact(
         self,
         vector_repository: VectorRepository,
         test_fact: Fact,
@@ -255,14 +257,16 @@ class TestVectorRepositorySearchSemantic:
         entity_id = uuid.uuid4()
 
         # Add multiple facts
-        await vector_repository.add_semantic(entity_id, test_fact, "lives_in")
-        await vector_repository.add_semantic(entity_id, test_fact_hobby, "enjoys")
-        await vector_repository.add_semantic(
+        await vector_repository.add_semantic_memory(entity_id, test_fact, "lives_in")
+        await vector_repository.add_semantic_memory(
+            entity_id, test_fact_hobby, "enjoys"
+        )
+        await vector_repository.add_semantic_memory(
             entity_id, test_fact_profession, "works_as"
         )
 
         # Search for hobby-related query
-        results = await vector_repository.search_semantic(
+        results = await vector_repository.search_semantic_memory(
             entity_id=entity_id,
             query_text="What are their hobbies and outdoor activities?",
             top_k=3,
@@ -273,14 +277,14 @@ class TestVectorRepositorySearchSemantic:
         assert results[0].fact_id == "Hobby:Hiking"
 
     @pytest.mark.asyncio
-    async def test_search_semantic_returns_empty_for_no_matches(
+    async def test_search_semantic_memory_returns_empty_for_no_matches(
         self,
         vector_repository: VectorRepository,
     ) -> None:
         """Test that search returns empty list when no facts exist."""
         entity_id = uuid.uuid4()
 
-        results = await vector_repository.search_semantic(
+        results = await vector_repository.search_semantic_memory(
             entity_id=entity_id,
             query_text="Where does this person live?",
             top_k=10,
@@ -289,7 +293,7 @@ class TestVectorRepositorySearchSemantic:
         assert len(results) == 0
 
     @pytest.mark.asyncio
-    async def test_search_semantic_respects_top_k(
+    async def test_search_semantic_memory_respects_top_k(
         self,
         vector_repository: VectorRepository,
         test_fact: Fact,
@@ -300,14 +304,16 @@ class TestVectorRepositorySearchSemantic:
         entity_id = uuid.uuid4()
 
         # Add multiple facts
-        await vector_repository.add_semantic(entity_id, test_fact, "lives_in")
-        await vector_repository.add_semantic(entity_id, test_fact_hobby, "enjoys")
-        await vector_repository.add_semantic(
+        await vector_repository.add_semantic_memory(entity_id, test_fact, "lives_in")
+        await vector_repository.add_semantic_memory(
+            entity_id, test_fact_hobby, "enjoys"
+        )
+        await vector_repository.add_semantic_memory(
             entity_id, test_fact_profession, "works_as"
         )
 
         # Search with top_k=2
-        results = await vector_repository.search_semantic(
+        results = await vector_repository.search_semantic_memory(
             entity_id=entity_id,
             query_text="Tell me about this person",
             top_k=2,
@@ -316,7 +322,7 @@ class TestVectorRepositorySearchSemantic:
         assert len(results) == 2
 
     @pytest.mark.asyncio
-    async def test_search_semantic_respects_min_score(
+    async def test_search_semantic_memory_respects_min_score(
         self,
         vector_repository: VectorRepository,
         test_fact: Fact,
@@ -326,11 +332,13 @@ class TestVectorRepositorySearchSemantic:
         entity_id = uuid.uuid4()
 
         # Add facts
-        await vector_repository.add_semantic(entity_id, test_fact, "lives_in")
-        await vector_repository.add_semantic(entity_id, test_fact_hobby, "enjoys")
+        await vector_repository.add_semantic_memory(entity_id, test_fact, "lives_in")
+        await vector_repository.add_semantic_memory(
+            entity_id, test_fact_hobby, "enjoys"
+        )
 
         # Search with very high min_score (should return nothing)
-        results = await vector_repository.search_semantic(
+        results = await vector_repository.search_semantic_memory(
             entity_id=entity_id,
             query_text="Where does this person live?",
             top_k=10,
@@ -343,7 +351,7 @@ class TestVectorRepositorySearchSemantic:
         assert len(results) <= 1
 
     @pytest.mark.asyncio
-    async def test_search_semantic_returns_correct_result_type(
+    async def test_search_semantic_memory_returns_correct_result_type(
         self,
         vector_repository: VectorRepository,
         test_fact: Fact,
@@ -351,9 +359,9 @@ class TestVectorRepositorySearchSemantic:
         """Test that search returns SemanticSearchResult objects."""
         entity_id = uuid.uuid4()
 
-        await vector_repository.add_semantic(entity_id, test_fact, "lives_in")
+        await vector_repository.add_semantic_memory(entity_id, test_fact, "lives_in")
 
-        results = await vector_repository.search_semantic(
+        results = await vector_repository.search_semantic_memory(
             entity_id=entity_id,
             query_text="location",
             top_k=10,
@@ -369,7 +377,7 @@ class TestVectorRepositorySearchSemantic:
         assert 0.0 <= result.score <= 1.0
 
     @pytest.mark.asyncio
-    async def test_search_semantic_results_ordered_by_score(
+    async def test_search_semantic_memory_results_ordered_by_score(
         self,
         vector_repository: VectorRepository,
         test_fact: Fact,
@@ -380,13 +388,15 @@ class TestVectorRepositorySearchSemantic:
         entity_id = uuid.uuid4()
 
         # Add multiple facts
-        await vector_repository.add_semantic(entity_id, test_fact, "lives_in")
-        await vector_repository.add_semantic(entity_id, test_fact_hobby, "enjoys")
-        await vector_repository.add_semantic(
+        await vector_repository.add_semantic_memory(entity_id, test_fact, "lives_in")
+        await vector_repository.add_semantic_memory(
+            entity_id, test_fact_hobby, "enjoys"
+        )
+        await vector_repository.add_semantic_memory(
             entity_id, test_fact_profession, "works_as"
         )
 
-        results = await vector_repository.search_semantic(
+        results = await vector_repository.search_semantic_memory(
             entity_id=entity_id,
             query_text="general query",
             top_k=10,
@@ -398,10 +408,10 @@ class TestVectorRepositorySearchSemantic:
 
 
 class TestVectorRepositoryDeleteSemantic:
-    """Integration tests for VectorRepository.delete_semantic method."""
+    """Integration tests for VectorRepository.delete_semantic_memory method."""
 
     @pytest.mark.asyncio
-    async def test_delete_semantic_removes_vector(
+    async def test_delete_semantic_memory_removes_vector(
         self,
         vector_repository: VectorRepository,
         test_fact: Fact,
@@ -410,17 +420,17 @@ class TestVectorRepositoryDeleteSemantic:
         entity_id = uuid.uuid4()
 
         # Add then delete
-        await vector_repository.add_semantic(entity_id, test_fact, "lives_in")
+        await vector_repository.add_semantic_memory(entity_id, test_fact, "lives_in")
 
         assert test_fact.fact_id is not None
-        await vector_repository.delete_semantic(
+        await vector_repository.delete_semantic_memory(
             entity_id=entity_id,
             fact_id=test_fact.fact_id,
             verb="lives_in",
         )
 
         # Search should return nothing
-        results = await vector_repository.search_semantic(
+        results = await vector_repository.search_semantic_memory(
             entity_id=entity_id,
             query_text="location",
             top_k=10,
@@ -428,7 +438,7 @@ class TestVectorRepositoryDeleteSemantic:
         assert len(results) == 0
 
     @pytest.mark.asyncio
-    async def test_delete_semantic_only_removes_specified_verb(
+    async def test_delete_semantic_memory_only_removes_specified_verb(
         self,
         vector_repository: VectorRepository,
         test_fact: Fact,
@@ -437,19 +447,19 @@ class TestVectorRepositoryDeleteSemantic:
         entity_id = uuid.uuid4()
 
         # Add same fact with different verbs
-        await vector_repository.add_semantic(entity_id, test_fact, "lives_in")
-        await vector_repository.add_semantic(entity_id, test_fact, "works_in")
+        await vector_repository.add_semantic_memory(entity_id, test_fact, "lives_in")
+        await vector_repository.add_semantic_memory(entity_id, test_fact, "works_in")
 
         # Delete only one verb
         assert test_fact.fact_id is not None
-        await vector_repository.delete_semantic(
+        await vector_repository.delete_semantic_memory(
             entity_id=entity_id,
             fact_id=test_fact.fact_id,
             verb="lives_in",
         )
 
         # Should still find the other verb
-        results = await vector_repository.search_semantic(
+        results = await vector_repository.search_semantic_memory(
             entity_id=entity_id,
             query_text="Paris",
             top_k=10,
@@ -458,18 +468,18 @@ class TestVectorRepositoryDeleteSemantic:
         assert results[0].verb == "works_in"
 
     @pytest.mark.asyncio
-    async def test_delete_semantic_returns_true(
+    async def test_delete_semantic_memory_returns_true(
         self,
         vector_repository: VectorRepository,
         test_fact: Fact,
     ) -> None:
-        """Test that delete_semantic returns True on success."""
+        """Test that delete_semantic_memory returns True on success."""
         entity_id = uuid.uuid4()
 
-        await vector_repository.add_semantic(entity_id, test_fact, "lives_in")
+        await vector_repository.add_semantic_memory(entity_id, test_fact, "lives_in")
 
         assert test_fact.fact_id is not None
-        result = await vector_repository.delete_semantic(
+        result = await vector_repository.delete_semantic_memory(
             entity_id=entity_id,
             fact_id=test_fact.fact_id,
             verb="lives_in",
@@ -478,7 +488,7 @@ class TestVectorRepositoryDeleteSemantic:
         assert result is True
 
     @pytest.mark.asyncio
-    async def test_delete_semantic_on_nonexistent_returns_true(
+    async def test_delete_semantic_memory_on_nonexistent_returns_true(
         self,
         vector_repository: VectorRepository,
     ) -> None:
@@ -486,7 +496,7 @@ class TestVectorRepositoryDeleteSemantic:
         entity_id = uuid.uuid4()
 
         # Delete something that doesn't exist
-        result = await vector_repository.delete_semantic(
+        result = await vector_repository.delete_semantic_memory(
             entity_id=entity_id,
             fact_id="NonExistent:Fact",
             verb="nonexistent",
@@ -497,34 +507,38 @@ class TestVectorRepositoryDeleteSemantic:
 
 
 class TestVectorRepositoryDeleteAllForEntity:
-    """Integration tests for VectorRepository.delete_all_for_entity method."""
+    """Integration tests for VectorRepository.delete_all_semantic_memories_for_entity method."""
 
     @pytest.mark.asyncio
-    async def test_delete_all_for_entity_removes_all_vectors(
+    async def test_delete_all_semantic_memories_for_entity_removes_all_vectors(
         self,
         vector_repository: VectorRepository,
         test_fact: Fact,
         test_fact_hobby: Fact,
         test_fact_profession: Fact,
     ) -> None:
-        """Test that delete_all_for_entity removes all vectors for an entity."""
+        """Test that delete_all_semantic_memories_for_entity removes all vectors for an entity."""
         entity_id = uuid.uuid4()
 
         # Add multiple facts
-        await vector_repository.add_semantic(entity_id, test_fact, "lives_in")
-        await vector_repository.add_semantic(entity_id, test_fact_hobby, "enjoys")
-        await vector_repository.add_semantic(
+        await vector_repository.add_semantic_memory(entity_id, test_fact, "lives_in")
+        await vector_repository.add_semantic_memory(
+            entity_id, test_fact_hobby, "enjoys"
+        )
+        await vector_repository.add_semantic_memory(
             entity_id, test_fact_profession, "works_as"
         )
 
         # Delete all
-        count = await vector_repository.delete_all_for_entity(entity_id)
+        count = await vector_repository.delete_all_semantic_memories_for_entity(
+            entity_id
+        )
 
         # Assert count
         assert count == 3
 
         # Search should return nothing
-        results = await vector_repository.search_semantic(
+        results = await vector_repository.search_semantic_memory(
             entity_id=entity_id,
             query_text="anything",
             top_k=10,
@@ -532,24 +546,24 @@ class TestVectorRepositoryDeleteAllForEntity:
         assert len(results) == 0
 
     @pytest.mark.asyncio
-    async def test_delete_all_for_entity_does_not_affect_other_entities(
+    async def test_delete_all_semantic_memories_for_entity_does_not_affect_other_entities(
         self,
         vector_repository: VectorRepository,
         test_fact: Fact,
     ) -> None:
-        """Test that delete_all_for_entity only affects the specified entity."""
+        """Test that delete_all_semantic_memories_for_entity only affects the specified entity."""
         entity_id_1 = uuid.uuid4()
         entity_id_2 = uuid.uuid4()
 
         # Add facts for both entities
-        await vector_repository.add_semantic(entity_id_1, test_fact, "lives_in")
-        await vector_repository.add_semantic(entity_id_2, test_fact, "lives_in")
+        await vector_repository.add_semantic_memory(entity_id_1, test_fact, "lives_in")
+        await vector_repository.add_semantic_memory(entity_id_2, test_fact, "lives_in")
 
         # Delete all for entity 1
-        await vector_repository.delete_all_for_entity(entity_id_1)
+        await vector_repository.delete_all_semantic_memories_for_entity(entity_id_1)
 
         # Entity 2's facts should still exist
-        results = await vector_repository.search_semantic(
+        results = await vector_repository.search_semantic_memory(
             entity_id=entity_id_2,
             query_text="location",
             top_k=10,
@@ -557,14 +571,16 @@ class TestVectorRepositoryDeleteAllForEntity:
         assert len(results) == 1
 
     @pytest.mark.asyncio
-    async def test_delete_all_for_entity_returns_zero_when_none_exist(
+    async def test_delete_all_semantic_memories_for_entity_returns_zero_when_none_exist(
         self,
         vector_repository: VectorRepository,
     ) -> None:
-        """Test that delete_all_for_entity returns 0 when no vectors exist."""
+        """Test that delete_all_semantic_memories_for_entity returns 0 when no vectors exist."""
         entity_id = uuid.uuid4()
 
-        count = await vector_repository.delete_all_for_entity(entity_id)
+        count = await vector_repository.delete_all_semantic_memories_for_entity(
+            entity_id
+        )
 
         assert count == 0
 
@@ -573,7 +589,7 @@ class TestVectorRepositoryTenantIsolation:
     """Integration tests for VectorRepository tenant isolation."""
 
     @pytest.mark.asyncio
-    async def test_search_semantic_respects_tenant_isolation(
+    async def test_search_semantic_memory_respects_tenant_isolation(
         self,
         qdrant_client: AsyncQdrantClient,
         embedding_service: EmbeddingService,
@@ -597,10 +613,10 @@ class TestVectorRepositoryTenantIsolation:
         )
 
         # Add fact from tenant A
-        await repo_tenant_a.add_semantic(entity_id, test_fact, "lives_in")
+        await repo_tenant_a.add_semantic_memory(entity_id, test_fact, "lives_in")
 
         # Search from tenant B - should NOT find tenant A's data
-        results = await repo_tenant_b.search_semantic(
+        results = await repo_tenant_b.search_semantic_memory(
             entity_id=entity_id,
             query_text="location",
             top_k=10,
@@ -634,16 +650,16 @@ class TestVectorRepositoryTenantIsolation:
         )
 
         # Add different facts for same entity_id but different tenants
-        await repo_tenant_a.add_semantic(entity_id, test_fact, "lives_in")
-        await repo_tenant_b.add_semantic(entity_id, test_fact_hobby, "enjoys")
+        await repo_tenant_a.add_semantic_memory(entity_id, test_fact, "lives_in")
+        await repo_tenant_b.add_semantic_memory(entity_id, test_fact_hobby, "enjoys")
 
         # Each tenant should only see their own data
-        results_a = await repo_tenant_a.search_semantic(
+        results_a = await repo_tenant_a.search_semantic_memory(
             entity_id=entity_id,
             query_text="any",
             top_k=10,
         )
-        results_b = await repo_tenant_b.search_semantic(
+        results_b = await repo_tenant_b.search_semantic_memory(
             entity_id=entity_id,
             query_text="any",
             top_k=10,
@@ -679,14 +695,14 @@ class TestVectorRepositoryTenantIsolation:
         )
 
         # Add fact for both tenants
-        await repo_tenant_a.add_semantic(entity_id, test_fact, "lives_in")
-        await repo_tenant_b.add_semantic(entity_id, test_fact, "lives_in")
+        await repo_tenant_a.add_semantic_memory(entity_id, test_fact, "lives_in")
+        await repo_tenant_b.add_semantic_memory(entity_id, test_fact, "lives_in")
 
         # Delete from tenant A
-        await repo_tenant_a.delete_all_for_entity(entity_id)
+        await repo_tenant_a.delete_all_semantic_memories_for_entity(entity_id)
 
         # Tenant B's data should still exist
-        results_b = await repo_tenant_b.search_semantic(
+        results_b = await repo_tenant_b.search_semantic_memory(
             entity_id=entity_id,
             query_text="location",
             top_k=10,
@@ -709,11 +725,13 @@ class TestVectorRepositoryEntityScoping:
         entity_id_2 = uuid.uuid4()
 
         # Add location to entity 1, hobby to entity 2
-        await vector_repository.add_semantic(entity_id_1, test_fact, "lives_in")
-        await vector_repository.add_semantic(entity_id_2, test_fact_hobby, "enjoys")
+        await vector_repository.add_semantic_memory(entity_id_1, test_fact, "lives_in")
+        await vector_repository.add_semantic_memory(
+            entity_id_2, test_fact_hobby, "enjoys"
+        )
 
         # Search entity 1 for location
-        results_1 = await vector_repository.search_semantic(
+        results_1 = await vector_repository.search_semantic_memory(
             entity_id=entity_id_1,
             query_text="location",
             top_k=10,
@@ -724,7 +742,7 @@ class TestVectorRepositoryEntityScoping:
         assert results_1[0].fact_id == "Location:Paris"
 
         # Search entity 2 for hobby
-        results_2 = await vector_repository.search_semantic(
+        results_2 = await vector_repository.search_semantic_memory(
             entity_id=entity_id_2,
             query_text="hobby",
             top_k=10,
@@ -745,10 +763,10 @@ class TestVectorRepositoryEntityScoping:
         entity_id_2 = uuid.uuid4()
 
         # Add fact only to entity 1
-        await vector_repository.add_semantic(entity_id_1, test_fact, "lives_in")
+        await vector_repository.add_semantic_memory(entity_id_1, test_fact, "lives_in")
 
         # Search entity 2 - should find nothing even with matching query
-        results = await vector_repository.search_semantic(
+        results = await vector_repository.search_semantic_memory(
             entity_id=entity_id_2,
             query_text="Where does this person live?",
             top_k=10,

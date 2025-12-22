@@ -57,10 +57,10 @@ class VectorRepository:
             tenant_id: The tenant ID for isolation (applied to all operations).
             collection_name: The Qdrant collection name (default: agent_memory).
         """
-        self.client = client
-        self.embedding_service = embedding_service
-        self.tenant_id = tenant_id
-        self.collection_name = collection_name
+        self.client: AsyncQdrantClient = client
+        self.embedding_service: EmbeddingService = embedding_service
+        self.tenant_id: str = tenant_id
+        self.collection_name: str = collection_name
 
     def _generate_point_id(self, entity_id: UUID, verb: str, fact_id: str) -> str:
         """Generate a deterministic point ID for idempotent upserts.
@@ -111,7 +111,7 @@ class VectorRepository:
         """
         return f"The entity {verb} {fact.type}: {fact.name}"
 
-    async def add_semantic(
+    async def add_semantic_memory(
         self,
         entity_id: UUID,
         fact: Fact,
@@ -167,7 +167,7 @@ class VectorRepository:
 
         return True
 
-    async def search_semantic(
+    async def search_semantic_memory(
         self,
         entity_id: UUID,
         query_text: str,
@@ -246,7 +246,7 @@ class VectorRepository:
 
         return results
 
-    async def delete_semantic(
+    async def delete_semantic_memory(
         self,
         entity_id: UUID,
         fact_id: str,
@@ -273,8 +273,8 @@ class VectorRepository:
 
         return True
 
-    async def delete_all_for_entity(self, entity_id: UUID) -> int:
-        """Delete all vectors for an entity.
+    async def delete_all_semantic_memories_for_entity(self, entity_id: UUID) -> int:
+        """Delete all semantic memory vectors for an entity.
 
         Removes all semantic memory vectors associated with an entity.
         Useful when an entity is deleted from the graph.
