@@ -759,8 +759,8 @@ This section breaks down the vectorized semantic memory implementation into disc
 | 4      | Vector Repository                    | Task 2, 3  | Medium           | ✅ Done |
 | 5      | Qdrant Test Infrastructure           | Task 2     | Small            | ✅ Done |
 | 6      | Vector Repository Tests              | Task 4, 5  | Medium           | ✅ Done |
-| 7      | Assimilate UseCase Integration       | Task 4     | Medium           | ⬜ TODO |
-| 8      | Assimilate UseCase Integration Tests | Task 6, 7  | Medium           | ⬜ TODO |
+| 7      | Assimilate UseCase Integration       | Task 4     | Medium           | ✅ Done |
+| 8      | Assimilate UseCase Integration Tests | Task 6, 7  | Medium           | ✅ Done |
 | 9      | RAG Lookup Query Parameters          | Task 4     | Small            | ⬜ TODO |
 | 10     | RAG Lookup UseCase                   | Task 9     | Medium           | ⬜ TODO |
 | 11     | RAG Lookup Tests                     | Task 10    | Medium           | ⬜ TODO |
@@ -1042,6 +1042,8 @@ async def embedding_service(test_settings: Settings) -> EmbeddingService:
 
 ---
 
+> [!NOTE] > **Status: ✅ IMPLEMENTED** — UseCase modified, route updated with vector injection
+
 ## Task 7: Assimilate UseCase Integration
 
 **Goal:** Integrate vector repository into the assimilate knowledge flow.
@@ -1086,12 +1088,14 @@ class AssimilateKnowledgeUseCaseImpl:
 
 **Acceptance Criteria:**
 
-- [ ] Facts are vectorized during assimilation
-- [ ] Backward compatible (works without vector_repository)
-- [ ] Errors in vectorization logged but don't fail assimilation (graceful degradation)
-- [ ] Vectors include correct metadata (tenant_id, entity_id, fact_id, verb, type)
+- [x] Facts are vectorized during assimilation
+- [x] Backward compatible (works without vector_repository)
+- [x] Errors in vectorization logged but don't fail assimilation (graceful degradation)
+- [x] Vectors include correct metadata (tenant_id, entity_id, fact_id, verb, type)
 
 ---
+
+> [!NOTE] > **Status: ✅ IMPLEMENTED** — Tests created at `apps/api/tests/features/graph/usecases/test_assimilate_knowledge_with_vectors.py`
 
 ## Task 8: Assimilate UseCase Integration Tests
 
@@ -1110,9 +1114,9 @@ class AssimilateKnowledgeUseCaseImpl:
 
 **Acceptance Criteria:**
 
-- [ ] Integration tests verify full flow
-- [ ] Graph and vector stores stay in sync
-- [ ] Semantic search finds relevant facts
+- [x] Integration tests verify full flow (9 tests passing)
+- [x] Graph and vector stores stay in sync
+- [x] Semantic search finds relevant facts
 
 ---
 

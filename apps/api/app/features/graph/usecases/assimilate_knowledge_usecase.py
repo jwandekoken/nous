@@ -4,6 +4,7 @@ This module defines the use case for processing textual content,
 extracting facts, and associating them with entities.
 """
 
+import logging
 from datetime import datetime, timezone
 from typing import Protocol, cast
 from uuid import uuid4
@@ -27,6 +28,9 @@ from app.features.graph.models import (
     Source,
 )
 from app.features.graph.repositories.base import GraphRepository
+from app.features.graph.repositories.vector_repository import VectorRepository
+
+logger = logging.getLogger(__name__)
 
 
 class FactExtractor(Protocol):
@@ -45,15 +49,22 @@ class FactExtractor(Protocol):
 class AssimilateKnowledgeUseCaseImpl:
     """Implementation of the assimilate knowledge use case."""
 
-    def __init__(self, repository: GraphRepository, fact_extractor: FactExtractor):
+    def __init__(
+        self,
+        repository: GraphRepository,
+        fact_extractor: FactExtractor,
+        vector_repository: VectorRepository | None = None,
+    ):
         """Initialize the use case with dependencies.
 
         Args:
             repository: Repository for graph database operations
             fact_extractor: Service for extracting facts from text
+            vector_repository: Optional repository for vector operations (semantic memory)
         """
         self.repository: GraphRepository = repository
         self.fact_extractor: FactExtractor = fact_extractor
+        self.vector_repository: VectorRepository | None = vector_repository
 
     async def execute(
         self, request: AssimilateKnowledgeRequest
@@ -125,6 +136,22 @@ class AssimilateKnowledgeUseCaseImpl:
                 verb=fact_data.verb,
                 confidence_score=fact_data.confidence_score,
             )
+
+            # 4.1. [NEW] Add to semantic memory if vector_repository is available
+            if self.vector_repository:
+                try:
+                    _ = await self.vector_repository.add_semantic_memory(
+                        entity_id=entity.id,
+                        fact=result["fact"],
+                        verb=result["has_fact_relationship"].verb,
+                    )
+                except Exception as e:
+                    # Log error but don't fail assimilation (graceful degradation)
+                    logger.warning(
+                        "Failed to add semantic memory for fact %s: %s",
+                        result["fact"].fact_id,
+                        e,
+                    )
 
             # Add to response
             fact_dto = FactDto(
