@@ -1,16 +1,21 @@
 """Entity lookup route handler."""
 
+import logging
 from typing import Protocol
 
 from fastapi import APIRouter, Depends
 
 from app.core.authorization import TenantInfo, get_tenant_info
+from app.core.settings import get_settings
 from app.db.postgres.graph_connection import get_graph_db_pool
+from app.db.qdrant import get_qdrant_client
 from app.features.graph.dtos.knowledge_dto import (
     GetEntityResponse,
     GetEntitySummaryResponse,
 )
 from app.features.graph.repositories.age_repository import AgeRepository
+from app.features.graph.repositories.vector_repository import VectorRepository
+from app.features.graph.services.embedding_service import EmbeddingService
 from app.features.graph.services.langchain_data_summarizer import (
     LangChainDataSummarizer,
 )
@@ -18,6 +23,8 @@ from app.features.graph.usecases import GetEntityUseCaseImpl
 from app.features.graph.usecases.get_entity_summary import (
     GetEntitySummaryUseCaseImpl,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class GetEntityUseCase(Protocol):
@@ -54,18 +61,60 @@ class GetEntitySummaryUseCase(Protocol):
         ...
 
 
+# Create the data summarizer instance at module level
+_data_summarizer = LangChainDataSummarizer()
+
+# Create the embedding service at module level (lazy initialization)
+_embedding_service: EmbeddingService | None = None
+
+
+def _get_embedding_service() -> EmbeddingService | None:
+    """Get or create the embedding service singleton.
+
+    Returns None if the service cannot be initialized (e.g., missing API key).
+    This allows graceful degradation - lookups will work but without RAG filtering.
+    """
+    global _embedding_service
+    if _embedding_service is None:
+        try:
+            _embedding_service = EmbeddingService()
+        except ValueError as e:
+            logger.warning("EmbeddingService initialization failed: %s", e)
+            return None
+    return _embedding_service
+
+
+async def _get_vector_repository(tenant_info: TenantInfo) -> VectorRepository | None:
+    """Get a VectorRepository instance for the tenant.
+
+    Returns None if the embedding service is unavailable.
+    """
+    embedding_service = _get_embedding_service()
+    if embedding_service is None:
+        return None
+
+    settings = get_settings()
+    qdrant_client = await get_qdrant_client()
+    return VectorRepository(
+        client=qdrant_client,
+        embedding_service=embedding_service,
+        tenant_id=str(tenant_info.tenant_id),
+        collection_name=settings.vector_collection_name,
+    )
+
+
 async def get_get_entity_use_case(
     tenant_info: TenantInfo = Depends(get_tenant_info),
 ) -> GetEntityUseCase:
     """Dependency injection for the get entity use case."""
-
     pool = await get_graph_db_pool()
     repository = AgeRepository(pool, graph_name=tenant_info.graph_name)
-    return GetEntityUseCaseImpl(repository=repository)
+    vector_repository = await _get_vector_repository(tenant_info)
 
-
-# Create the data summarizer instance at module level
-_data_summarizer = LangChainDataSummarizer()
+    return GetEntityUseCaseImpl(
+        repository=repository,
+        vector_repository=vector_repository,
+    )
 
 
 async def get_entity_summary_use_case(
@@ -74,7 +123,12 @@ async def get_entity_summary_use_case(
     """Dependency injection for the entity summary use case."""
     pool = await get_graph_db_pool()
     repository = AgeRepository(pool, graph_name=tenant_info.graph_name)
-    get_entity_use_case = GetEntityUseCaseImpl(repository=repository)
+    vector_repository = await _get_vector_repository(tenant_info)
+
+    get_entity_use_case = GetEntityUseCaseImpl(
+        repository=repository,
+        vector_repository=vector_repository,
+    )
     return GetEntitySummaryUseCaseImpl(
         get_entity_use_case=get_entity_use_case, data_summarizer=_data_summarizer
     )

@@ -762,7 +762,7 @@ This section breaks down the vectorized semantic memory implementation into disc
 | 7      | Assimilate UseCase Integration       | Task 4     | Medium           | ✅ Done |
 | 8      | Assimilate UseCase Integration Tests | Task 6, 7  | Medium           | ✅ Done |
 | 9      | RAG Lookup Query Parameters          | Task 4     | Small            | ✅ Done |
-| 10     | RAG Lookup UseCase                   | Task 9     | Medium           | ⬜ TODO |
+| 10     | RAG Lookup UseCase                   | Task 9     | Medium           | ✅ Done |
 | 11     | RAG Lookup Tests                     | Task 10    | Medium           | ⬜ TODO |
 | 12     | Documentation & Cleanup              | All        | Small            | ⬜ TODO |
 
@@ -1182,8 +1182,19 @@ async def get_entity(
 
 **Files to modify:**
 
-- `apps/api/app/features/graph/usecases/get_entity_usecase.py`
-- `apps/api/app/features/graph/routes/lookup.py`
+- `apps/api/app/features/graph/usecases/get_entity_usecase.py` (primary implementation)
+- `apps/api/app/features/graph/usecases/get_entity_summary.py` (inherits RAG behavior)
+- `apps/api/app/features/graph/routes/lookup.py` (inject VectorRepository dependency)
+
+**Architecture note:**
+
+Both lookup usecases need to support RAG retrieval:
+
+1. **`GetEntityUseCaseImpl`** — Primary implementation. This is where the vector search and graph verification logic lives. Currently accepts RAG params but doesn't use them.
+
+2. **`GetEntitySummaryUseCaseImpl`** — Delegates to `GetEntityUseCaseImpl`. Already passes RAG params through, so it will automatically benefit once the underlying usecase is updated. No additional logic changes needed, but may need `VectorRepository` injection to pass down.
+
+3. **`lookup.py` route** — Already has RAG query params wired up (from Task 9). Needs to inject `VectorRepository` into the usecases via dependency injection.
 
 **New logic in GetEntityUseCaseImpl.execute():**
 
@@ -1222,40 +1233,70 @@ async def execute(
     return await self._build_filtered_response(entity_result, verified_fact_ids)
 ```
 
+**Changes to GetEntityUseCaseImpl constructor:**
+
+```python
+class GetEntityUseCaseImpl:
+    def __init__(
+        self,
+        repository: GraphRepository,
+        vector_repository: VectorRepository | None = None  # Optional for backward compat
+    ):
+        self.repository = repository
+        self.vector_repository = vector_repository
+```
+
 **Acceptance Criteria:**
 
-- [ ] Without `rag_query` → all facts returned (unchanged)
-- [ ] With `rag_query` → only matching facts returned
-- [ ] Graph verification prevents cross-entity data leakage
-- [ ] `rag_expand_hops` allows adjacent fact inclusion
-- [ ] Performance acceptable (<500ms for typical queries)
+- [x] Without `rag_query` → all facts returned (unchanged)
+- [x] With `rag_query` → only matching facts returned
+- [x] Graph verification prevents cross-entity data leakage
+- [ ] `rag_expand_hops` allows adjacent fact inclusion (reserved for future)
+- [ ] Performance acceptable (<500ms for typical queries) (needs testing)
+- [x] Both `/entities/lookup` and `/entities/lookup/summary` support RAG filtering
 
 ---
 
 ## Task 11: RAG Lookup Tests
 
-**Goal:** Test the RAG-enabled lookup functionality.
+**Goal:** Test the RAG-enabled lookup functionality for both usecases.
 
 **Files to create:**
 
 - `apps/api/tests/features/graph/usecases/test_get_entity_with_rag.py`
+- `apps/api/tests/features/graph/usecases/test_get_entity_summary_with_rag.py`
 - `apps/api/tests/features/graph/routes/test_lookup_rag.py`
 
-**Test scenarios:**
+**Test scenarios for GetEntityUseCaseImpl:**
 
-- Lookup without RAG → full facts list
+- Lookup without RAG → full facts list (backward compatibility)
 - Lookup with RAG → filtered facts list
-- RAG returns relevant facts first
+- RAG returns relevant facts first (ordered by score)
 - Graph verification rejects orphan vectors
-- rag_min_score filtering works
-- rag_debug returns metadata
+- `rag_min_score` filtering works
+- `rag_debug` returns metadata
+- Empty RAG results → empty facts list
+
+**Test scenarios for GetEntitySummaryUseCaseImpl:**
+
+- Summary without RAG → summarizes all facts
+- Summary with RAG → summarizes only matched facts
+- Summary with no matching facts → appropriate message
+- RAG params correctly passed through to underlying usecase
+
+**Test scenarios for routes (integration):**
+
+- `/entities/lookup` endpoint with RAG params
+- `/entities/lookup/summary` endpoint with RAG params
+- Both endpoints return correct response shapes
 
 **Acceptance Criteria:**
 
-- [ ] All RAG scenarios tested
-- [ ] Backward compatibility verified
-- [ ] Graph verification tested
+- [ ] All RAG scenarios tested for both usecases
+- [ ] Backward compatibility verified (no RAG params = existing behavior)
+- [ ] Graph verification tested (prevents cross-entity leakage)
 - [ ] Debug mode tested
+- [ ] Summary endpoint correctly uses RAG-filtered facts
 
 ---
 
