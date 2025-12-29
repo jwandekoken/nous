@@ -32,7 +32,14 @@ class GetEntitySummaryUseCaseImpl:
         self.data_summarizer = data_summarizer
 
     async def execute(
-        self, identifier_value: str, identifier_type: str, lang: str | None = None
+        self,
+        identifier_value: str,
+        identifier_type: str,
+        lang: str | None = None,
+        rag_query: str | None = None,
+        rag_top_k: int = 10,
+        rag_min_score: float | None = None,
+        rag_expand_hops: int = 0,
     ) -> GetEntitySummaryResponse:
         """Generate a natural language summary of entity data.
 
@@ -40,6 +47,10 @@ class GetEntitySummaryUseCaseImpl:
             identifier_value: The identifier value (e.g., 'user@example.com')
             identifier_type: The identifier type (e.g., 'email', 'phone')
             lang: Optional language code (e.g., 'pt-br', 'es', 'fr'). Defaults to English.
+            rag_query: Optional conversational query for semantic search
+            rag_top_k: Number of vector candidates to retrieve
+            rag_min_score: Optional similarity threshold
+            rag_expand_hops: Optional graph expansion depth
 
         Returns:
             GetEntitySummaryResponse containing only the summary
@@ -49,7 +60,12 @@ class GetEntitySummaryUseCaseImpl:
         """
         # Fetch the entity data
         entity_data: GetEntityResponse = await self.get_entity_use_case.execute(
-            identifier_value=identifier_value, identifier_type=identifier_type
+            identifier_value=identifier_value,
+            identifier_type=identifier_type,
+            rag_query=rag_query,
+            rag_top_k=rag_top_k,
+            rag_min_score=rag_min_score,
+            rag_expand_hops=rag_expand_hops,
         )
 
         # Check if entity has facts - if not, skip LLM call to save costs

@@ -41,7 +41,14 @@ class GetEntitySummaryUseCase(Protocol):
     """Protocol for the get entity summary use case."""
 
     async def execute(
-        self, identifier_value: str, identifier_type: str, lang: str | None = None
+        self,
+        identifier_value: str,
+        identifier_type: str,
+        lang: str | None = None,
+        rag_query: str | None = None,
+        rag_top_k: int = 10,
+        rag_min_score: float | None = None,
+        rag_expand_hops: int = 0,
     ) -> GetEntitySummaryResponse:
         """Generate a natural language summary of entity data."""
         ...
@@ -118,6 +125,10 @@ async def get_entity_summary(
     type: str,
     value: str,
     lang: str | None = None,
+    rag_query: str | None = None,
+    rag_top_k: int = 10,
+    rag_min_score: float | None = None,
+    rag_expand_hops: int = 0,
     use_case: GetEntitySummaryUseCase = Depends(get_entity_summary_use_case),
 ) -> GetEntitySummaryResponse:
     """Generate a natural language summary of entity data.
@@ -130,7 +141,17 @@ async def get_entity_summary(
         type: The identifier type (e.g., 'email', 'phone')
         value: The identifier value (e.g., 'user@example.com')
         lang: Optional language code for the summary (e.g., 'pt-br', 'es', 'fr'). Defaults to English.
+        rag_query: Optional conversational query for semantic search
+        rag_top_k: Number of vector candidates to retrieve (default: 10)
+        rag_min_score: Optional similarity threshold for filtering vector hits
+        rag_expand_hops: Optional graph expansion depth (default: 0)
     """
     return await use_case.execute(
-        identifier_value=value, identifier_type=type, lang=lang
+        identifier_value=value,
+        identifier_type=type,
+        lang=lang,
+        rag_query=rag_query,
+        rag_top_k=rag_top_k,
+        rag_min_score=rag_min_score,
+        rag_expand_hops=rag_expand_hops,
     )
