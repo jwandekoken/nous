@@ -761,7 +761,7 @@ This section breaks down the vectorized semantic memory implementation into disc
 | 6      | Vector Repository Tests              | Task 4, 5  | Medium           | ✅ Done |
 | 7      | Assimilate UseCase Integration       | Task 4     | Medium           | ✅ Done |
 | 8      | Assimilate UseCase Integration Tests | Task 6, 7  | Medium           | ✅ Done |
-| 9      | RAG Lookup Query Parameters          | Task 4     | Small            | ⬜ TODO |
+| 9      | RAG Lookup Query Parameters          | Task 4     | Small            | ✅ Done |
 | 10     | RAG Lookup UseCase                   | Task 9     | Medium           | ⬜ TODO |
 | 11     | RAG Lookup Tests                     | Task 10    | Medium           | ⬜ TODO |
 | 12     | Documentation & Cleanup              | All        | Small            | ⬜ TODO |
@@ -1169,10 +1169,10 @@ async def get_entity(
 
 **Acceptance Criteria:**
 
-- [ ] New query params defined and documented
-- [ ] Without RAG params → existing behavior unchanged
-- [ ] DTOs support debug metadata
-- [ ] OpenAPI spec updated with new params
+- [x] New query params defined and documented
+- [x] Without RAG params → existing behavior unchanged
+- [x] DTOs support debug metadata
+- [x] OpenAPI spec updated with new params
 
 ---
 

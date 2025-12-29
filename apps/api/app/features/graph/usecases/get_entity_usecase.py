@@ -34,13 +34,25 @@ class GetEntityUseCaseImpl:
         self.repository: GraphRepository = repository
 
     async def execute(
-        self, identifier_value: str, identifier_type: str
+        self,
+        identifier_value: str,
+        identifier_type: str,
+        rag_query: str | None = None,
+        rag_top_k: int = 10,
+        rag_min_score: float | None = None,
+        rag_expand_hops: int = 0,
+        rag_debug: bool = False,
     ) -> GetEntityResponse:
         """Retrieve entity information by identifier.
 
         Args:
             identifier_value: The identifier value (e.g., 'user@example.com')
             identifier_type: The identifier type (e.g., 'email', 'phone')
+            rag_query: Optional conversational query for semantic search
+            rag_top_k: Number of vector candidates to retrieve
+            rag_min_score: Optional similarity threshold
+            rag_expand_hops: Optional graph expansion depth
+            rag_debug: Whether to return debug metadata
 
         Returns:
             GetEntityResponse containing the entity, identifier, and facts

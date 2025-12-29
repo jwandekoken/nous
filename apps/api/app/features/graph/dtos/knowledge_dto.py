@@ -155,12 +155,33 @@ class FactWithSourceDto(BaseModel):
     )
 
 
+class RagDebugHit(BaseModel):
+    """Debug info for a single vector hit."""
+
+    fact_id: str
+    verb: str
+    score: float
+    verified: bool
+
+
+class RagDebugDto(BaseModel):
+    """Optional RAG debug metadata."""
+
+    query: str
+    top_k: int
+    min_score: float | None
+    vector_hits: list[RagDebugHit]
+    verified_count: int
+    timings_ms: dict[str, float] | None = None
+
+
 class GetEntityResponse(BaseModel):
     """Response for getting an entity by identifier."""
 
     entity: EntityDto
     identifier: IdentifierWithRelationshipDto
     facts: list[FactWithSourceDto]
+    rag_debug: RagDebugDto | None = None
 
 
 class GetEntitySummaryResponse(BaseModel):

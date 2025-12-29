@@ -24,7 +24,14 @@ class GetEntityUseCase(Protocol):
     """Protocol for the get entity use case."""
 
     async def execute(
-        self, identifier_value: str, identifier_type: str
+        self,
+        identifier_value: str,
+        identifier_type: str,
+        rag_query: str | None = None,
+        rag_top_k: int = 10,
+        rag_min_score: float | None = None,
+        rag_expand_hops: int = 0,
+        rag_debug: bool = False,
     ) -> GetEntityResponse:
         """Retrieve entity information by identifier."""
         ...
@@ -73,15 +80,37 @@ router = APIRouter()
 async def get_entity(
     type: str,
     value: str,
+    rag_query: str | None = None,
+    rag_top_k: int = 10,
+    rag_min_score: float | None = None,
+    rag_expand_hops: int = 0,
+    rag_debug: bool = False,
     use_case: GetEntityUseCase = Depends(get_get_entity_use_case),
 ) -> GetEntityResponse:
     """Retrieve entity information by identifier.
 
     This endpoint looks up an entity using an external identifier (e.g., email, phone)
     and returns the entity details along with all associated facts and their sources.
+
+    Args:
+        type: The identifier type (e.g., 'email', 'phone')
+        value: The identifier value (e.g., 'user@example.com')
+        rag_query: Optional conversational query for semantic search
+        rag_top_k: Number of vector candidates to retrieve (default: 10)
+        rag_min_score: Optional similarity threshold for filtering vector hits
+        rag_expand_hops: Optional graph expansion depth (default: 0)
+        rag_debug: Whether to return debug metadata (default: False)
     """
 
-    return await use_case.execute(identifier_value=value, identifier_type=type)
+    return await use_case.execute(
+        identifier_value=value,
+        identifier_type=type,
+        rag_query=rag_query,
+        rag_top_k=rag_top_k,
+        rag_min_score=rag_min_score,
+        rag_expand_hops=rag_expand_hops,
+        rag_debug=rag_debug,
+    )
 
 
 @router.get("/entities/lookup/summary", response_model=GetEntitySummaryResponse)
