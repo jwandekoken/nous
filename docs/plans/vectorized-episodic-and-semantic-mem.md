@@ -1038,7 +1038,7 @@ async def embedding_service(test_settings: Settings) -> EmbeddingService:
 - [x] Tenant isolation verified
 - [x] Idempotency verified
 - [x] Search relevance validated
-- [ ] Tests pass in CI (requires valid GOOGLE_API_KEY)
+- [x] Tests pass in CI (requires valid GOOGLE_API_KEY)
 
 ---
 
