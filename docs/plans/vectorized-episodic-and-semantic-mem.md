@@ -763,7 +763,7 @@ This section breaks down the vectorized semantic memory implementation into disc
 | 8      | Assimilate UseCase Integration Tests | Task 6, 7  | Medium           | ✅ Done |
 | 9      | RAG Lookup Query Parameters          | Task 4     | Small            | ✅ Done |
 | 10     | RAG Lookup UseCase                   | Task 9     | Medium           | ✅ Done |
-| 11     | RAG Lookup Tests                     | Task 10    | Medium           | ⬜ TODO |
+| 11     | RAG Lookup Tests                     | Task 10    | Medium           | ✅ Done |
 | 12     | Documentation & Cleanup              | All        | Small            | ⬜ TODO |
 
 ---
@@ -1257,15 +1257,17 @@ class GetEntityUseCaseImpl:
 
 ---
 
+> [!NOTE] > **Status: ✅ IMPLEMENTED** — Tests created at `apps/api/tests/features/graph/usecases/test_get_entity_with_rag.py`, `apps/api/tests/features/graph/usecases/test_get_entity_summary_with_rag.py`, and `apps/api/tests/features/graph/routes/test_lookup_rag.py`
+
 ## Task 11: RAG Lookup Tests
 
 **Goal:** Test the RAG-enabled lookup functionality for both usecases.
 
-**Files to create:**
+**Files created:**
 
-- `apps/api/tests/features/graph/usecases/test_get_entity_with_rag.py`
-- `apps/api/tests/features/graph/usecases/test_get_entity_summary_with_rag.py`
-- `apps/api/tests/features/graph/routes/test_lookup_rag.py`
+- `apps/api/tests/features/graph/usecases/test_get_entity_with_rag.py` (12 tests)
+- `apps/api/tests/features/graph/usecases/test_get_entity_summary_with_rag.py` (8 tests)
+- `apps/api/tests/features/graph/routes/test_lookup_rag.py` (12 tests)
 
 **Test scenarios for GetEntityUseCaseImpl:**
 
@@ -1292,11 +1294,11 @@ class GetEntityUseCaseImpl:
 
 **Acceptance Criteria:**
 
-- [ ] All RAG scenarios tested for both usecases
-- [ ] Backward compatibility verified (no RAG params = existing behavior)
-- [ ] Graph verification tested (prevents cross-entity leakage)
-- [ ] Debug mode tested
-- [ ] Summary endpoint correctly uses RAG-filtered facts
+- [x] All RAG scenarios tested for both usecases (32 tests total)
+- [x] Backward compatibility verified (no RAG params = existing behavior)
+- [x] Graph verification tested (prevents cross-entity leakage)
+- [x] Debug mode tested
+- [x] Summary endpoint correctly uses RAG-filtered facts
 
 ---
 
