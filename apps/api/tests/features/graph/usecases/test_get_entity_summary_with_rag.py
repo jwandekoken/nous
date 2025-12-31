@@ -17,7 +17,7 @@ from app.features.graph.dtos.knowledge_dto import (
     IdentifierDto,
 )
 from app.features.graph.repositories.age_repository import AgeRepository
-from app.features.graph.repositories.vector_repository import VectorRepository
+from app.features.graph.repositories.qdrant_repository import QdrantRepository
 from app.features.graph.services.embedding_service import EmbeddingService
 from app.features.graph.services.langchain_data_summarizer import (
     LangChainDataSummarizer,
@@ -47,9 +47,9 @@ def langchain_fact_extractor() -> LangChainFactExtractor:
 def vector_repository(
     qdrant_client: AsyncQdrantClient,
     embedding_service: EmbeddingService,
-) -> VectorRepository:
+) -> QdrantRepository:
     """VectorRepository instance for testing."""
-    return VectorRepository(
+    return QdrantRepository(
         client=qdrant_client,
         embedding_service=embedding_service,
         tenant_id="test_tenant",
@@ -61,7 +61,7 @@ def vector_repository(
 def assimilate_usecase_with_vectors(
     age_repository: AgeRepository,
     langchain_fact_extractor: LangChainFactExtractor,
-    vector_repository: VectorRepository,
+    vector_repository: QdrantRepository,
 ) -> AssimilateKnowledgeUseCaseImpl:
     """AssimilateKnowledgeUseCaseImpl with vector repository for testing."""
     return AssimilateKnowledgeUseCaseImpl(
@@ -80,7 +80,7 @@ def data_summarizer() -> LangChainDataSummarizer:
 @pytest.fixture
 def get_entity_usecase_with_rag(
     age_repository: AgeRepository,
-    vector_repository: VectorRepository,
+    vector_repository: QdrantRepository,
 ) -> GetEntityUseCaseImpl:
     """GetEntityUseCaseImpl with vector repository for RAG testing."""
     return GetEntityUseCaseImpl(

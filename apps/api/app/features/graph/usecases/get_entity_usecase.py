@@ -25,8 +25,11 @@ from app.features.graph.dtos.knowledge_dto import (
     SourceDto,
 )
 from app.features.graph.models.fact_model import Fact
-from app.features.graph.repositories.protocols import FindEntityResult, GraphRepository
-from app.features.graph.repositories.vector_repository import VectorRepository
+from app.features.graph.repositories.protocols import (
+    FindEntityResult,
+    GraphRepository,
+    VectorRepository,
+)
 
 logger = logging.getLogger(__name__)
 

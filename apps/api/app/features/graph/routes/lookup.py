@@ -14,7 +14,8 @@ from app.features.graph.dtos.knowledge_dto import (
     GetEntitySummaryResponse,
 )
 from app.features.graph.repositories.age_repository import AgeRepository
-from app.features.graph.repositories.vector_repository import VectorRepository
+from app.features.graph.repositories.protocols import VectorRepository
+from app.features.graph.repositories.qdrant_repository import QdrantRepository
 from app.features.graph.services.embedding_service import EmbeddingService
 from app.features.graph.services.langchain_data_summarizer import (
     LangChainDataSummarizer,
@@ -95,7 +96,7 @@ async def _get_vector_repository(tenant_info: TenantInfo) -> VectorRepository | 
 
     settings = get_settings()
     qdrant_client = await get_qdrant_client()
-    return VectorRepository(
+    return QdrantRepository(
         client=qdrant_client,
         embedding_service=embedding_service,
         tenant_id=str(tenant_info.tenant_id),

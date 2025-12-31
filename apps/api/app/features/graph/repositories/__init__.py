@@ -11,16 +11,19 @@ from .protocols import (
     FindEntityResult,
     GraphRepository,
     IdentifierWithRelationship,
+    SemanticSearchResult,
+    VectorRepository,
 )
-from .vector_repository import SemanticSearchResult, VectorRepository
+from .qdrant_repository import QdrantRepository
 
 __all__ = [
-    # Implementations
+    # Graph implementation
     "AgeRepository",
-    "VectorRepository",
-    "SemanticSearchResult",
-    # Protocol and types
+    # Vector implementation
+    "QdrantRepository",
+    # Protocol and types (from protocols/)
     "GraphRepository",
+    "VectorRepository",
     "AddFactToEntityResult",
     "CreateEntityResult",
     "EntityWithRelations",
@@ -29,4 +32,5 @@ __all__ = [
     "FindEntityByIdResult",
     "FindEntityResult",
     "IdentifierWithRelationship",
+    "SemanticSearchResult",
 ]

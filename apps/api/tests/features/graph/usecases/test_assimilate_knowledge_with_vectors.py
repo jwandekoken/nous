@@ -16,7 +16,7 @@ from app.features.graph.dtos.knowledge_dto import (
     IdentifierDto,
 )
 from app.features.graph.repositories.age_repository import AgeRepository
-from app.features.graph.repositories.vector_repository import VectorRepository
+from app.features.graph.repositories.qdrant_repository import QdrantRepository
 from app.features.graph.services.embedding_service import EmbeddingService
 from app.features.graph.services.langchain_fact_extractor import LangChainFactExtractor
 from app.features.graph.usecases.assimilate_knowledge_usecase import (
@@ -41,9 +41,9 @@ def langchain_fact_extractor() -> LangChainFactExtractor:
 def vector_repository(
     qdrant_client: AsyncQdrantClient,
     embedding_service: EmbeddingService,
-) -> VectorRepository:
+) -> QdrantRepository:
     """VectorRepository instance for testing."""
-    return VectorRepository(
+    return QdrantRepository(
         client=qdrant_client,
         embedding_service=embedding_service,
         tenant_id="test_tenant",
@@ -55,7 +55,7 @@ def vector_repository(
 def assimilate_usecase_with_vectors(
     age_repository: AgeRepository,
     langchain_fact_extractor: LangChainFactExtractor,
-    vector_repository: VectorRepository,
+    vector_repository: QdrantRepository,
 ) -> AssimilateKnowledgeUseCaseImpl:
     """AssimilateKnowledgeUseCaseImpl with vector repository for testing."""
     return AssimilateKnowledgeUseCaseImpl(
@@ -94,7 +94,7 @@ class TestAssimilateKnowledgeWithVectors:
     async def test_assimilate_creates_semantic_vectors(
         self,
         assimilate_usecase_with_vectors: AssimilateKnowledgeUseCaseImpl,
-        vector_repository: VectorRepository,
+        vector_repository: QdrantRepository,
         test_identifier: IdentifierDto,
     ) -> None:
         """Test that assimilating knowledge also creates semantic vectors."""
@@ -123,7 +123,7 @@ class TestAssimilateKnowledgeWithVectors:
     async def test_assimilate_creates_vector_for_each_fact(
         self,
         assimilate_usecase_with_vectors: AssimilateKnowledgeUseCaseImpl,
-        vector_repository: VectorRepository,
+        vector_repository: QdrantRepository,
         test_identifier: IdentifierDto,
     ) -> None:
         """Test that each assimilated fact gets a corresponding vector."""
@@ -152,7 +152,7 @@ class TestAssimilateKnowledgeWithVectors:
     async def test_vectors_point_to_real_graph_data(
         self,
         assimilate_usecase_with_vectors: AssimilateKnowledgeUseCaseImpl,
-        vector_repository: VectorRepository,
+        vector_repository: QdrantRepository,
         test_identifier: IdentifierDto,
     ) -> None:
         """Test that vector search results point to real graph data."""
@@ -183,7 +183,7 @@ class TestAssimilateKnowledgeWithVectors:
     async def test_semantic_search_returns_relevant_facts(
         self,
         assimilate_usecase_with_vectors: AssimilateKnowledgeUseCaseImpl,
-        vector_repository: VectorRepository,
+        vector_repository: QdrantRepository,
         test_identifier: IdentifierDto,
     ) -> None:
         """Test that semantic search returns relevant facts based on query."""
@@ -299,7 +299,7 @@ class TestAssimilateKnowledgeVectorGraphConsistency:
     async def test_multiple_assimilations_accumulate_vectors(
         self,
         assimilate_usecase_with_vectors: AssimilateKnowledgeUseCaseImpl,
-        vector_repository: VectorRepository,
+        vector_repository: QdrantRepository,
         test_identifier: IdentifierDto,
     ) -> None:
         """Test that multiple assimilations accumulate vectors for the same entity."""
@@ -335,7 +335,7 @@ class TestAssimilateKnowledgeVectorGraphConsistency:
     async def test_vector_search_can_find_facts_by_semantic_meaning(
         self,
         assimilate_usecase_with_vectors: AssimilateKnowledgeUseCaseImpl,
-        vector_repository: VectorRepository,
+        vector_repository: QdrantRepository,
         test_identifier: IdentifierDto,
     ) -> None:
         """Test that vector search finds facts by semantic meaning, not just keywords."""

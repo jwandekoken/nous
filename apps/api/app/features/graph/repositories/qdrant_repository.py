@@ -1,11 +1,10 @@
-"""Vector repository for Qdrant semantic memory operations.
+"""Qdrant implementation of the VectorRepository protocol.
 
-This module provides the VectorRepository class for managing semantic memory
+This module provides the QdrantRepository class for managing semantic memory
 vectors in Qdrant with strict tenant isolation.
 """
 
 import uuid
-from dataclasses import dataclass
 from uuid import UUID
 
 from qdrant_client import AsyncQdrantClient
@@ -18,6 +17,7 @@ from qdrant_client.models import (
 )
 
 from app.features.graph.models import Fact
+from app.features.graph.repositories.protocols import SemanticSearchResult
 from app.features.graph.services.embedding_service import EmbeddingService
 
 # Namespace for generating deterministic UUIDs (UUIDv5)
@@ -25,17 +25,7 @@ from app.features.graph.services.embedding_service import EmbeddingService
 VECTOR_NAMESPACE = uuid.NAMESPACE_DNS
 
 
-@dataclass
-class SemanticSearchResult:
-    """Result from a semantic memory search."""
-
-    fact_id: str
-    verb: str
-    relationship_key: str
-    score: float
-
-
-class VectorRepository:
+class QdrantRepository:
     """Repository for Qdrant vector operations with tenant isolation.
 
     All operations are scoped to a specific tenant_id which is enforced

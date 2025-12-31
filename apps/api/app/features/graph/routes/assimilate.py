@@ -14,7 +14,8 @@ from app.features.graph.dtos.knowledge_dto import (
     AssimilateKnowledgeResponse,
 )
 from app.features.graph.repositories.age_repository import AgeRepository
-from app.features.graph.repositories.vector_repository import VectorRepository
+from app.features.graph.repositories.protocols import VectorRepository
+from app.features.graph.repositories.qdrant_repository import QdrantRepository
 from app.features.graph.services.embedding_service import EmbeddingService
 from app.features.graph.services.langchain_fact_extractor import LangChainFactExtractor
 from app.features.graph.usecases import AssimilateKnowledgeUseCaseImpl
@@ -68,7 +69,7 @@ async def get_assimilate_knowledge_use_case(
     embedding_service = _get_embedding_service()
     if embedding_service:
         qdrant_client = await get_qdrant_client()
-        vector_repository = VectorRepository(
+        vector_repository = QdrantRepository(
             client=qdrant_client,
             embedding_service=embedding_service,
             tenant_id=str(tenant_info.tenant_id),

@@ -27,8 +27,7 @@ from app.features.graph.models import (
     Identifier,
     Source,
 )
-from app.features.graph.repositories.protocols import GraphRepository
-from app.features.graph.repositories.vector_repository import VectorRepository
+from app.features.graph.repositories.protocols import GraphRepository, VectorRepository
 
 logger = logging.getLogger(__name__)
 

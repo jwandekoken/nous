@@ -11,8 +11,10 @@ from .graph_repository import (
     GraphRepository,
     IdentifierWithRelationship,
 )
+from .vector_repository import SemanticSearchResult, VectorRepository
 
 __all__ = [
+    # Graph protocol and types
     "GraphRepository",
     "AddFactToEntityResult",
     "CreateEntityResult",
@@ -22,4 +24,7 @@ __all__ = [
     "FindEntityByIdResult",
     "FindEntityResult",
     "IdentifierWithRelationship",
+    # Vector protocol and types
+    "VectorRepository",
+    "SemanticSearchResult",
 ]
