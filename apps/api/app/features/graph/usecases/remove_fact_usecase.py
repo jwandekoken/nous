@@ -5,7 +5,7 @@ from uuid import UUID
 from fastapi import HTTPException, status
 
 from app.features.graph.dtos.knowledge_dto import RemoveFactFromEntityResponse
-from app.features.graph.repositories.base import GraphRepository
+from app.features.graph.repositories.protocols import GraphRepository
 
 
 class RemoveFactFromEntityUseCaseImpl:

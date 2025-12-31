@@ -16,14 +16,14 @@ from app.features.graph.models import (
     Identifier,
     Source,
 )
-from app.features.graph.repositories.base import GraphRepository
-from app.features.graph.repositories.types import (
+from app.features.graph.repositories.protocols import (
     AddFactToEntityResult,
     CreateEntityResult,
     FactWithOptionalSource,
     FactWithSource,
     FindEntityByIdResult,
     FindEntityResult,
+    GraphRepository,
     IdentifierWithRelationship,
 )
 
