@@ -109,11 +109,11 @@ async def get_get_entity_use_case(
 ) -> GetEntityUseCase:
     """Dependency injection for the get entity use case."""
     pool = await get_graph_db_pool()
-    repository = AgeRepository(pool, graph_name=tenant_info.graph_name)
+    graph_repository = AgeRepository(pool, graph_name=tenant_info.graph_name)
     vector_repository = await _get_vector_repository(tenant_info)
 
     return GetEntityUseCaseImpl(
-        repository=repository,
+        graph_repository=graph_repository,
         vector_repository=vector_repository,
     )
 
@@ -123,11 +123,11 @@ async def get_entity_summary_use_case(
 ) -> GetEntitySummaryUseCase:
     """Dependency injection for the entity summary use case."""
     pool = await get_graph_db_pool()
-    repository = AgeRepository(pool, graph_name=tenant_info.graph_name)
+    graph_repository = AgeRepository(pool, graph_name=tenant_info.graph_name)
     vector_repository = await _get_vector_repository(tenant_info)
 
     get_entity_use_case = GetEntityUseCaseImpl(
-        repository=repository,
+        graph_repository=graph_repository,
         vector_repository=vector_repository,
     )
     return GetEntitySummaryUseCaseImpl(

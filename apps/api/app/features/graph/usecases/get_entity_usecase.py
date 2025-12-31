@@ -39,17 +39,17 @@ class GetEntityUseCaseImpl:
 
     def __init__(
         self,
-        repository: GraphRepository,
+        graph_repository: GraphRepository,
         vector_repository: VectorRepository | None = None,
     ):
         """Initialize the use case with dependencies.
 
         Args:
-            repository: Repository for graph database operations
+            graph_repository: Repository for graph database operations
             vector_repository: Optional repository for vector search operations.
                                When provided, enables RAG-based fact filtering.
         """
-        self.repository: GraphRepository = repository
+        self.graph_repository: GraphRepository = graph_repository
         self.vector_repository: VectorRepository | None = vector_repository
 
     async def execute(
@@ -86,7 +86,7 @@ class GetEntityUseCaseImpl:
 
         entity_result: (
             FindEntityResult | None
-        ) = await self.repository.find_entity_by_identifier(
+        ) = await self.graph_repository.find_entity_by_identifier(
             identifier_value, identifier_type
         )
 
