@@ -66,7 +66,7 @@ async def get_assimilate_knowledge_use_case(
         )
 
     return AssimilateKnowledgeUseCaseImpl(
-        repository=graph_repository,
+        graph_repository=graph_repository,
         fact_extractor=_fact_extractor,
         vector_repository=vector_repository,
     )

@@ -59,7 +59,7 @@ def assimilate_usecase_with_vectors(
 ) -> AssimilateKnowledgeUseCaseImpl:
     """AssimilateKnowledgeUseCaseImpl with vector repository for testing."""
     return AssimilateKnowledgeUseCaseImpl(
-        repository=age_repository,
+        graph_repository=age_repository,
         fact_extractor=langchain_fact_extractor,
         vector_repository=vector_repository,
     )
@@ -72,7 +72,7 @@ def assimilate_usecase_without_vectors(
 ) -> AssimilateKnowledgeUseCaseImpl:
     """AssimilateKnowledgeUseCaseImpl without vector repository (backward compat)."""
     return AssimilateKnowledgeUseCaseImpl(
-        repository=age_repository,
+        graph_repository=age_repository,
         fact_extractor=langchain_fact_extractor,
         # No vector_repository - backward compatibility
     )
@@ -285,7 +285,7 @@ class TestAssimilateKnowledgeBackwardCompatibility:
         result = await assimilate_usecase_without_vectors.execute(request)
 
         # Verify entity exists in graph
-        graph_entity = await assimilate_usecase_without_vectors.repository.find_entity_by_identifier(
+        graph_entity = await assimilate_usecase_without_vectors.graph_repository.find_entity_by_identifier(
             test_identifier.value, test_identifier.type
         )
         assert graph_entity is not None

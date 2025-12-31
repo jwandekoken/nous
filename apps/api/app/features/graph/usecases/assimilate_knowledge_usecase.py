@@ -6,7 +6,7 @@ extracting facts, and associating them with entities.
 
 import logging
 from datetime import datetime, timezone
-from typing import Protocol, cast
+from typing import cast
 from uuid import uuid4
 
 from app.features.graph.dtos.knowledge_dto import (
@@ -14,10 +14,8 @@ from app.features.graph.dtos.knowledge_dto import (
     AssimilateKnowledgeRequest,
     AssimilateKnowledgeResponse,
     EntityDto,
-    ExtractedFactDto,
     FactDto,
     HasFactDto,
-    IdentifierDto,
     SourceDto,
 )
 from app.features.graph.models import (
@@ -28,21 +26,9 @@ from app.features.graph.models import (
     Source,
 )
 from app.features.graph.repositories.protocols import GraphRepository, VectorRepository
+from app.features.graph.services.protocols import FactExtractor
 
 logger = logging.getLogger(__name__)
-
-
-class FactExtractor(Protocol):
-    """Protocol for extracting facts from text content."""
-
-    async def extract_facts(
-        self,
-        content: str,
-        entity_identifier: IdentifierDto,
-        history: list[str] | None = None,
-    ) -> list[ExtractedFactDto]:
-        """Extract facts from text content."""
-        ...
 
 
 class AssimilateKnowledgeUseCaseImpl:
@@ -50,18 +36,18 @@ class AssimilateKnowledgeUseCaseImpl:
 
     def __init__(
         self,
-        repository: GraphRepository,
+        graph_repository: GraphRepository,
         fact_extractor: FactExtractor,
         vector_repository: VectorRepository | None = None,
     ):
         """Initialize the use case with dependencies.
 
         Args:
-            repository: Repository for graph database operations
+            graph_repository: Repository for graph database operations
             fact_extractor: Service for extracting facts from text
             vector_repository: Optional repository for vector operations (semantic memory)
         """
-        self.repository: GraphRepository = repository
+        self.graph_repository: GraphRepository = graph_repository
         self.fact_extractor: FactExtractor = fact_extractor
         self.vector_repository: VectorRepository | None = vector_repository
 
@@ -77,7 +63,7 @@ class AssimilateKnowledgeUseCaseImpl:
             Response containing the entity, source, and extracted facts
         """
         # 1. Find or create entity based on identifier
-        entity_result = await self.repository.find_entity_by_identifier(
+        entity_result = await self.graph_repository.find_entity_by_identifier(
             request.identifier.value, request.identifier.type
         )
 
@@ -94,7 +80,7 @@ class AssimilateKnowledgeUseCaseImpl:
                 created_at=datetime.now(timezone.utc),
             )
 
-            create_result = await self.repository.create_entity(
+            create_result = await self.graph_repository.create_entity(
                 new_entity, identifier, has_identifier
             )
             entity_result = {
@@ -128,7 +114,7 @@ class AssimilateKnowledgeUseCaseImpl:
                 raise ValueError(f"Fact ID cannot be None for fact: {fact.name}")
 
             # Add fact to entity using repository method
-            result = await self.repository.add_fact_to_entity(
+            result = await self.graph_repository.add_fact_to_entity(
                 entity_id=str(entity.id),
                 fact=fact,
                 source=source,

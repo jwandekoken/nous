@@ -67,7 +67,7 @@ def assimilate_usecase_with_vectors(
 ) -> AssimilateKnowledgeUseCaseImpl:
     """AssimilateKnowledgeUseCaseImpl with vector repository for testing."""
     return AssimilateKnowledgeUseCaseImpl(
-        repository=age_repository,
+        graph_repository=age_repository,
         fact_extractor=langchain_fact_extractor,
         vector_repository=vector_repository,
     )
