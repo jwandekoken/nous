@@ -1,7 +1,6 @@
 """Entity lookup route handler."""
 
 import logging
-from typing import Protocol
 
 from fastapi import APIRouter, Depends
 
@@ -26,40 +25,6 @@ from app.features.graph.usecases.get_entity_summary import (
 )
 
 logger = logging.getLogger(__name__)
-
-
-class GetEntityUseCase(Protocol):
-    """Protocol for the get entity use case."""
-
-    async def execute(
-        self,
-        identifier_value: str,
-        identifier_type: str,
-        rag_query: str | None = None,
-        rag_top_k: int = 10,
-        rag_min_score: float | None = None,
-        rag_expand_hops: int = 0,
-        rag_debug: bool = False,
-    ) -> GetEntityResponse:
-        """Retrieve entity information by identifier."""
-        ...
-
-
-class GetEntitySummaryUseCase(Protocol):
-    """Protocol for the get entity summary use case."""
-
-    async def execute(
-        self,
-        identifier_value: str,
-        identifier_type: str,
-        lang: str | None = None,
-        rag_query: str | None = None,
-        rag_top_k: int = 10,
-        rag_min_score: float | None = None,
-        rag_expand_hops: int = 0,
-    ) -> GetEntitySummaryResponse:
-        """Generate a natural language summary of entity data."""
-        ...
 
 
 # Create the data summarizer instance at module level
@@ -106,7 +71,7 @@ async def _get_vector_repository(tenant_info: TenantInfo) -> VectorRepository | 
 
 async def get_get_entity_use_case(
     tenant_info: TenantInfo = Depends(get_tenant_info),
-) -> GetEntityUseCase:
+) -> GetEntityUseCaseImpl:
     """Dependency injection for the get entity use case."""
     pool = await get_graph_db_pool()
     graph_repository = AgeRepository(pool, graph_name=tenant_info.graph_name)
@@ -120,7 +85,7 @@ async def get_get_entity_use_case(
 
 async def get_entity_summary_use_case(
     tenant_info: TenantInfo = Depends(get_tenant_info),
-) -> GetEntitySummaryUseCase:
+) -> GetEntitySummaryUseCaseImpl:
     """Dependency injection for the entity summary use case."""
     pool = await get_graph_db_pool()
     graph_repository = AgeRepository(pool, graph_name=tenant_info.graph_name)
@@ -147,7 +112,7 @@ async def get_entity(
     rag_min_score: float | None = None,
     rag_expand_hops: int = 0,
     rag_debug: bool = False,
-    use_case: GetEntityUseCase = Depends(get_get_entity_use_case),
+    use_case: GetEntityUseCaseImpl = Depends(get_get_entity_use_case),
 ) -> GetEntityResponse:
     """Retrieve entity information by identifier.
 
@@ -184,7 +149,7 @@ async def get_entity_summary(
     rag_top_k: int = 10,
     rag_min_score: float | None = None,
     rag_expand_hops: int = 0,
-    use_case: GetEntitySummaryUseCase = Depends(get_entity_summary_use_case),
+    use_case: GetEntitySummaryUseCaseImpl = Depends(get_entity_summary_use_case),
 ) -> GetEntitySummaryResponse:
     """Generate a natural language summary of entity data.
 

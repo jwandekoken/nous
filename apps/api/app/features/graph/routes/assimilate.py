@@ -1,7 +1,6 @@
 """Assimilate knowledge route handler."""
 
 import logging
-from typing import Protocol
 
 from fastapi import APIRouter, Depends
 
@@ -21,16 +20,6 @@ from app.features.graph.services.langchain_fact_extractor import LangChainFactEx
 from app.features.graph.usecases import AssimilateKnowledgeUseCaseImpl
 
 logger = logging.getLogger(__name__)
-
-
-class AssimilateKnowledgeUseCase(Protocol):
-    """Protocol for the assimilate knowledge use case."""
-
-    async def execute(
-        self, request: AssimilateKnowledgeRequest
-    ) -> AssimilateKnowledgeResponse:
-        """Process content and associate facts with an entity."""
-        ...
 
 
 # Create the fact extractor instance at module level to avoid instantiation issues
@@ -58,11 +47,11 @@ def _get_embedding_service() -> EmbeddingService | None:
 
 async def get_assimilate_knowledge_use_case(
     tenant_info: TenantInfo = Depends(get_tenant_info),
-) -> AssimilateKnowledgeUseCase:
+) -> AssimilateKnowledgeUseCaseImpl:
     """Dependency injection for the assimilate knowledge use case."""
     settings = get_settings()
     pool = await get_graph_db_pool()
-    repository = AgeRepository(pool, graph_name=tenant_info.graph_name)
+    graph_repository = AgeRepository(pool, graph_name=tenant_info.graph_name)
 
     # Create vector repository if embedding service is available
     vector_repository: VectorRepository | None = None
@@ -77,7 +66,7 @@ async def get_assimilate_knowledge_use_case(
         )
 
     return AssimilateKnowledgeUseCaseImpl(
-        repository=repository,
+        repository=graph_repository,
         fact_extractor=_fact_extractor,
         vector_repository=vector_repository,
     )
@@ -89,7 +78,9 @@ router = APIRouter()
 @router.post("/entities/assimilate", response_model=AssimilateKnowledgeResponse)
 async def assimilate_knowledge(
     request: AssimilateKnowledgeRequest,
-    use_case: AssimilateKnowledgeUseCase = Depends(get_assimilate_knowledge_use_case),
+    use_case: AssimilateKnowledgeUseCaseImpl = Depends(
+        get_assimilate_knowledge_use_case
+    ),
 ) -> AssimilateKnowledgeResponse:
     """Assimilate knowledge by processing content and associating facts with an entity.
 

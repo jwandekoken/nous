@@ -115,7 +115,12 @@ async def test_execute_with_facts(
 
     # Verify mocks were called correctly
     mock_get_entity_use_case.execute.assert_called_once_with(
-        identifier_value="test@example.com", identifier_type="email"
+        identifier_value="test@example.com",
+        identifier_type="email",
+        rag_query=None,
+        rag_top_k=10,
+        rag_min_score=None,
+        rag_expand_hops=0,
     )
     mock_data_summarizer.summarize.assert_called_once_with(
         sample_entity_with_facts, lang=None
@@ -147,7 +152,12 @@ async def test_execute_without_facts_skips_llm(
 
     # Verify get_entity was still called
     mock_get_entity_use_case.execute.assert_called_once_with(
-        identifier_value="empty@example.com", identifier_type="email"
+        identifier_value="empty@example.com",
+        identifier_type="email",
+        rag_query=None,
+        rag_top_k=10,
+        rag_min_score=None,
+        rag_expand_hops=0,
     )
 
 
@@ -189,7 +199,12 @@ async def test_execute_passes_correct_parameters(
 
     # Verify correct parameters were passed
     mock_get_entity_use_case.execute.assert_called_once_with(
-        identifier_value="user@test.com", identifier_type="email"
+        identifier_value="user@test.com",
+        identifier_type="email",
+        rag_query=None,
+        rag_top_k=10,
+        rag_min_score=None,
+        rag_expand_hops=0,
     )
     mock_data_summarizer.summarize.assert_called_once_with(
         sample_entity_with_facts, lang=None

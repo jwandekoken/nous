@@ -118,13 +118,13 @@ def app(
     # Override use case dependencies to use our test repositories
     async def mock_get_entity_use_case() -> GetEntityUseCaseImpl:
         return GetEntityUseCaseImpl(
-            repository=age_repository,
+            graph_repository=age_repository,
             vector_repository=vector_repository,
         )
 
     async def mock_get_entity_summary_use_case() -> GetEntitySummaryUseCaseImpl:
         get_entity_use_case = GetEntityUseCaseImpl(
-            repository=age_repository,
+            graph_repository=age_repository,
             vector_repository=vector_repository,
         )
         return GetEntitySummaryUseCaseImpl(

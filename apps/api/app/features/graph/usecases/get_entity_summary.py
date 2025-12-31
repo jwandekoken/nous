@@ -8,10 +8,8 @@ from app.features.graph.dtos.knowledge_dto import (
     GetEntityResponse,
     GetEntitySummaryResponse,
 )
-from app.features.graph.services.langchain_data_summarizer import (
-    LangChainDataSummarizer,
-)
-from app.features.graph.usecases.get_entity_usecase import GetEntityUseCaseImpl
+from app.features.graph.services.protocols import DataSummarizer
+from app.features.graph.usecases.protocols import GetEntityUseCase
 
 
 class GetEntitySummaryUseCaseImpl:
@@ -19,8 +17,8 @@ class GetEntitySummaryUseCaseImpl:
 
     def __init__(
         self,
-        get_entity_use_case: GetEntityUseCaseImpl,
-        data_summarizer: LangChainDataSummarizer,
+        get_entity_use_case: GetEntityUseCase,
+        data_summarizer: DataSummarizer,
     ):
         """Initialize the use case with dependencies.
 

@@ -74,7 +74,7 @@ def get_entity_usecase_with_rag(
 ) -> GetEntityUseCaseImpl:
     """GetEntityUseCaseImpl with vector repository for RAG testing."""
     return GetEntityUseCaseImpl(
-        repository=age_repository,
+        graph_repository=age_repository,
         vector_repository=vector_repository,
     )
 
@@ -84,7 +84,7 @@ def get_entity_usecase_without_rag(
     age_repository: AgeRepository,
 ) -> GetEntityUseCaseImpl:
     """GetEntityUseCaseImpl without vector repository (backward compatibility)."""
-    return GetEntityUseCaseImpl(repository=age_repository)
+    return GetEntityUseCaseImpl(graph_repository=age_repository)
 
 
 @pytest.fixture
