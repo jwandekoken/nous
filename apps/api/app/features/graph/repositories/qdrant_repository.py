@@ -5,6 +5,7 @@ vectors in Qdrant with strict tenant isolation.
 """
 
 import uuid
+from typing import override
 from uuid import UUID
 
 from qdrant_client import AsyncQdrantClient
@@ -17,7 +18,10 @@ from qdrant_client.models import (
 )
 
 from app.features.graph.models import Fact
-from app.features.graph.repositories.protocols import SemanticSearchResult
+from app.features.graph.repositories.protocols import (
+    SemanticSearchResult,
+    VectorRepository,
+)
 from app.features.graph.services.embedding_service import EmbeddingService
 
 # Namespace for generating deterministic UUIDs (UUIDv5)
@@ -25,7 +29,7 @@ from app.features.graph.services.embedding_service import EmbeddingService
 VECTOR_NAMESPACE = uuid.NAMESPACE_DNS
 
 
-class QdrantRepository:
+class QdrantRepository(VectorRepository):
     """Repository for Qdrant vector operations with tenant isolation.
 
     All operations are scoped to a specific tenant_id which is enforced
@@ -101,6 +105,7 @@ class QdrantRepository:
         """
         return f"The entity {verb} {fact.type}: {fact.name}"
 
+    @override
     async def add_semantic_memory(
         self,
         entity_id: UUID,
@@ -157,6 +162,7 @@ class QdrantRepository:
 
         return True
 
+    @override
     async def search_semantic_memory(
         self,
         entity_id: UUID,
@@ -236,6 +242,7 @@ class QdrantRepository:
 
         return results
 
+    @override
     async def delete_semantic_memory(
         self,
         entity_id: UUID,
@@ -263,6 +270,7 @@ class QdrantRepository:
 
         return True
 
+    @override
     async def delete_all_semantic_memories_for_entity(self, entity_id: UUID) -> int:
         """Delete all semantic memory vectors for an entity.
 
