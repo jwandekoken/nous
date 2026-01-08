@@ -4,8 +4,9 @@ This module defines the use case for processing textual content,
 extracting facts, and associating them with entities.
 """
 
+import logging
 from datetime import datetime, timezone
-from typing import Protocol, cast
+from typing import cast
 from uuid import uuid4
 
 from app.features.graph.dtos.knowledge_dto import (
@@ -13,10 +14,8 @@ from app.features.graph.dtos.knowledge_dto import (
     AssimilateKnowledgeRequest,
     AssimilateKnowledgeResponse,
     EntityDto,
-    ExtractedFactDto,
     FactDto,
     HasFactDto,
-    IdentifierDto,
     SourceDto,
 )
 from app.features.graph.models import (
@@ -26,34 +25,31 @@ from app.features.graph.models import (
     Identifier,
     Source,
 )
-from app.features.graph.repositories.base import GraphRepository
+from app.features.graph.repositories.protocols import GraphRepository, VectorRepository
+from app.features.graph.services.protocols import FactExtractor
 
-
-class FactExtractor(Protocol):
-    """Protocol for extracting facts from text content."""
-
-    async def extract_facts(
-        self,
-        content: str,
-        entity_identifier: IdentifierDto,
-        history: list[str] | None = None,
-    ) -> list[ExtractedFactDto]:
-        """Extract facts from text content."""
-        ...
+logger = logging.getLogger(__name__)
 
 
 class AssimilateKnowledgeUseCaseImpl:
     """Implementation of the assimilate knowledge use case."""
 
-    def __init__(self, repository: GraphRepository, fact_extractor: FactExtractor):
+    def __init__(
+        self,
+        graph_repository: GraphRepository,
+        fact_extractor: FactExtractor,
+        vector_repository: VectorRepository | None = None,
+    ):
         """Initialize the use case with dependencies.
 
         Args:
-            repository: Repository for graph database operations
+            graph_repository: Repository for graph database operations
             fact_extractor: Service for extracting facts from text
+            vector_repository: Optional repository for vector operations (semantic memory)
         """
-        self.repository: GraphRepository = repository
+        self.graph_repository: GraphRepository = graph_repository
         self.fact_extractor: FactExtractor = fact_extractor
+        self.vector_repository: VectorRepository | None = vector_repository
 
     async def execute(
         self, request: AssimilateKnowledgeRequest
@@ -67,7 +63,7 @@ class AssimilateKnowledgeUseCaseImpl:
             Response containing the entity, source, and extracted facts
         """
         # 1. Find or create entity based on identifier
-        entity_result = await self.repository.find_entity_by_identifier(
+        entity_result = await self.graph_repository.find_entity_by_identifier(
             request.identifier.value, request.identifier.type
         )
 
@@ -84,7 +80,7 @@ class AssimilateKnowledgeUseCaseImpl:
                 created_at=datetime.now(timezone.utc),
             )
 
-            create_result = await self.repository.create_entity(
+            create_result = await self.graph_repository.create_entity(
                 new_entity, identifier, has_identifier
             )
             entity_result = {
@@ -109,7 +105,7 @@ class AssimilateKnowledgeUseCaseImpl:
         assimilated_facts: list[AssimilatedFactDto] = []
 
         # 4. Create and link facts to entity
-        for i, fact_data in enumerate(extracted_facts_data):
+        for fact_data in extracted_facts_data:
             # Create fact model
             fact = Fact(name=fact_data.name, type=fact_data.type)
 
@@ -118,16 +114,29 @@ class AssimilateKnowledgeUseCaseImpl:
                 raise ValueError(f"Fact ID cannot be None for fact: {fact.name}")
 
             # Add fact to entity using repository method
-            # Create source only for the first fact
-            create_source = i == 0
-            result = await self.repository.add_fact_to_entity(
+            result = await self.graph_repository.add_fact_to_entity(
                 entity_id=str(entity.id),
                 fact=fact,
                 source=source,
                 verb=fact_data.verb,
                 confidence_score=fact_data.confidence_score,
-                create_source=create_source,
             )
+
+            # 4.1. [NEW] Add to semantic memory if vector_repository is available
+            if self.vector_repository:
+                try:
+                    _ = await self.vector_repository.add_semantic_memory(
+                        entity_id=entity.id,
+                        fact=result["fact"],
+                        verb=result["has_fact_relationship"].verb,
+                    )
+                except Exception as e:
+                    # Log error but don't fail assimilation (graceful degradation)
+                    logger.warning(
+                        "Failed to add semantic memory for fact %s: %s",
+                        result["fact"].fact_id,
+                        e,
+                    )
 
             # Add to response
             fact_dto = FactDto(

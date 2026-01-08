@@ -40,7 +40,7 @@ async def assimilate_knowledge_usecase(
 ) -> AssimilateKnowledgeUseCaseImpl:
     """AssimilateKnowledgeUseCaseImpl instance for testing."""
     return AssimilateKnowledgeUseCaseImpl(
-        repository=age_repository, fact_extractor=langchain_fact_extractor
+        graph_repository=age_repository, fact_extractor=langchain_fact_extractor
     )
 
 
@@ -133,10 +133,8 @@ class TestAssimilateKnowledgeUseCaseIntegration:
         assert result.entity.id is not None
 
         # Verify the entity can be found in the database
-        found_entity = (
-            await assimilate_knowledge_usecase.repository.find_entity_by_identifier(
-                test_identifier.value, test_identifier.type
-            )
+        found_entity = await assimilate_knowledge_usecase.graph_repository.find_entity_by_identifier(
+            test_identifier.value, test_identifier.type
         )
         assert found_entity is not None
         assert found_entity["entity"].id == result.entity.id
@@ -171,8 +169,10 @@ class TestAssimilateKnowledgeUseCaseIntegration:
         assert second_result.entity.id == first_entity_id
 
         # Verify both sets of facts are associated with the same entity
-        found_entity = await assimilate_knowledge_usecase.repository.find_entity_by_id(
-            str(first_entity_id)
+        found_entity = (
+            await assimilate_knowledge_usecase.graph_repository.find_entity_by_id(
+                str(first_entity_id)
+            )
         )
         assert found_entity is not None
 

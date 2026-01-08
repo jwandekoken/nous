@@ -16,14 +16,14 @@ from app.features.graph.models import (
     Identifier,
     Source,
 )
-from app.features.graph.repositories.base import GraphRepository
-from app.features.graph.repositories.types import (
+from app.features.graph.repositories.protocols import (
     AddFactToEntityResult,
     CreateEntityResult,
     FactWithOptionalSource,
     FactWithSource,
     FindEntityByIdResult,
     FindEntityResult,
+    GraphRepository,
     IdentifierWithRelationship,
 )
 
@@ -671,13 +671,11 @@ class AgeRepository(GraphRepository):
         source: Source,
         verb: str,
         confidence_score: float = 1.0,
-        create_source: bool = True,
     ) -> AddFactToEntityResult:
         """
         Add a fact to an entity with its source using an idempotent approach.
 
         This method creates or updates the fact, source, and relationships in the graph.
-        If create_source is False, it will only create the relationship to an existing source.
         """
         # Ensure fact_id is set
         if fact.fact_id is None:

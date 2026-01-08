@@ -9,7 +9,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
-    model_config = SettingsConfigDict(  # pyright: ignore[reportUnannotatedClassAttribute]
+    model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=False,
@@ -75,6 +75,24 @@ class Settings(BaseSettings):
     # Google AI
     google_api_key: str | None = Field(
         default=None, description="Google AI API key for Gemini model"
+    )
+
+    # Qdrant Vector Database
+    qdrant_host: str = Field(default="localhost", description="Qdrant host")
+    qdrant_port: int = Field(default=6333, description="Qdrant HTTP port")
+
+    # Embeddings
+    embedding_model: str = Field(
+        default="models/gemini-embedding-001",
+        description="Embedding model name for Google Generative AI",
+    )
+    embedding_dim: int = Field(
+        default=768, description="Embedding vector dimension (Qdrant vector_size)"
+    )
+
+    # Vector Collection
+    vector_collection_name: str = Field(
+        default="agent_memory", description="Qdrant collection name for agent memory"
     )
 
 

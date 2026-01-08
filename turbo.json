@@ -5,6 +5,9 @@
       "outputs": ["coverage/**"]
     },
     "lint": {},
+    "install": {
+      "cache": false
+    },
     "dev": {
       "cache": false,
       "persistent": true

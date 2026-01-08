@@ -1,6 +1,5 @@
 """Facts management route handler."""
 
-from typing import Protocol
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Path
@@ -15,19 +14,9 @@ from app.features.graph.usecases.remove_fact_usecase import (
 )
 
 
-class RemoveFactFromEntityUseCase(Protocol):
-    """Protocol for the remove fact from entity use case."""
-
-    async def execute(
-        self, entity_id: UUID, fact_id: str
-    ) -> RemoveFactFromEntityResponse:
-        """Remove a fact from an entity."""
-        ...
-
-
 async def get_remove_fact_use_case(
     tenant_info: TenantInfo = Depends(get_tenant_info),
-) -> RemoveFactFromEntityUseCase:
+) -> RemoveFactFromEntityUseCaseImpl:
     """Dependency injection for the remove fact use case."""
     pool = await get_graph_db_pool()
     repository = AgeRepository(pool, graph_name=tenant_info.graph_name)
@@ -47,7 +36,7 @@ async def remove_fact_from_entity(
     fact_id: str = Path(
         ..., description="The fact's synthetic ID (e.g., 'Location:Paris')"
     ),
-    use_case: RemoveFactFromEntityUseCase = Depends(get_remove_fact_use_case),
+    use_case: RemoveFactFromEntityUseCaseImpl = Depends(get_remove_fact_use_case),
     _admin_user: AuthenticatedUser = Depends(is_tenant_admin),
 ) -> RemoveFactFromEntityResponse:
     """Remove a fact from an entity.

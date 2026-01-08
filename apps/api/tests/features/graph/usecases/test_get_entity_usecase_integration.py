@@ -42,7 +42,7 @@ async def assimilate_knowledge_usecase(
 ) -> AssimilateKnowledgeUseCaseImpl:
     """AssimilateKnowledgeUseCaseImpl instance for setting up test data."""
     return AssimilateKnowledgeUseCaseImpl(
-        repository=age_repository, fact_extractor=langchain_fact_extractor
+        graph_repository=age_repository, fact_extractor=langchain_fact_extractor
     )
 
 
@@ -51,7 +51,7 @@ async def get_entity_usecase(
     age_repository: AgeRepository,
 ) -> GetEntityUseCaseImpl:
     """GetEntityUseCaseImpl instance for testing."""
-    return GetEntityUseCaseImpl(repository=age_repository)
+    return GetEntityUseCaseImpl(graph_repository=age_repository)
 
 
 @pytest.fixture

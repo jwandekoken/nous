@@ -1,7 +1,6 @@
-"""Graph repositories package."""
+"""Repository protocols for the graph feature."""
 
-from .age_repository import AgeRepository
-from .protocols import (
+from .graph_repository import (
     AddFactToEntityResult,
     CreateEntityResult,
     EntityWithRelations,
@@ -11,19 +10,12 @@ from .protocols import (
     FindEntityResult,
     GraphRepository,
     IdentifierWithRelationship,
-    SemanticSearchResult,
-    VectorRepository,
 )
-from .qdrant_repository import QdrantRepository
+from .vector_repository import SemanticSearchResult, VectorRepository
 
 __all__ = [
-    # Graph implementation
-    "AgeRepository",
-    # Vector implementation
-    "QdrantRepository",
-    # Protocol and types (from protocols/)
+    # Graph protocol and types
     "GraphRepository",
-    "VectorRepository",
     "AddFactToEntityResult",
     "CreateEntityResult",
     "EntityWithRelations",
@@ -32,5 +24,7 @@ __all__ = [
     "FindEntityByIdResult",
     "FindEntityResult",
     "IdentifierWithRelationship",
+    # Vector protocol and types
+    "VectorRepository",
     "SemanticSearchResult",
 ]
