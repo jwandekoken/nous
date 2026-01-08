@@ -2,6 +2,12 @@
   "name": "nous-monorepo",
   "private": true,
   "packageManager": "pnpm@9.6.0",
+  "scripts": {
+    "install:all": "pnpm install && pnpm turbo install",
+    "dev": "pnpm turbo dev",
+    "test": "pnpm turbo test",
+    "lint": "pnpm turbo lint"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/jwandekoken/nous.git"
