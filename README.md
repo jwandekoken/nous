@@ -58,17 +58,22 @@ To get your environment ready, run these commands from the root (`nous/`) direct
 
 All commands should be run from the **root of the monorepo**.
 
-### How to Start the Database
+### How to Start the Databases
 
-We use Docker Compose to run the PostgreSQL database with the Apache AGE extension.
+We use Docker Compose to run the databases:
+
+- **PostgreSQL** with Apache AGE extension (graph database)
+- **Qdrant** (vector database for embeddings)
 
 ```bash
 docker compose up -d
 ```
 
-The database will be available on port `5432`.
-
-> **Note:** In the future, we will package both the api and the web also in the docker-compose setup (we wont do it now).
+| Service    | Port | Description                 |
+| ---------- | ---- | --------------------------- |
+| PostgreSQL | 5432 | Relational + graph database |
+| Qdrant     | 6333 | Vector database (HTTP API)  |
+| Qdrant     | 6334 | Vector database (gRPC API)  |
 
 ### How to Start the API
 
@@ -148,14 +153,86 @@ pnpm turbo build --filter=web
 
 When you run a command like `pnpm turbo dev` or `pnpm turbo lint`, Turborepo reads your `turbo.json` and understands that these tasks can be run in parallel, maximizing your CPU usage and finishing faster.
 
-## 4. High-Level Directory Structure
+## 4. Production Deployment
+
+For production, we provide a separate Docker Compose configuration that runs the **full stack** (databases + API + web) in containers.
+
+### Setup
+
+1. **Create your production environment file:**
+
+   ```bash
+   cp .env.example .env
+   ```
+
+2. **Edit `.env`** with your production values:
+
+   ```bash
+   # Required - generate with: openssl rand -hex 32
+   SECRET_KEY=your-secret-key-here
+
+   # Required for embeddings
+   GOOGLE_API_KEY=your-google-api-key
+
+   # Database credentials (change from defaults for production)
+   POSTGRES_PASSWORD=your-secure-password
+   ```
+
+### Running Production
+
+```bash
+# Build and start all services
+docker compose -f docker-compose.prod.yml up -d --build
+
+# View logs
+docker compose -f docker-compose.prod.yml logs -f
+
+# View logs for a specific service
+docker compose -f docker-compose.prod.yml logs -f api
+
+# Stop all services
+docker compose -f docker-compose.prod.yml down
+```
+
+The application will be available at `http://localhost` (port 80).
+
+### Production Architecture
+
+| Service | Container    | Description                      |
+| ------- | ------------ | -------------------------------- |
+| db      | postgres_age | PostgreSQL with Apache AGE       |
+| qdrant  | qdrant       | Vector database                  |
+| api     | nous_api     | FastAPI backend                  |
+| web     | nous_web     | Vue.js frontend served via Caddy |
+
+### Quick Reference
+
+| Command                                                   | Description                             |
+| --------------------------------------------------------- | --------------------------------------- |
+| `docker compose up -d`                                    | Start databases (development)           |
+| `docker compose down`                                     | Stop databases                          |
+| `pnpm turbo dev`                                          | Start API + Web locally with hot-reload |
+| `docker compose -f docker-compose.prod.yml up -d --build` | Start full stack (production)           |
+| `docker compose -f docker-compose.prod.yml down`          | Stop full stack                         |
+
+## 5. High-Level Directory Structure
 
 ```plaintext
 nous/
 ├── apps/
-│   ├── api/          # FastAPI (Python) backend
-│   └── web/          # Vue.js (TypeScript) frontend
-├── package.json      # Root Node.js dependencies (contains `turbo`)
-├── pnpm-workspace.yaml # Defines the `apps/*` as pnpm workspaces
-└── turbo.json        # Defines the monorepo task pipeline
+│   ├── api/               # FastAPI (Python) backend
+│   │   ├── Dockerfile     # Production container image
+│   │   └── ...
+│   └── web/               # Vue.js (TypeScript) frontend
+│       ├── Dockerfile     # Production container image
+│       ├── Caddyfile      # Web server config (SPA routing + API proxy)
+│       └── ...
+├── docker/
+│   └── postgres/          # Custom PostgreSQL + AGE image
+├── docker-compose.yml     # Development: databases only
+├── docker-compose.prod.yml # Production: full stack
+├── .env.example           # Template for production environment variables
+├── package.json           # Root Node.js dependencies (contains `turbo`)
+├── pnpm-workspace.yaml    # Defines the `apps/*` as pnpm workspaces
+└── turbo.json             # Defines the monorepo task pipeline
 ```
