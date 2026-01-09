@@ -58,17 +58,22 @@ To get your environment ready, run these commands from the root (`nous/`) direct
 
 All commands should be run from the **root of the monorepo**.
 
-### How to Start the Database
+### How to Start the Databases
 
-We use Docker Compose to run the PostgreSQL database with the Apache AGE extension.
+We use Docker Compose to run the databases:
+
+- **PostgreSQL** with Apache AGE extension (graph database)
+- **Qdrant** (vector database for embeddings)
 
 ```bash
 docker compose up -d
 ```
 
-The database will be available on port `5432`.
-
-> **Note:** In the future, we will package both the api and the web also in the docker-compose setup (we wont do it now).
+| Service    | Port | Description                 |
+| ---------- | ---- | --------------------------- |
+| PostgreSQL | 5432 | Relational + graph database |
+| Qdrant     | 6333 | Vector database (HTTP API)  |
+| Qdrant     | 6334 | Vector database (gRPC API)  |
 
 ### How to Start the API
 
@@ -96,7 +101,7 @@ Your Vue.js app will be running on `http://localhost:5173` (or the next availabl
 
 ### How to Start Both (API + Web)
 
-This is the most common command you'll use. Turborepo finds _all_ projects with a `dev` script and runs them in parallel.
+This command is the most common command you'll use. Turborepo finds _all_ projects with a `dev` script and runs them in parallel.
 
 ```bash
 pnpm turbo dev
@@ -137,7 +142,7 @@ This is Turborepo's killer feature.
 
 ### 🎯 Filtering
 
-You've already used this\! The `--filter` flag lets you run tasks on a single project or a subset of projects.
+You've already used this! The `--filter` flag lets you run tasks on a single project or a subset of projects.
 
 ```bash
 # Run `build` only on the `web` app
@@ -148,14 +153,113 @@ pnpm turbo build --filter=web
 
 When you run a command like `pnpm turbo dev` or `pnpm turbo lint`, Turborepo reads your `turbo.json` and understands that these tasks can be run in parallel, maximizing your CPU usage and finishing faster.
 
-## 4. High-Level Directory Structure
+## 4. Production Deployment
+
+For production, we provide a separate Docker Compose configuration that runs the **full stack** (databases + API + web) in containers.
+
+### Setup
+
+1. **Create your production environment file:**
+
+   ```bash
+   cp .env.example .env
+   ```
+
+2. **Edit `.env`** with your production values:
+
+   ```bash
+   # Required - generate with: openssl rand -hex 32
+   SECRET_KEY=your-secret-key-here
+
+   # Required for embeddings
+   GOOGLE_API_KEY=your-google-api-key
+
+   # Database credentials (change from defaults for production)
+   POSTGRES_PASSWORD=your-secure-password
+   ```
+
+### Running Production
+
+```bash
+# Build and start all services
+docker compose -f docker-compose.prod.yml up -d --build
+
+# View logs
+docker compose -f docker-compose.prod.yml logs -f
+
+# View logs for a specific service
+docker compose -f docker-compose.prod.yml logs -f api
+
+# Stop all services
+docker compose -f docker-compose.prod.yml down
+```
+
+The application will be available at `http://localhost` (port 80).
+
+### Production Architecture
+
+| Service | Container    | Description                      |
+| ------- | ------------ | -------------------------------- |
+| db      | postgres_age | PostgreSQL with Apache AGE       |
+| qdrant  | qdrant       | Vector database                  |
+| api     | nous_api     | FastAPI backend                  |
+| web     | nous_web     | Vue.js frontend served via Caddy |
+
+### Quick Reference
+
+| Command                                                   | Description                             |
+| --------------------------------------------------------- | --------------------------------------- |
+| `docker compose up -d`                                    | Start databases (development)           |
+| `docker compose down`                                     | Stop databases                          |
+| `pnpm turbo dev`                                          | Start API + Web locally with hot-reload |
+| `docker compose -f docker-compose.prod.yml up -d --build` | Start full stack (production)           |
+| `docker compose -f docker-compose.prod.yml down`          | Stop full stack                         |
+
+## 5. High-Level Directory Structure
 
 ```plaintext
 nous/
 ├── apps/
-│   ├── api/          # FastAPI (Python) backend
-│   └── web/          # Vue.js (TypeScript) frontend
-├── package.json      # Root Node.js dependencies (contains `turbo`)
-├── pnpm-workspace.yaml # Defines the `apps/*` as pnpm workspaces
-└── turbo.json        # Defines the monorepo task pipeline
+│   ├── api/               # FastAPI (Python) backend
+│   │   ├── Dockerfile     # Production container image
+│   │   └── ...
+│   └── web/               # Vue.js (TypeScript) frontend
+│       ├── Dockerfile     # Production container image
+│       ├── Caddyfile      # Web server config (SPA routing + API proxy)
+│       └── ...
+├── docker/
+│   └── postgres/          # Custom PostgreSQL + AGE image
+│   ├── docker-compose.yml     # Development: databases only
+│   ├── docker-compose.prod.yml # Production: full stack
+│   ├── .env.example           # Template for production environment variables
+│   ├── package.json           # Root Node.js dependencies (contains `turbo`)
+│   ├── pnpm-workspace.yaml    # Defines the `apps/*` as pnpm workspaces
+│   └── turbo.json             # Defines the monorepo task pipeline
 ```
+
+## 6. Troubleshooting
+
+### Common Issues
+
+**1. Ports already in use**
+If you see an error like `Bind for 0.0.0.0:5432 failed: port is already allocated`, it means another service (like a local Postgres instance) is using that port.
+
+- **Solution**: Stop the local service or change the port mapping in `docker-compose.yml` (e.g., `"5433:5432"`).
+
+**2. Database connection failed**
+If the API fails to connect to the database:
+
+- Ensure the database container is healthy: `docker compose ps`
+- Check logs: `docker compose logs db`
+- Verify environment variables in `.env` (for production) or `apps/api/.env` (for dev).
+
+**3. "File not found" in Docker build**
+If the build fails because it can't find a file:
+
+- Check `.dockerignore` to make sure you aren't excluding necessary files.
+- Ensure you are running the build from the root `nous/` directory.
+
+**4. Hot reload not working (Development)**
+
+- Ensure you are running `pnpm turbo dev`.
+- Check if your file watcher limit is reached (Linux/macOS).

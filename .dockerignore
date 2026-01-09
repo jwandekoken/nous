@@ -1,0 +1,45 @@
+# =============================================================================
+# Docker Ignore - Monorepo Root
+# =============================================================================
+
+# Dependencies (will be installed fresh in container)
+node_modules
+**/node_modules
+.venv
+**/.venv
+
+# Build outputs
+dist
+**/dist
+
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode
+.cursor
+.idea
+
+# Environment files (secrets should be passed via env vars)
+.env*
+**/.env*
+
+# Documentation (not needed in builds)
+*.md
+docs/
+
+# Python cache
+__pycache__
+**/__pycache__
+*.py[cod]
+**/*.py[cod]
+
+# Test files
+*.test.*
+*.spec.*
+
+# Temporary files
+*.log
+*.tmp
+.DS_Store
