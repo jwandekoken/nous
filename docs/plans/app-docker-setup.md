@@ -515,26 +515,26 @@ These are hardcoded in `docker-compose.prod.yml` because they refer to **interna
 
 ### Phase 1: Update Development Setup
 
-- [ ] Update `docker-compose.yml` with health checks and renamed network
-- [ ] Test that `docker compose up -d` + `pnpm turbo dev` works
+- [x] Update `docker-compose.yml` with health checks and renamed network
+- [x] Test that `docker compose up -d` + `pnpm turbo dev` works
 
 ### Phase 2: Create Dockerfiles
 
-- [ ] Create `apps/api/Dockerfile`
-- [ ] Create `apps/web/Dockerfile`
-- [ ] Create `apps/web/Caddyfile`
-- [ ] Add `.dockerignore` files to both apps
+- [x] Create `apps/api/Dockerfile`
+- [x] Create `apps/web/Dockerfile`
+- [x] Create `apps/web/Caddyfile`
+- [x] Add `.dockerignore` files to both apps
 
 ### Phase 3: Create Production Compose
 
-- [ ] Create `docker-compose.prod.yml`
-- [ ] Create root `.env.example` (template for production secrets)
+- [x] Create `docker-compose.prod.yml`
+- [x] Create root `.env.example` (template for production secrets)
 - [ ] Test full stack with `docker compose -f docker-compose.prod.yml up -d --build`
 
 ### Phase 4: Documentation
 
-- [ ] Update root `README.md` with production deployment instructions
-- [ ] Add troubleshooting section
+- [x] Update root `README.md` with production deployment instructions
+- [x] Add troubleshooting section
 
 ---
 

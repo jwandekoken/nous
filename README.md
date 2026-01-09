@@ -101,7 +101,7 @@ Your Vue.js app will be running on `http://localhost:5173` (or the next availabl
 
 ### How to Start Both (API + Web)
 
-This is the most common command you'll use. Turborepo finds _all_ projects with a `dev` script and runs them in parallel.
+This command is the most common command you'll use. Turborepo finds _all_ projects with a `dev` script and runs them in parallel.
 
 ```bash
 pnpm turbo dev
@@ -142,7 +142,7 @@ This is Turborepo's killer feature.
 
 ### 🎯 Filtering
 
-You've already used this\! The `--filter` flag lets you run tasks on a single project or a subset of projects.
+You've already used this! The `--filter` flag lets you run tasks on a single project or a subset of projects.
 
 ```bash
 # Run `build` only on the `web` app
@@ -229,10 +229,37 @@ nous/
 │       └── ...
 ├── docker/
 │   └── postgres/          # Custom PostgreSQL + AGE image
-├── docker-compose.yml     # Development: databases only
-├── docker-compose.prod.yml # Production: full stack
-├── .env.example           # Template for production environment variables
-├── package.json           # Root Node.js dependencies (contains `turbo`)
-├── pnpm-workspace.yaml    # Defines the `apps/*` as pnpm workspaces
-└── turbo.json             # Defines the monorepo task pipeline
+│   ├── docker-compose.yml     # Development: databases only
+│   ├── docker-compose.prod.yml # Production: full stack
+│   ├── .env.example           # Template for production environment variables
+│   ├── package.json           # Root Node.js dependencies (contains `turbo`)
+│   ├── pnpm-workspace.yaml    # Defines the `apps/*` as pnpm workspaces
+│   └── turbo.json             # Defines the monorepo task pipeline
 ```
+
+## 6. Troubleshooting
+
+### Common Issues
+
+**1. Ports already in use**
+If you see an error like `Bind for 0.0.0.0:5432 failed: port is already allocated`, it means another service (like a local Postgres instance) is using that port.
+
+- **Solution**: Stop the local service or change the port mapping in `docker-compose.yml` (e.g., `"5433:5432"`).
+
+**2. Database connection failed**
+If the API fails to connect to the database:
+
+- Ensure the database container is healthy: `docker compose ps`
+- Check logs: `docker compose logs db`
+- Verify environment variables in `.env` (for production) or `apps/api/.env` (for dev).
+
+**3. "File not found" in Docker build**
+If the build fails because it can't find a file:
+
+- Check `.dockerignore` to make sure you aren't excluding necessary files.
+- Ensure you are running the build from the root `nous/` directory.
+
+**4. Hot reload not working (Development)**
+
+- Ensure you are running `pnpm turbo dev`.
+- Check if your file watcher limit is reached (Linux/macOS).
