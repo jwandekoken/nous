@@ -1,11 +1,11 @@
 # =============================================================================
 # Nous Web - Caddyfile
 # =============================================================================
-# For local/Docker: serves on :80
-# For production with domain: replace :80 with yourdomain.com for auto-HTTPS
+# Local development: DOMAIN=localhost (or unset) serves on :80
+# Production: DOMAIN=yourdomain.com enables automatic HTTPS via Let's Encrypt
 # =============================================================================
 
-:80 {
+{$DOMAIN:localhost} {
     # Serve static files from /srv
     root * /srv
 

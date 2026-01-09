@@ -114,6 +114,15 @@ services:
     restart: unless-stopped
     ports:
       - "80:80"
+      - "443:443"
+    environment:
+      # Set your domain for automatic HTTPS (e.g., DOMAIN=nousmemory.com)
+      # Default: localhost (serves on :80 without HTTPS)
+      - DOMAIN=${DOMAIN:-localhost}
+    volumes:
+      # Persist Caddy certificates across restarts
+      - caddy-data:/data
+      - caddy-config:/config
     depends_on:
       api:
         condition: service_healthy
@@ -124,6 +133,10 @@ volumes:
   postgres-data:
     driver: local
   qdrant-data:
+    driver: local
+  caddy-data:
+    driver: local
+  caddy-config:
     driver: local
 
 networks:
