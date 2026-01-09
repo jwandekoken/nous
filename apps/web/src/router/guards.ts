@@ -6,8 +6,8 @@ import type { UserRole } from "@/services/auth";
  * Requires authentication to access route
  */
 export const requireAuth = async (
-  to: RouteLocationNormalized,
-  from: RouteLocationNormalized,
+  _to: RouteLocationNormalized,
+  _from: RouteLocationNormalized,
   next: NavigationGuardNext
 ) => {
   const authStore = useAuthStore();
@@ -31,8 +31,8 @@ export const requireAuth = async (
  */
 export const requireRole = (allowedRoles: UserRole[]) => {
   return async (
-    to: RouteLocationNormalized,
-    from: RouteLocationNormalized,
+    _to: RouteLocationNormalized,
+    _from: RouteLocationNormalized,
     next: NavigationGuardNext
   ) => {
     const authStore = useAuthStore();
@@ -62,8 +62,8 @@ export const requireRole = (allowedRoles: UserRole[]) => {
  * Redirects authenticated users away from login page
  */
 export const redirectAuthenticatedUser = async (
-  to: RouteLocationNormalized,
-  from: RouteLocationNormalized,
+  _to: RouteLocationNormalized,
+  _from: RouteLocationNormalized,
   next: NavigationGuardNext
 ) => {
   const authStore = useAuthStore();

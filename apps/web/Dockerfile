@@ -1,8 +1,8 @@
 # =============================================================================
 # Nous Web - Vue 3 + Vite (Production Build)
 # =============================================================================
-# Build: docker build -t nous-web .
-# Run:   docker run -p 80:80 nous-web
+# Build context: monorepo root (for pnpm workspace support)
+# Build: docker compose -f docker-compose.prod.yml build web
 # =============================================================================
 
 # -----------------------------------------------------------------------------
@@ -15,17 +15,23 @@ RUN corepack enable && corepack prepare pnpm@latest --activate
 
 WORKDIR /app
 
-# Copy dependency files first for better caching
-COPY package.json pnpm-lock.yaml ./
+# Copy workspace configuration files from monorepo root
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 
-# Install dependencies
-RUN pnpm install --frozen-lockfile
+# Copy the web app package.json for dependency resolution
+COPY apps/web/package.json ./apps/web/
 
-# Copy source code
-COPY . .
+# Install dependencies (workspace-aware)
+RUN pnpm install --frozen-lockfile --filter web...
+
+# Copy web app source code
+COPY apps/web/ ./apps/web/
+
+# Set API URL for production build (relative path goes through Caddy reverse proxy)
+ENV VITE_API_URL=/api/v1
 
 # Build the application
-RUN pnpm build
+RUN pnpm --filter web build
 
 # -----------------------------------------------------------------------------
 # Stage 2: Runtime - Serve with Caddy
@@ -33,10 +39,10 @@ RUN pnpm build
 FROM caddy:alpine AS runtime
 
 # Copy Caddyfile
-COPY Caddyfile /etc/caddy/Caddyfile
+COPY apps/web/Caddyfile /etc/caddy/Caddyfile
 
 # Copy built assets from builder
-COPY --from=builder /app/dist /srv
+COPY --from=builder /app/apps/web/dist /srv
 
 # Expose port
 EXPOSE 80
