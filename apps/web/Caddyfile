@@ -1,31 +1,28 @@
 # =============================================================================
-# Nous Web - Caddyfile
+# Internal Static File Server for Vue.js SPA
 # =============================================================================
-# Local development: DOMAIN=localhost (or unset) serves on :80
-# Production: DOMAIN=yourdomain.com enables automatic HTTPS via Let's Encrypt
+# This serves the built frontend assets on port 80 (internal only).
+# An external reverse proxy (bundled or BYO) handles SSL and API routing.
+#
+# Why Caddy here? Vue Router uses client-side routing. Without try_files,
+# refreshing on /memories/123 would return 404. This Caddyfile handles:
+#   - SPA fallback routing (all paths -> index.html)
+#   - Gzip compression for assets
+#   - Health endpoint for container orchestration
 # =============================================================================
 
-{$DOMAIN:localhost} {
-    # Serve static files from /srv
+:80 {
     root * /srv
-
-    # Enable gzip and brotli compression (automatic)
     encode gzip
 
-    # Proxy API requests to the backend
-    handle /api/* {
-        reverse_proxy api:8000
-    }
-
-    # Health endpoint for container health checks
+    # Health endpoint for Docker health checks
     handle /health {
         respond "OK" 200
     }
 
-    # SPA fallback - serve index.html for all other routes
+    # SPA fallback - serve index.html for client-side routing
     handle {
         try_files {path} /index.html
         file_server
     }
 }
-

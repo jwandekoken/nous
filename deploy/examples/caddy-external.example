@@ -1,0 +1,36 @@
+# =============================================================================
+# Nous - External Caddy Configuration Example
+# =============================================================================
+# Add this to your existing Caddyfile when using BYO reverse proxy.
+#
+# Prerequisites:
+#   1. Start Nous without the bundled proxy:
+#      docker compose -f docker-compose.prod.yml up -d --build
+#
+#   2. Connect your Caddy container to the nous network:
+#      # In your Caddy's docker-compose.yml:
+#      networks:
+#        nous_nous-net:
+#          external: true
+#
+#      services:
+#        caddy:
+#          networks:
+#            - your-existing-network
+#            - nous_nous-net
+#
+#   3. Reload your Caddy config:
+#      docker exec your-caddy-container caddy reload --config /etc/caddy/Caddyfile
+# =============================================================================
+
+nous.yourdomain.com {
+    # Route API requests to FastAPI backend
+    handle /api/* {
+        reverse_proxy nous_api:8000
+    }
+
+    # Route all other requests to Vue.js SPA
+    handle {
+        reverse_proxy nous_web:80
+    }
+}
