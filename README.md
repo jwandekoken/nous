@@ -1,159 +1,142 @@
-# Nous Monorepo
+# Nous
 
-Welcome to the `nous` project monorepo. This repository contains all the code for the Nous AI Agent Memory System, including the FastAPI backend (`api`) and the Vue.js frontend (`web`).
+**A Semantic Memory Layer for AI Agents**
 
-This project is managed as a **polyglot (Python + TypeScript) monorepo** using **pnpm Workspaces** and **Turborepo**.
+> "Commonly translated as 'mind' or 'intellect', the Greek word _nous_ is a key term in the philosophies of Plato, Aristotle and Plotinus."
 
-- **`pnpm`** manages the JavaScript **dependencies** and workspaces.
-- **`Turborepo`** orchestrates tasks (like `dev`, `test`, `lint`) across all projects.
-- **`uv`** manages the Python dependencies and virtual environment for the `api`.
+---
 
-## Prerequisites
+## ⚠️ Project Status: Alpha (v0.1.0)
 
-Before you begin, ensure you have the following tools installed:
+**Warning:** This software is currently in an **Alpha** state.
 
-1.  **Node.js**: Version `24.11.0` or higher is required. We recommend using [nvm](https://github.com/nvm-sh/nvm).
+- **Stability:** APIs are subject to breaking changes without notice.
+- **Recommendation:** This project is suitable for testing, development, and experimental use. It is **not yet recommended for mission-critical production environments**.
+
+---
+
+## Why Nous?
+
+AI agents today suffer from two main limitations: **limited context windows** and **statelessness**. They often forget details from past interactions or cannot access a cohesive view of the world across different sessions.
+
+**Nous** solves this by providing a dedicated memory layer that combines:
+
+1.  **Graph Database (Apache AGE):** To store structured relationships (entities, facts).
+2.  **Vector Database (Qdrant):** To store semantic embeddings for fuzzy search and retrieval.
+
+This allows agents to "remember" facts, understand relationships, and retrieve relevant context on demand.
+
+---
+
+## Core Concepts
+
+Understanding these four concepts is key to using Nous:
+
+1.  **Entity**: The central subject of memory (e.g., a person, a company, a topic). Each entity has a stable, unique ID.
+2.  **Identifier**: The external handle used to find an entity (e.g., email `alice@example.com`, phone `+1234567890`).
+3.  **Fact**: A discrete piece of knowledge associated with an entity (e.g., "Lives in Paris", "Works as Engineer").
+4.  **Source**: The origin of a fact (e.g., a chat message, a document), providing provenance and traceability.
+
+---
+
+## API Overview
+
+Nous exposes two primary operations for interacting with memory:
+
+### 1. Assimilate (Write)
+
+**Endpoint:** `POST /entities/assimilate`
+
+Extracts facts from unstructured text and saves them to the graph.
+
+- **Input:** Raw text content (e.g., "Alice moved to Berlin yesterday.") and an identifier.
+- **Process:** The system extracts facts ("Location: Berlin") using an LLM and links them to the entity "Alice".
+
+### 2. Lookup (Read)
+
+**Endpoint:** `GET /entities/lookup`
+
+Retrieves the structured memory of an entity.
+
+- **Input:** An identifier (e.g., `email: alice@example.com`).
+- **Output:** Returns the entity profile with all associated facts and their original sources.
+- **Summary Mode:** `GET /entities/lookup/summary` generates a natural language summary of the entity's history, optimized for feeding back into an LLM context window.
+
+---
+
+## Getting Started
+
+### Prerequisites
+
+Ensure you have the following tools installed:
+
+1.  **Node.js**: Version `24.11.0` or higher (we recommend [nvm](https://github.com/nvm-sh/nvm)).
 2.  **pnpm**: The JavaScript package manager. [Installation guide](https://pnpm.io/installation).
 3.  **uv**: The Python package manager. [Installation guide](https://docs.astral.sh/uv/getting-started/installation/).
+4.  **Docker**: For running the databases.
 
-## 1. Initial Setup
+### Installation
 
-To get your environment ready, run these commands from the root (`nous/`) directory:
-
-1.  **Install Node.js Dependencies:**
-    This command installs all Node.js dependencies for the entire monorepo, including `turbo` at the root and all dependencies for each application inside `apps/` (like `vite` for `web`). It also links the workspace packages together.
+1.  **Clone and Install Dependencies:**
+    Run this from the root `nous/` directory to install dependencies for both Python (API) and Node.js (Web/Tooling).
 
     ```bash
     pnpm install
     ```
 
-2.  **Set up Python Environment:**
-    You only need to do this once for the `api` project.
+2.  **Set up Python Environment (API):**
 
     ```bash
-    # 1. Navigate to the api directory
     cd apps/api
-
-    # 2. Create a virtual environment
     uv venv
-
-    # 3. Install all Python dependencies
     uv sync
-
-    # 4. Go back to the root
     cd ../..
     ```
 
-3.  **Set up Environment Variables:**
-    The API requires a `.env` file for its configuration.
+3.  **Configure Environment Variables:**
 
     ```bash
-    # From the root directory:
     cp apps/api/.env.example apps/api/.env
-
-    # Now, edit apps/api/.env with your database credentials.
+    # Edit apps/api/.env with your API keys (e.g., GOOGLE_API_KEY) and DB credentials.
     ```
 
-## 2. Development Workflow
+### Running the Project
 
-All commands should be run from the **root of the monorepo**.
+1.  **Start the Databases:**
+    Spin up PostgreSQL (Graph) and Qdrant (Vector).
 
-### How to Start the Databases
+    ```bash
+    docker compose up -d
+    ```
 
-We use Docker Compose to run the databases:
+2.  **Start the Development Servers:**
+    This runs both the API (`localhost:8000`) and the Web App (`localhost:5173`) in parallel.
 
-- **PostgreSQL** with Apache AGE extension (graph database)
-- **Qdrant** (vector database for embeddings)
-
-```bash
-docker compose up -d
-```
-
-| Service    | Port | Description                 |
-| ---------- | ---- | --------------------------- |
-| PostgreSQL | 5432 | Relational + graph database |
-| Qdrant     | 6333 | Vector database (HTTP API)  |
-| Qdrant     | 6334 | Vector database (gRPC API)  |
-
-### How to Start the API
-
-This command uses Turborepo to find the `api` project and run its `dev` script.
-
-```bash
-pnpm turbo dev --filter=api
-```
-
-Your FastAPI server will be running on `http://localhost:8000`.
+    ```bash
+    pnpm turbo dev
+    ```
 
 ---
 
-### How to Start the Web-App
+## Project Structure
 
-This command uses Turborepo to find the `web` project and run its `dev` script.
+Nous is a polyglot monorepo managed by **Turborepo**:
 
-```bash
-pnpm turbo dev --filter=web
-```
-
-Your Vue.js app will be running on `http://localhost:5173` (or the next available port).
-
----
-
-### How to Start Both (API + Web)
-
-This command is the most common command you'll use. Turborepo finds _all_ projects with a `dev` script and runs them in parallel.
-
-```bash
-pnpm turbo dev
+```plaintext
+nous/
+├── apps/
+│   ├── api/               # FastAPI (Python) backend - The Core Memory System
+│   └── web/               # Vue.js (TypeScript) frontend - Visualization Dashboard
+├── deploy/                # Deployment configurations (Caddy, etc.)
+├── docker/                # Custom Docker images (Postgres + AGE)
+├── docker-compose.yml     # Dev infrastructure
+├── package.json           # Root dependencies & scripts
+└── pnpm-workspace.yaml    # Workspace definition
 ```
 
 ---
 
-### How to Run Tests
-
-This command runs the `test` script in all projects.
-
-```bash
-pnpm turbo test
-```
-
-> **Note:** The `apps/web` project currently has a placeholder test script. This command will primarily run the **Python tests** for the `api`.
-
----
-
-### How to Run Linting
-
-This command runs the `lint` script in all projects (`ruff` for the API, `eslint` for the web app).
-
-```bash
-pnpm turbo lint
-```
-
-## 3. What Else Can I Do with Turborepo?
-
-Turborepo is more than just a task runner; it's a build system that makes your monorepo fast and efficient.
-
-### ⚡️ Caching (The "Turbo")
-
-This is Turborepo's killer feature.
-
-- **What it does:** Turborepo caches the output and logs of your tasks (like `test`, `lint`, and `build`).
-- **Why it's great:** If you run `pnpm turbo test`, and then run it again without changing any files in `apps/api`, Turborepo will **skip** running the tests and show you the cached result instantly. This saves a massive amount of time, especially in CI/CD pipelines.
-
-### 🎯 Filtering
-
-You've already used this! The `--filter` flag lets you run tasks on a single project or a subset of projects.
-
-```bash
-# Run `build` only on the `web` app
-pnpm turbo build --filter=web
-```
-
-### 🏎️ Parallel Execution
-
-When you run a command like `pnpm turbo dev` or `pnpm turbo lint`, Turborepo reads your `turbo.json` and understands that these tasks can be run in parallel, maximizing your CPU usage and finishing faster.
-
-## 4. Production Deployment
+## Production Deployment
 
 For production, we provide a Docker Compose configuration with **two deployment modes**:
 
@@ -279,34 +262,7 @@ docker exec your-caddy-container caddy reload --config /etc/caddy/Caddyfile
 | `docker compose -f docker-compose.prod.yml --profile with-proxy up -d --build` | Start full stack with bundled Caddy     |
 | `docker compose -f docker-compose.prod.yml down`                               | Stop all services                       |
 
-## 5. High-Level Directory Structure
-
-```plaintext
-nous/
-├── apps/
-│   ├── api/               # FastAPI (Python) backend
-│   │   ├── Dockerfile     # Production container image
-│   │   └── ...
-│   └── web/               # Vue.js (TypeScript) frontend
-│       ├── Dockerfile     # Production container image
-│       ├── Caddyfile      # Internal SPA static file server config
-│       └── ...
-├── deploy/
-│   ├── caddy/
-│   │   └── Caddyfile      # Bundled reverse proxy config (standalone mode)
-│   └── examples/
-│       └── caddy-external.example  # Example for BYO reverse proxy setup
-├── docker/
-│   └── postgres/          # Custom PostgreSQL + AGE image
-├── docker-compose.yml     # Development: databases only
-├── docker-compose.prod.yml # Production: full stack (with optional reverse proxy)
-├── .env.example           # Template for production environment variables
-├── package.json           # Root Node.js dependencies (contains `turbo`)
-├── pnpm-workspace.yaml    # Defines the `apps/*` as pnpm workspaces
-└── turbo.json             # Defines the monorepo task pipeline
-```
-
-## 6. Troubleshooting
+## Troubleshooting
 
 ### Common Issues
 
