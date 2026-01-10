@@ -1,6 +1,6 @@
-# Nous API - The Semantic Memory Brain
+# Nous API - The Knowledge Graph Memory Brain
 
-The core intelligence layer of Nous, built with FastAPI and modular architecture. This service manages the Knowledge Graph (Apache AGE) and Vector Embeddings (Qdrant).
+The core Knowledge Graph Memory engine of Nous. This service manages the Knowledge Graph (Apache AGE) and Vector Embeddings (Qdrant).
 
 For setup and running instructions, please see the [Root README](../../README.md).
 

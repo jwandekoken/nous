@@ -1,22 +1,8 @@
 # Nous Web - The Visualization Dashboard
 
-The frontend application for the Nous AI Agent Memory System, built with **Vue 3**, **TypeScript**, and **Vite**. It provides a visual interface to explore the Knowledge Graph and manage entities.
+The frontend dashboard for the Nous Knowledge Graph Memory System. It provides a visual interface to explore the Knowledge Graph and manage entities.
 
 For setup and running instructions, please see the [Root README](../../README.md).
-
----
-
-## Tech Stack
-
-- **Framework**: [Vue 3](https://vuejs.org/) (Script Setup)
-- **Build Tool**: [Vite](https://vitejs.dev/)
-- **Language**: [TypeScript](https://www.typescriptlang.org/)
-- **State Management**: [Pinia](https://pinia.vuejs.org/)
-- **Routing**: [Vue Router](https://router.vuejs.org/)
-- **Styling**: [Tailwind CSS v4](https://tailwindcss.com/)
-- **UI Components**: [Shadcn Vue](https://www.shadcn-vue.com/)
-- **Graph Visualization**: [Cytoscape.js](https://js.cytoscape.org/)
-- **Utilities**: [VueUse](https://vueuse.org/)
 
 ---
 

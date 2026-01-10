@@ -1,6 +1,6 @@
 # Nous
 
-**A Semantic Memory Layer for AI Agents**
+**A Knowledge Graph Memory & Semantic Layer for AI Agents**
 
 > "Commonly translated as 'mind' or 'intellect', the Greek word _nous_ is a key term in the philosophies of Plato, Aristotle and Plotinus."
 
@@ -19,7 +19,7 @@
 
 AI agents today suffer from two main limitations: **limited context windows** and **statelessness**. They often forget details from past interactions or cannot access a cohesive view of the world across different sessions.
 
-**Nous** solves this by providing a dedicated memory layer that combines:
+**Nous** solves this by providing a dedicated Knowledge Graph Memory layer that combines:
 
 1.  **Graph Database (Apache AGE):** To store structured relationships (entities, facts).
 2.  **Vector Database (Qdrant):** To store semantic embeddings for fuzzy search and retrieval.
