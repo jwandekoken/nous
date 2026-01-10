@@ -155,7 +155,10 @@ When you run a command like `pnpm turbo dev` or `pnpm turbo lint`, Turborepo rea
 
 ## 4. Production Deployment
 
-For production, we provide a separate Docker Compose configuration that runs the **full stack** (databases + API + web) in containers.
+For production, we provide a Docker Compose configuration with **two deployment modes**:
+
+1. **Standalone** - Includes a bundled Caddy reverse proxy (for fresh servers)
+2. **BYO Reverse Proxy** - Core services only (for servers with existing Caddy/Nginx)
 
 ### Setup
 
@@ -176,14 +179,36 @@ For production, we provide a separate Docker Compose configuration that runs the
 
    # Database credentials (change from defaults for production)
    POSTGRES_PASSWORD=your-secure-password
+
+   # For standalone mode with HTTPS (optional):
+   DOMAIN=yourdomain.com
    ```
 
-### Running Production
+### Option A: Standalone (with bundled reverse proxy)
+
+Use this if you don't have an existing reverse proxy. Caddy will handle SSL automatically.
 
 ```bash
-# Build and start all services
-docker compose -f docker-compose.prod.yml up -d --build
+# Build and start all services including reverse proxy
+docker compose -f docker-compose.prod.yml --profile with-proxy up -d --build
 
+# The app will be available at http://localhost (or https://yourdomain.com if DOMAIN is set)
+```
+
+### Option B: BYO Reverse Proxy
+
+Use this if you already have Caddy, Nginx, or Traefik running on your server.
+
+```bash
+# Build and start core services only (no reverse proxy)
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+Then connect your existing reverse proxy to the `nous-net` network. See [Connecting Your Reverse Proxy](#connecting-your-reverse-proxy) below.
+
+### Managing Services
+
+```bash
 # View logs
 docker compose -f docker-compose.prod.yml logs -f
 
@@ -194,26 +219,65 @@ docker compose -f docker-compose.prod.yml logs -f api
 docker compose -f docker-compose.prod.yml down
 ```
 
-The application will be available at `http://localhost` (port 80).
-
 ### Production Architecture
 
-| Service | Container    | Description                      |
-| ------- | ------------ | -------------------------------- |
-| db      | postgres_age | PostgreSQL with Apache AGE       |
-| qdrant  | qdrant       | Vector database                  |
-| api     | nous_api     | FastAPI backend                  |
-| web     | nous_web     | Vue.js frontend served via Caddy |
+| Service       | Container    | Description                                     |
+| ------------- | ------------ | ----------------------------------------------- |
+| db            | postgres_age | PostgreSQL with Apache AGE                      |
+| qdrant        | qdrant       | Vector database                                 |
+| api           | nous_api     | FastAPI backend (port 8000 internal)            |
+| web           | nous_web     | Vue.js SPA static server (port 80 internal)     |
+| reverse-proxy | nous_proxy   | Caddy reverse proxy (optional, standalone only) |
+
+### Connecting Your Reverse Proxy
+
+If using BYO mode, your reverse proxy needs to connect to the `nous-net` network to reach the `nous_api` and `nous_web` containers.
+
+**Step 1:** Add the network to your reverse proxy's `docker-compose.yml`:
+
+```yaml
+networks:
+  nous_nous-net:
+    external: true
+
+services:
+  caddy: # or nginx, traefik, etc.
+    networks:
+      - your-existing-network
+      - nous_nous-net
+```
+
+**Step 2:** Add routing rules to your reverse proxy config. Example for Caddy:
+
+```caddyfile
+nous.yourdomain.com {
+    handle /api/* {
+        reverse_proxy nous_api:8000
+    }
+    handle {
+        reverse_proxy nous_web:80
+    }
+}
+```
+
+See `deploy/examples/caddy-external.example` for a complete example with setup instructions.
+
+**Step 3:** Reload your reverse proxy:
+
+```bash
+docker exec your-caddy-container caddy reload --config /etc/caddy/Caddyfile
+```
 
 ### Quick Reference
 
-| Command                                                   | Description                             |
-| --------------------------------------------------------- | --------------------------------------- |
-| `docker compose up -d`                                    | Start databases (development)           |
-| `docker compose down`                                     | Stop databases                          |
-| `pnpm turbo dev`                                          | Start API + Web locally with hot-reload |
-| `docker compose -f docker-compose.prod.yml up -d --build` | Start full stack (production)           |
-| `docker compose -f docker-compose.prod.yml down`          | Stop full stack                         |
+| Command                                                                        | Description                             |
+| ------------------------------------------------------------------------------ | --------------------------------------- |
+| `docker compose up -d`                                                         | Start databases (development)           |
+| `docker compose down`                                                          | Stop databases                          |
+| `pnpm turbo dev`                                                               | Start API + Web locally with hot-reload |
+| `docker compose -f docker-compose.prod.yml up -d --build`                      | Start core services (BYO reverse proxy) |
+| `docker compose -f docker-compose.prod.yml --profile with-proxy up -d --build` | Start full stack with bundled Caddy     |
+| `docker compose -f docker-compose.prod.yml down`                               | Stop all services                       |
 
 ## 5. High-Level Directory Structure
 
@@ -225,16 +289,21 @@ nous/
 │   │   └── ...
 │   └── web/               # Vue.js (TypeScript) frontend
 │       ├── Dockerfile     # Production container image
-│       ├── Caddyfile      # Web server config (SPA routing + API proxy)
+│       ├── Caddyfile      # Internal SPA static file server config
 │       └── ...
+├── deploy/
+│   ├── caddy/
+│   │   └── Caddyfile      # Bundled reverse proxy config (standalone mode)
+│   └── examples/
+│       └── caddy-external.example  # Example for BYO reverse proxy setup
 ├── docker/
 │   └── postgres/          # Custom PostgreSQL + AGE image
-│   ├── docker-compose.yml     # Development: databases only
-│   ├── docker-compose.prod.yml # Production: full stack
-│   ├── .env.example           # Template for production environment variables
-│   ├── package.json           # Root Node.js dependencies (contains `turbo`)
-│   ├── pnpm-workspace.yaml    # Defines the `apps/*` as pnpm workspaces
-│   └── turbo.json             # Defines the monorepo task pipeline
+├── docker-compose.yml     # Development: databases only
+├── docker-compose.prod.yml # Production: full stack (with optional reverse proxy)
+├── .env.example           # Template for production environment variables
+├── package.json           # Root Node.js dependencies (contains `turbo`)
+├── pnpm-workspace.yaml    # Defines the `apps/*` as pnpm workspaces
+└── turbo.json             # Defines the monorepo task pipeline
 ```
 
 ## 6. Troubleshooting

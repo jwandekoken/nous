@@ -1,0 +1,22 @@
+# =============================================================================
+# Nous - Bundled Reverse Proxy Caddyfile
+# =============================================================================
+# Used by the optional reverse-proxy service (--profile with-proxy).
+# Handles SSL termination and routes traffic to api and web containers.
+#
+# Configuration:
+#   - DOMAIN=localhost       -> Serves on :80 without HTTPS
+#   - DOMAIN=yourdomain.com  -> Automatic HTTPS via Let's Encrypt
+# =============================================================================
+
+{$DOMAIN:localhost} {
+    # Route API requests to FastAPI backend
+    handle /api/* {
+        reverse_proxy api:8000
+    }
+
+    # Route all other requests to Vue.js SPA
+    handle {
+        reverse_proxy web:80
+    }
+}

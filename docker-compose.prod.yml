@@ -1,7 +1,16 @@
 # =============================================================================
 # Production Docker Compose - Full Stack
 # =============================================================================
-# Usage: docker compose -f docker-compose.prod.yml up -d --build
+#
+# Deployment Options:
+#
+# 1. BYO Reverse Proxy (connect your existing Caddy/Nginx to nous-net):
+#    docker compose -f docker-compose.prod.yml up -d --build
+#
+# 2. Standalone with bundled Caddy reverse proxy:
+#    docker compose -f docker-compose.prod.yml --profile with-proxy up -d --build
+#
+# See deploy/examples/ for reverse proxy configuration examples.
 # =============================================================================
 
 services:
@@ -104,13 +113,33 @@ services:
       start_period: 10s
 
   # ---------------------------------------------------------------------------
-  # Web - Vue.js Frontend (served via Caddy)
+  # Web - Vue.js Frontend (Internal SPA Static Server)
+  # ---------------------------------------------------------------------------
+  # Serves static files on port 80 (internal only). Does NOT handle SSL.
+  # An external reverse proxy (bundled or BYO) routes traffic here.
   # ---------------------------------------------------------------------------
   web:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
     container_name: nous_web
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - nous-net
+
+  # ---------------------------------------------------------------------------
+  # Reverse Proxy - Caddy (Optional, use --profile with-proxy)
+  # ---------------------------------------------------------------------------
+  # Only needed if you don't have an existing reverse proxy.
+  # Handles SSL termination, domain routing, and API/web proxying.
+  # ---------------------------------------------------------------------------
+  reverse-proxy:
+    profiles: ["with-proxy"]
+    image: caddy:alpine
+    container_name: nous_proxy
     restart: unless-stopped
     ports:
       - "80:80"
@@ -120,14 +149,14 @@ services:
       # Default: localhost (serves on :80 without HTTPS)
       - DOMAIN=${DOMAIN:-localhost}
     volumes:
-      # Persist Caddy certificates across restarts
+      - ./deploy/caddy/Caddyfile:/etc/caddy/Caddyfile
       - caddy-data:/data
       - caddy-config:/config
-    depends_on:
-      api:
-        condition: service_healthy
     networks:
       - nous-net
+    depends_on:
+      - api
+      - web
 
 volumes:
   postgres-data:
