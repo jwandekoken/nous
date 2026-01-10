@@ -109,8 +109,8 @@ services:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 10s
       timeout: 5s
-      retries: 3
-      start_period: 10s
+      retries: 5
+      start_period: 30s # Allow time for migrations to run
 
   # ---------------------------------------------------------------------------
   # Web - Vue.js Frontend (Internal SPA Static Server)

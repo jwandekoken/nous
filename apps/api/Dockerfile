@@ -25,6 +25,7 @@ RUN uv sync --frozen --no-install-project --no-dev
 COPY app/ ./app/
 COPY alembic.ini ./
 COPY migrations/ ./migrations/
+COPY entrypoint.sh ./
 
 # -----------------------------------------------------------------------------
 # Stage 2: Runtime - Minimal production image
@@ -48,6 +49,10 @@ COPY --from=builder /app/app ./app
 COPY --from=builder /app/alembic.ini ./
 COPY --from=builder /app/migrations ./migrations
 
+# Copy and make entrypoint executable
+COPY --from=builder /app/entrypoint.sh ./
+RUN chmod +x entrypoint.sh
+
 # Set ownership
 RUN chown -R appuser:appuser /app
 
@@ -64,6 +69,5 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
-# Run the application
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
-
+# Run entrypoint (handles migrations + starts app)
+CMD ["./entrypoint.sh"]
