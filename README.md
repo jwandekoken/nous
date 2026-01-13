@@ -109,7 +109,16 @@ Ensure you have the following tools installed:
     docker compose up -d
     ```
 
-2.  **Start the Development Servers:**
+2.  **Run Migrations:**
+    Initialize the database schema.
+
+    ```bash
+    cd apps/api
+    uv run alembic upgrade head
+    cd ../..
+    ```
+
+3.  **Start the Development Servers:**
     This runs both the API (`localhost:8000`) and the Web App (`localhost:5173`) in parallel.
 
     ```bash

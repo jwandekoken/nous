@@ -15,6 +15,7 @@ import type {
 export const createTenant = (request: CreateTenantRequest) => {
   return useApiFetch("/auth/tenants", {
     immediate: false,
+    updateDataOnError: true,
   })
     .post(request)
     .json<CreateTenantResponse>();

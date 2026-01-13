@@ -136,8 +136,9 @@ const handleCreate = async () => {
       isCreateDialogOpen.value = false;
       await loadTenants();
     } else {
+      const errorDetail = (data.value as any)?.detail;
       toast.error("Failed to create tenant", {
-        description: error.value?.message || "An error occurred",
+        description: errorDetail || error.value?.message || "An error occurred",
       });
     }
   } catch (err) {
