@@ -29,6 +29,13 @@ interface SelectedElement {
 const selectedElement = ref<SelectedElement | null>(null);
 const isPanelOpen = computed(() => selectedElement.value !== null);
 
+// --- Theme (for Cytoscape colors) ---
+const isDarkMode = ref(false);
+const syncThemeFromDom = () => {
+  isDarkMode.value = document.documentElement.classList.contains("dark");
+};
+let themeObserver: MutationObserver | null = null;
+
 // --- API Data ---
 const {
   data: entityData,
@@ -185,84 +192,120 @@ const cytoscapeElements = computed<ElementDefinition[]>(() => {
   return elements;
 });
 
+const buildCytoscapeStyle = (dark: boolean) => {
+  // Keep labels readable in both themes (and when node bg is light)
+  const nodeTextColor = dark ? "#ffffff" : "#0f172a"; // slate-900
+  const nodeTextOutlineColor = dark ? "#0b1220" : "#ffffff";
+  const nodeBorderColor = dark ? "#ffffff" : "#0f172a";
+  const canvasLabelBg = dark ? "#0b1220" : "#ffffff";
+  const edgeLabelColor = dark ? "#f5c842" : "#0f172a";
+
+  return [
+    {
+      selector: "node",
+      style: {
+        "background-color": "#999",
+        label: "data(label)",
+        color: nodeTextColor,
+        "text-outline-color": nodeTextOutlineColor,
+        "text-outline-width": 2,
+        "text-valign": "center",
+        "text-halign": "center",
+        "font-size": "10px",
+        "text-wrap": "wrap",
+        "text-max-width": "80px",
+        width: "60px",
+        height: "60px",
+        "border-width": 2,
+        "border-color": nodeBorderColor,
+      },
+    },
+    {
+      selector: "edge",
+      style: {
+        width: 2,
+        "line-color": "#bbb",
+        "target-arrow-color": "#bbb",
+        "target-arrow-shape": "triangle",
+        "curve-style": "bezier",
+        label: "data(label)",
+        color: edgeLabelColor,
+        "font-size": "8px",
+        "text-rotation": "autorotate",
+        "text-margin-y": -10,
+        "text-outline-color": nodeTextOutlineColor,
+        "text-outline-width": 2,
+        "text-background-color": canvasLabelBg,
+        "text-background-opacity": dark ? 0.6 : 0.75,
+        "text-background-padding": "2px",
+      },
+    },
+    // Node type styling
+    {
+      selector: "node[type='Entity']",
+      style: { "background-color": "#3b82f6" },
+    },
+    {
+      selector: "node[type='Fact']",
+      style: { "background-color": "#10b981" },
+    },
+    {
+      selector: "node[type='Identifier']",
+      style: { "background-color": "#f97316" },
+    },
+    {
+      selector: "node[type='Source']",
+      style: { "background-color": "#a855f7" },
+    },
+    // Selection styling
+    {
+      selector: "node:selected",
+      style: {
+        "border-width": 4,
+        "border-color": "#fbbf24",
+        "overlay-opacity": 0.2,
+        "overlay-color": "#fbbf24",
+      },
+    },
+    {
+      selector: "edge:selected",
+      style: {
+        width: 4,
+        "line-color": "#fbbf24",
+        "target-arrow-color": "#fbbf24",
+        "overlay-opacity": 0.2,
+        "overlay-color": "#fbbf24",
+      },
+    },
+  ];
+};
+
 // --- Cytoscape Initialization ---
 onMounted(() => {
+  syncThemeFromDom();
+
+  themeObserver = new MutationObserver(() => {
+    const prev = isDarkMode.value;
+    syncThemeFromDom();
+    // If Cytoscape is already mounted, update its stylesheet immediately
+    if (prev !== isDarkMode.value && cyInstance.value) {
+      cyInstance.value
+        .style()
+        .fromJson(buildCytoscapeStyle(isDarkMode.value) as any)
+        .update();
+    }
+  });
+  themeObserver.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ["class"],
+  });
+
   if (cyContainer.value) {
     cyInstance.value = cytoscape({
       container: cyContainer.value,
       elements: [],
 
-      style: [
-        {
-          selector: "node",
-          style: {
-            "background-color": "#999",
-            label: "data(label)",
-            color: "#ffffff",
-            "text-valign": "center",
-            "text-halign": "center",
-            "font-size": "10px",
-            "text-wrap": "wrap",
-            "text-max-width": "80px",
-            width: "60px",
-            height: "60px",
-            "border-width": 2,
-            "border-color": "#fff",
-          },
-        },
-        {
-          selector: "edge",
-          style: {
-            width: 2,
-            "line-color": "#bbb",
-            "target-arrow-color": "#bbb",
-            "target-arrow-shape": "triangle",
-            "curve-style": "bezier",
-            label: "data(label)",
-            color: "#f5c842",
-            "font-size": "8px",
-            "text-rotation": "autorotate",
-            "text-margin-y": -10,
-          },
-        },
-        // Node type styling
-        {
-          selector: "node[type='Entity']",
-          style: { "background-color": "#3b82f6" },
-        },
-        {
-          selector: "node[type='Fact']",
-          style: { "background-color": "#10b981" },
-        },
-        {
-          selector: "node[type='Identifier']",
-          style: { "background-color": "#f97316" },
-        },
-        {
-          selector: "node[type='Source']",
-          style: { "background-color": "#a855f7" },
-        },
-        // Selection styling
-        {
-          selector: "node:selected",
-          style: {
-            "border-width": 4,
-            "border-color": "#fbbf24",
-            "overlay-opacity": 0.2,
-            "overlay-color": "#fbbf24",
-          },
-        },
-        {
-          selector: "edge:selected",
-          style: {
-            width: 4,
-            "line-color": "#fbbf24",
-            "target-arrow-color": "#fbbf24",
-            "overlay-opacity": 0.2,
-            "overlay-color": "#fbbf24",
-          },
-        },
-      ],
+      style: buildCytoscapeStyle(isDarkMode.value) as any,
 
       layout: {
         name: "grid",
@@ -300,6 +343,8 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  themeObserver?.disconnect();
+  themeObserver = null;
   cyInstance.value?.destroy();
 });
 
