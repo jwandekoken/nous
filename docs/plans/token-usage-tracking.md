@@ -139,9 +139,30 @@ Notes:
 - Keeping token columns nullable is important because Gemini/LangChain may not always surface usage in a stable field.
 - We can add a second table later for rollups (`token_usage_daily`) if/when we need cheap queries.
 
+### Refactor: Rename `auth_session.py` to general-purpose session
+
+The current `apps/api/app/db/postgres/auth_session.py` is named for auth-specific use, but it's evolving into the **general Postgres session provider** for the app (used by auth, usage, and future features).
+
+**Rename the file and its contents:**
+
+| Current                                    | New                                   |
+| ------------------------------------------ | ------------------------------------- |
+| `apps/api/app/db/postgres/auth_session.py` | `apps/api/app/db/postgres/session.py` |
+| `init_auth_db_session()`                   | `init_db_session()`                   |
+| `get_auth_db_session()`                    | `get_db_session()`                    |
+
+**Update the module docstring** to reflect broader usage:
+
+> _"SQLAlchemy database session management for the Postgres database. Provides async sessions for all features requiring structured data persistence (auth, usage, etc.)."_
+
+**Update all import sites** that reference the old names (search for `auth_session` and `get_auth_db_session`).
+
+---
+
 ### ORM + migrations
 
-- Add a SQLAlchemy model in `apps/api/app/features/auth/models.py` (or create `app/features/usage/models.py` but ensure Alembic imports it in `migrations/env.py`).
+- Add a SQLAlchemy model in `apps/api/app/features/usage/models.py`.
+  - Ensure Alembic discovers the model by importing it in `migrations/env.py`.
 - Create a new Alembic migration under `apps/api/migrations/versions/`.
 
 ---
