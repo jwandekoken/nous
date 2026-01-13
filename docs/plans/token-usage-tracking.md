@@ -130,6 +130,10 @@ Suggested columns:
   - `input_chars` int nullable (fallback metric)
   - `output_chars` int nullable (fallback metric)
 
+- **cost**
+
+  - `cost_usd` decimal nullable (captured at write time based on current pricing)
+
 - **outcome**
   - `status` text (`"ok" | "error"`)
   - `error_type` text nullable
@@ -237,15 +241,131 @@ We can pass the operation down from the caller (QdrantRepository) or infer it (l
 
 ---
 
-## Optional API surface (for later visibility)
+## API surface (usage visibility)
 
-Add a new router `app/features/usage/router.py` under `/api/v1/usage` to expose:
+Add a new router `app/features/usage/router.py` under `/api/v1/usage`.
 
-- `GET /usage/tokens/summary?from=...&to=...`
-  - tenant-scoped totals grouped by day and/or operation
-- `GET /usage/tokens/events?...` (admin-only) for debugging
+### Endpoints (hybrid approach)
 
-Initial implementation can skip this and only store events, depending on urgency.
+Provide both summary and events endpoints for flexibility:
+
+| Endpoint             | Purpose                                | Access           |
+| -------------------- | -------------------------------------- | ---------------- |
+| `GET /usage/summary` | Dashboard view, aggregated stats       | All tenant users |
+| `GET /usage/events`  | Detailed audit trail, paginated events | All tenant users |
+
+#### `GET /usage/summary`
+
+Returns aggregated usage for the tenant, grouped by day and operation.
+
+**Query parameters:**
+
+| Parameter   | Type   | Required | Description                                    |
+| ----------- | ------ | -------- | ---------------------------------------------- |
+| `from`      | date   | Yes      | Start of period (inclusive), e.g. `2026-01-01` |
+| `to`        | date   | Yes      | End of period (inclusive), e.g. `2026-01-13`   |
+| `operation` | string | No       | Filter by operation                            |
+| `model`     | string | No       | Filter by model                                |
+
+**Response example:**
+
+```json
+{
+  "period": { "from": "2026-01-01", "to": "2026-01-13" },
+  "total_tokens": 1250000,
+  "total_cost_usd": 1.87,
+  "by_day": [
+    { "date": "2026-01-12", "tokens": 150000, "cost_usd": 0.22 },
+    { "date": "2026-01-13", "tokens": 80000, "cost_usd": 0.12 }
+  ],
+  "by_operation": [
+    { "operation": "fact_extract", "tokens": 900000, "cost_usd": 1.35 },
+    { "operation": "entity_summary", "tokens": 200000, "cost_usd": 0.3 },
+    { "operation": "semantic_memory_embed", "tokens": 150000, "cost_usd": 0.22 }
+  ]
+}
+```
+
+#### `GET /usage/events`
+
+Returns paginated raw usage events for the tenant.
+
+**Query parameters:**
+
+| Parameter    | Type   | Required | Description                            |
+| ------------ | ------ | -------- | -------------------------------------- |
+| `from`       | date   | Yes      | Start of period (inclusive)            |
+| `to`         | date   | Yes      | End of period (inclusive)              |
+| `operation`  | string | No       | Filter by operation                    |
+| `model`      | string | No       | Filter by model                        |
+| `actor_type` | string | No       | Filter by `api_key` or `user`          |
+| `status`     | string | No       | Filter by `ok` or `error`              |
+| `page`       | int    | No       | Page number (default: 1)               |
+| `limit`      | int    | No       | Items per page (default: 50, max: 100) |
+
+**Response example:**
+
+```json
+{
+  "pagination": { "page": 1, "limit": 50, "total": 1234 },
+  "events": [
+    {
+      "id": "uuid",
+      "created_at": "2026-01-13T10:23:45Z",
+      "operation": "fact_extract",
+      "model": "gemini-2.5-flash",
+      "prompt_tokens": 1200,
+      "completion_tokens": 350,
+      "total_tokens": 1550,
+      "cost_usd": 0.0023,
+      "status": "ok"
+    }
+  ]
+}
+```
+
+### Cost calculation strategy
+
+We store `cost_usd` at **write time** (when the event is recorded):
+
+- Capture the price based on current pricing config at the moment of the call
+- Ensures historical accuracy—costs don't change retroactively when pricing updates
+- Requires maintaining a pricing config (can be a simple dict in settings initially)
+
+Pricing config example (in settings or a dedicated table later):
+
+```python
+MODEL_PRICING = {
+    "gemini-2.5-flash": {
+        "prompt_per_1m_tokens": 0.075,
+        "completion_per_1m_tokens": 0.30,
+    },
+    "models/gemini-embedding-001": {
+        "per_1m_tokens": 0.00,  # free tier / batch pricing
+    },
+}
+```
+
+### Authorization
+
+| Role           | Access scope                                               |
+| -------------- | ---------------------------------------------------------- |
+| Tenant user    | All usage for their tenant                                 |
+| Tenant admin   | All usage for their tenant                                 |
+| Platform admin | All usage across all tenants (future, not implemented now) |
+
+All authenticated users of a tenant can view the full tenant usage—no per-actor filtering is enforced. This is intentional for transparency within teams.
+
+### UI considerations (future frontend)
+
+When building the usage dashboard:
+
+- **Table columns**: Date, Operation, Model, Tokens, Cost (USD), Status
+- **Sortable by**: date (default desc), tokens, cost
+- **Filters**: date range picker, operation dropdown, status toggle
+- **Export**: CSV download for the filtered view (nice-to-have)
+
+Initial implementation focuses on the API; frontend will be added later.
 
 ---
 
