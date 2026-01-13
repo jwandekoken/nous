@@ -51,7 +51,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title=settings.app_name,
         version=settings.app_version,
-        description="FastAPI application with modular architecture",
+        description="Nous API - The Knowledge Graph Memory Brain",
         lifespan=lifespan,
     )
 
