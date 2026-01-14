@@ -3,7 +3,7 @@ from typing import Protocol
 from fastapi import APIRouter, Depends
 
 from app.core.authentication import pwd_context
-from app.db.postgres.auth_session import get_auth_db_session
+from app.db.postgres.session import get_db_session
 from app.features.auth.dtos import (
     SetupAdminRequest,
     SetupAdminResponse,
@@ -44,7 +44,7 @@ class PasswordHasherImpl:
 async def get_check_setup_required_use_case() -> CheckSetupRequiredUseCase:
     """Dependency injection for the check setup required use case."""
     return CheckSetupRequiredUseCaseImpl(
-        get_db_session=get_auth_db_session,
+        get_db_session=get_db_session,
     )
 
 
@@ -52,7 +52,7 @@ async def get_setup_admin_use_case() -> SetupAdminUseCase:
     """Dependency injection for the setup admin use case."""
     return SetupAdminUseCaseImpl(
         password_hasher=PasswordHasherImpl(),
-        get_db_session=get_auth_db_session,
+        get_db_session=get_db_session,
     )
 
 

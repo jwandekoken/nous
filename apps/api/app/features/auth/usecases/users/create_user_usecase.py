@@ -35,7 +35,7 @@ class CreateUserUseCaseImpl:
             get_db_session: Function to get database session
         """
         self.password_hasher = password_hasher
-        self.get_auth_db_session = get_db_session
+        self.get_db_session = get_db_session
 
     async def execute(
         self, request: CreateUserRequest, admin_user: AuthenticatedUser
@@ -62,7 +62,7 @@ class CreateUserUseCaseImpl:
         # Hash password
         hashed_password = self.password_hasher.hash(request.password)
 
-        async with self.get_auth_db_session() as session:
+        async with self.get_db_session() as session:
             try:
                 # Create user
                 new_user = User(

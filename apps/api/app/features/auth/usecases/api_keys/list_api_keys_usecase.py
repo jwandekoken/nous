@@ -22,7 +22,7 @@ class ListApiKeysUseCaseImpl:
         Args:
             get_db_session: Function to get database session
         """
-        self.get_auth_db_session = get_db_session
+        self.get_db_session = get_db_session
 
     async def execute(self, tenant_id: UUID) -> ListApiKeysResponse:
         """List all API keys for a tenant.
@@ -33,7 +33,7 @@ class ListApiKeysUseCaseImpl:
         Returns:
             Response with list of API keys
         """
-        async with self.get_auth_db_session() as session:
+        async with self.get_db_session() as session:
             result = await session.execute(
                 select(ApiKey).where(ApiKey.tenant_id == tenant_id)
             )

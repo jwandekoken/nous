@@ -14,7 +14,7 @@ from app.core.authentication import (
     verify_auth_optional,
 )
 from app.core.schemas import AuthenticatedUser, UserRole
-from app.db.postgres.auth_session import get_auth_db_session
+from app.db.postgres.session import get_db_session
 from app.features.auth.models import ApiKey, Tenant
 
 
@@ -72,7 +72,7 @@ async def get_tenant_from_api_key(
 
     prefix, _ = key.split(".", 1)
 
-    async with get_auth_db_session() as session:
+    async with get_db_session() as session:
         result = await session.execute(
             select(ApiKey).where(
                 and_(
@@ -113,7 +113,7 @@ async def get_tenant_from_cookie(
     if not user or not user.tenant_id:
         return None
 
-    async with get_auth_db_session() as session:
+    async with get_db_session() as session:
         tenant = await session.get(Tenant, user.tenant_id)
         if not tenant:
             raise HTTPException(

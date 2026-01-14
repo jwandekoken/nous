@@ -10,7 +10,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
 from app.core.schemas import UserRole
-from app.db.postgres.auth_session import Base
+from app.db.postgres.session import Base
 
 
 class Tenant(Base):

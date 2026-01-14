@@ -24,7 +24,7 @@ class CheckSetupRequiredUseCaseImpl:
         Args:
             get_db_session: Function to get database session
         """
-        self.get_auth_db_session = get_db_session
+        self.get_db_session = get_db_session
 
     async def execute(self) -> SetupRequiredResponse:
         """Check if the application requires initial setup (no super admin exists).
@@ -32,7 +32,7 @@ class CheckSetupRequiredUseCaseImpl:
         Returns:
             Response indicating if setup is required
         """
-        async with self.get_auth_db_session() as session:
+        async with self.get_db_session() as session:
             query = (
                 select(func.count())
                 .select_from(User)

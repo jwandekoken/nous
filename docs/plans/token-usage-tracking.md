@@ -391,17 +391,87 @@ Initial implementation focuses on the API; frontend will be added later.
 
 ---
 
-## Implementation checklist (next steps)
+## Tasks
 
-- Create `app/features/usage/` module:
-  - context (`contextvars`)
-  - repository (auth DB)
-  - tracker service
-  - LangChain callback handler + usage extractor adapter
-- Add Alembic migration + model for `token_usage_events`
-- Add request-id middleware + tenant/actor context in `get_tenant_info`
-- Wire callbacks into:
-  - `LangChainFactExtractor.extract_facts`
-  - `LangChainDataSummarizer.summarize`
-  - `EmbeddingService` (+ optionally `QdrantRepository` passes operation)
-- Add tests
+### Part 0 — Baseline refactor (DB session naming)
+
+- [x] Rename `apps/api/app/db/postgres/auth_session.py` → `apps/api/app/db/postgres/session.py`
+- [x] Rename exported functions:
+  - [x] `init_auth_db_session()` → `init_db_session()`
+  - [x] `get_auth_db_session()` → `get_db_session()`
+- [x] Update all import sites referencing the old names
+- [x] Update module docstring to reflect general-purpose DB usage
+
+### Part 1 — Data model + migration (append-only usage events)
+
+- [x] Add SQLAlchemy model for `token_usage_events` in `apps/api/app/features/usage/models.py`
+- [x] Ensure Alembic discovers the model (import in `apps/api/migrations/env.py` if needed)
+- [x] Add Alembic migration creating `token_usage_events` with indexes:
+  - [x] `(tenant_id, created_at)`
+  - [x] `(request_id)`
+  - [x] `(operation, created_at)` (optional but useful for drilldowns)
+
+### Part 2 — Request-scoped context propagation
+
+- [ ] Add request-id + timing middleware (prefer a dedicated `app/core/middleware.py`, wired in `apps/api/app/main.py`)
+  - [ ] Generate `request_id` UUID
+  - [ ] Store `request_id` in a contextvar
+  - [ ] Add `X-Request-Id` response header (optional but helpful)
+- [ ] Populate tenant + actor context in `app/core/authorization.py:get_tenant_info()` (or a wrapper dependency)
+  - [ ] Set `tenant_id`, `graph_name`
+  - [ ] Set `actor_type` (`user` / `api_key` / `unknown`)
+  - [ ] Set `actor_id` when available (optional for v1)
+
+### Part 3 — Usage feature module (core primitives)
+
+- [ ] Create `apps/api/app/features/usage/` module with:
+  - [ ] `context.py`: contextvars + getters/setters for `request_id`, `tenant_id`, actor, endpoint, etc.
+  - [ ] `usage_repository.py`: Postgres-backed writer using `get_db_session()`
+  - [ ] `tracker.py`: `TokenUsageTracker` interface + `NoopTokenUsageTracker`
+  - [ ] `pricing.py` (or settings-backed): model pricing config + `cost_usd` computation helpers
+- [ ] Add a `Settings` flag (e.g. `token_usage_enabled`) and wire it so the tracker resolves to Noop when disabled
+
+### Part 4 — LangChain callback handler + usage extraction adapter
+
+- [ ] Implement `extract_usage_from_langchain_result(result) -> TokenCounts | None`
+  - [ ] Support multiple known shapes (`llm_output`, `usage_metadata`, `response_metadata`, etc.)
+  - [ ] Fallback to `input_chars` / `output_chars` when tokens are unavailable
+- [ ] Implement `TokenUsageCallbackHandler` (async) that:
+  - [ ] Captures model/provider metadata
+  - [ ] On LLM end/error, records an event via `TokenUsageTracker.record_chat(...)`
+  - [ ] Attaches request/tenant/actor context from contextvars
+
+### Part 5 — Wire tracking into existing graph call sites (minimal behavior change)
+
+- [ ] Fact extraction:
+  - [ ] Update `LangChainFactExtractor.extract_facts()` to pass callbacks into `chain.ainvoke(..., config={"callbacks": [...]})`
+  - [ ] Use `operation="fact_extract"` and `feature="graph"`
+- [ ] Entity summary:
+  - [ ] Update `LangChainDataSummarizer.summarize()` similarly with `operation="entity_summary"`
+- [ ] Embeddings:
+  - [ ] Wrap `EmbeddingService.embed_text()` / `embed_texts()` to record embedding usage events
+  - [ ] Ensure caller passes `operation` explicitly:
+    - [ ] `QdrantRepository.add_semantic_memory()` → `semantic_memory_embed`
+    - [ ] `QdrantRepository.search_semantic_memory()` → `rag_query_embed`
+
+### Part 6 — Usage API endpoints (read-only)
+
+- [ ] Create `apps/api/app/features/usage/router.py` under `/api/v1/usage`
+- [ ] Implement `GET /usage/events` (paginated) for tenant
+- [ ] Implement `GET /usage/summary` (aggregated by day + operation) for tenant
+- [ ] Add authorization rules consistent with existing tenant auth (all tenant users can view tenant usage)
+
+### Part 7 — Tests
+
+- [ ] Unit tests:
+  - [ ] `extract_usage_from_langchain_result` parses multiple shapes and handles missing usage
+  - [ ] Callback handler records events with correct status + computed cost when pricing exists
+- [ ] Integration tests (fast):
+  - [ ] Mock `chain.ainvoke` responses containing usage metadata
+  - [ ] Assert `token_usage_events` rows persisted with correct tenant attribution/context
+
+### Part 8 — Rollout / ops polish
+
+- [ ] Default `token_usage_enabled=false`
+- [ ] Add minimal logging for failures to record usage (do not fail main request)
+- [ ] Verify overhead is negligible when disabled (Noop path)

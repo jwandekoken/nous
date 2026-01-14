@@ -64,7 +64,7 @@ class LoginUseCaseImpl:
         self.password_verifier = password_verifier
         self.token_creator = token_creator
         self.refresh_token_creator = refresh_token_creator
-        self.get_auth_db_session = get_db_session
+        self.get_db_session = get_db_session
 
     async def execute(self, email: str, password: str) -> LoginResponse:
         """Authenticate user and return JWT access token.
@@ -79,7 +79,7 @@ class LoginUseCaseImpl:
         Raises:
             HTTPException: With appropriate status codes for authentication errors
         """
-        async with self.get_auth_db_session() as session:
+        async with self.get_db_session() as session:
             # Find user by email
             result = await session.execute(select(User).where(User.email == email))
             user: User | None = result.scalar_one_or_none()

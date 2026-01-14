@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from app.core.authentication import get_password_hash
 from app.core.schemas import UserRole
 from app.core.settings import get_settings
-from app.db.postgres.auth_session import Base
+from app.db.postgres.session import Base
 from app.features.auth.models import User
 
 

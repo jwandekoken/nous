@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Query, status
 from app.core.authentication import pwd_context
 from app.core.authorization import is_tenant_admin
 from app.core.schemas import AuthenticatedUser
-from app.db.postgres.auth_session import get_auth_db_session
+from app.db.postgres.session import get_db_session
 from app.features.auth.dtos import (
     CreateUserRequest,
     CreateUserResponse,
@@ -88,21 +88,21 @@ async def get_create_user_use_case():
     """Dependency injection for the create user use case."""
     return CreateUserUseCaseImpl(
         password_hasher=PasswordHasherImpl(),
-        get_db_session=get_auth_db_session,
+        get_db_session=get_db_session,
     )
 
 
 async def get_list_users_use_case():
     """Dependency injection for the list users use case."""
     return ListUsersUseCaseImpl(
-        get_db_session=get_auth_db_session,
+        get_db_session=get_db_session,
     )
 
 
 async def get_get_user_use_case():
     """Dependency injection for the get user use case."""
     return GetUserUseCaseImpl(
-        get_db_session=get_auth_db_session,
+        get_db_session=get_db_session,
     )
 
 
@@ -110,14 +110,14 @@ async def get_update_user_use_case():
     """Dependency injection for the update user use case."""
     return UpdateUserUseCaseImpl(
         password_hasher=PasswordHasherImpl(),
-        get_db_session=get_auth_db_session,
+        get_db_session=get_db_session,
     )
 
 
 async def get_delete_user_use_case():
     """Dependency injection for the delete user use case."""
     return DeleteUserUseCaseImpl(
-        get_db_session=get_auth_db_session,
+        get_db_session=get_db_session,
     )
 
 

@@ -8,8 +8,8 @@ from fastapi import APIRouter, Depends, Query
 from app.core.authentication import pwd_context
 from app.core.authorization import is_super_admin
 from app.core.schemas import AuthenticatedUser
-from app.db.postgres.auth_session import get_auth_db_session
 from app.db.postgres.graph_connection import get_graph_db_pool
+from app.db.postgres.session import get_db_session
 from app.features.auth.dtos import (
     CreateTenantRequest,
     CreateTenantResponse,
@@ -79,7 +79,7 @@ async def get_signup_tenant_use_case() -> SignupTenantUseCase:
     """Dependency injection for the signup tenant use case."""
     return SignupTenantUseCaseImpl(
         password_hasher=PasswordHasherImpl(),
-        get_db_session=get_auth_db_session,
+        get_db_session=get_db_session,
         get_db_pool=get_graph_db_pool,
     )
 
@@ -87,14 +87,14 @@ async def get_signup_tenant_use_case() -> SignupTenantUseCase:
 async def get_update_tenant_use_case() -> UpdateTenantUseCase:
     """Dependency injection for the update tenant use case."""
     return UpdateTenantUseCaseImpl(
-        get_db_session=get_auth_db_session,
+        get_db_session=get_db_session,
     )
 
 
 async def get_delete_tenant_use_case() -> DeleteTenantUseCase:
     """Dependency injection for the delete tenant use case."""
     return DeleteTenantUseCaseImpl(
-        get_db_session=get_auth_db_session,
+        get_db_session=get_db_session,
         get_db_pool=get_graph_db_pool,
     )
 
@@ -102,7 +102,7 @@ async def get_delete_tenant_use_case() -> DeleteTenantUseCase:
 async def get_list_tenants_use_case() -> ListTenantsUseCase:
     """Dependency injection for the list tenants use case."""
     return ListTenantsUseCaseImpl(
-        get_db_session=get_auth_db_session,
+        get_db_session=get_db_session,
     )
 
 

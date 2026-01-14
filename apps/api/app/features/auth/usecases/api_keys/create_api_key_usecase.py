@@ -27,7 +27,7 @@ class CreateApiKeyUseCaseImpl:
         Args:
             get_db_session: Function to get database session
         """
-        self.get_auth_db_session = get_db_session
+        self.get_db_session = get_db_session
 
     async def execute(
         self, request: CreateApiKeyRequest, tenant_id: UUID
@@ -57,7 +57,7 @@ class CreateApiKeyUseCaseImpl:
         # Hash the key for storage
         hashed_key = get_password_hash(full_key)
 
-        async with self.get_auth_db_session() as session:
+        async with self.get_db_session() as session:
             async with session.begin():
                 try:
                     # Create API key record
