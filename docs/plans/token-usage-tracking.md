@@ -413,14 +413,14 @@ Initial implementation focuses on the API; frontend will be added later.
 
 ### Part 2 — Request-scoped context propagation
 
-- [ ] Add request-id + timing middleware (prefer a dedicated `app/core/middleware.py`, wired in `apps/api/app/main.py`)
-  - [ ] Generate `request_id` UUID
-  - [ ] Store `request_id` in a contextvar
-  - [ ] Add `X-Request-Id` response header (optional but helpful)
-- [ ] Populate tenant + actor context in `app/core/authorization.py:get_tenant_info()` (or a wrapper dependency)
-  - [ ] Set `tenant_id`, `graph_name`
-  - [ ] Set `actor_type` (`user` / `api_key` / `unknown`)
-  - [ ] Set `actor_id` when available (optional for v1)
+- [x] Add request-id + timing middleware (prefer a dedicated `app/core/middleware.py`, wired in `apps/api/app/main.py`)
+  - [x] Generate `request_id` UUID
+  - [x] Store `request_id` in a contextvar
+  - [x] Add `X-Request-Id` response header (optional but helpful)
+- [x] Populate tenant + actor context in `app/core/authorization.py:get_tenant_info()` (or a wrapper dependency)
+  - [x] Set `tenant_id`, `graph_name`
+  - [x] Set `actor_type` (`user` / `api_key` / `unknown`)
+  - [x] Set `actor_id` when available (optional for v1)
 
 ### Part 3 — Usage feature module (core primitives)
 

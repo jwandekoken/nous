@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.core.middleware import request_context_middleware
 from app.core.settings import get_settings
 from app.db.postgres.graph_connection import close_graph_db_pool, get_graph_db_pool
 from app.db.postgres.session import init_db_session
@@ -54,6 +55,9 @@ def create_app() -> FastAPI:
         description="Nous API - The Knowledge Graph Memory Brain",
         lifespan=lifespan,
     )
+
+    # Request context middleware (request_id, timing, etc.)
+    _ = app.middleware("http")(request_context_middleware)
 
     # Add CORS middleware
     app.add_middleware(
