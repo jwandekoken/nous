@@ -95,6 +95,11 @@ class Settings(BaseSettings):
         default="agent_memory", description="Qdrant collection name for agent memory"
     )
 
+    # Usage tracking
+    token_usage_enabled: bool = Field(
+        default=False, description="Enable token usage event persistence"
+    )
+
 
 @lru_cache
 def get_settings() -> Settings:
