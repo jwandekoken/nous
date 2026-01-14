@@ -424,12 +424,13 @@ Initial implementation focuses on the API; frontend will be added later.
 
 ### Part 3 — Usage feature module (core primitives)
 
-- [ ] Create `apps/api/app/features/usage/` module with:
-  - [ ] `context.py`: contextvars + getters/setters for `request_id`, `tenant_id`, actor, endpoint, etc.
-  - [ ] `usage_repository.py`: Postgres-backed writer using `get_db_session()`
-  - [ ] `tracker.py`: `TokenUsageTracker` interface + `NoopTokenUsageTracker`
-  - [ ] `pricing.py` (or settings-backed): model pricing config + `cost_usd` computation helpers
-- [ ] Add a `Settings` flag (e.g. `token_usage_enabled`) and wire it so the tracker resolves to Noop when disabled
+- [x] Create `apps/api/app/features/usage/` module with:
+  - [x] `context.py`: contextvars + getters/setters for `request_id`, `tenant_id`, actor, endpoint, etc.
+  - [x] `usage_repository.py`: Postgres-backed writer using `get_db_session()`
+  - [x] `tracker.py`: `TokenUsageTracker` interface + `NoopTokenUsageTracker`
+  - [x] `pricing.py` (or settings-backed): model pricing config + `cost_usd` computation helpers
+- [x] Add a `Settings` flag (e.g. `token_usage_enabled`) and wire it so the tracker resolves to Noop when disabled
+- [ ] Add model pricing config (e.g. `model_pricing` / `MODEL_PRICING` in settings) for cost calculation
 
 ### Part 4 — LangChain callback handler + usage extraction adapter
 
