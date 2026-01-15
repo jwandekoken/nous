@@ -444,16 +444,23 @@ Initial implementation focuses on the API; frontend will be added later.
 
 ### Part 5 — Wire tracking into existing graph call sites (minimal behavior change)
 
-- [ ] Fact extraction:
-  - [ ] Update `LangChainFactExtractor.extract_facts()` to pass callbacks into `chain.ainvoke(..., config={"callbacks": [...]})`
-  - [ ] Use `operation="fact_extract"` and `feature="graph"`
-- [ ] Entity summary:
-  - [ ] Update `LangChainDataSummarizer.summarize()` similarly with `operation="entity_summary"`
-- [ ] Embeddings:
-  - [ ] Wrap `EmbeddingService.embed_text()` / `embed_texts()` to record embedding usage events
-  - [ ] Ensure caller passes `operation` explicitly:
-    - [ ] `QdrantRepository.add_semantic_memory()` → `semantic_memory_embed`
-    - [ ] `QdrantRepository.search_semantic_memory()` → `rag_query_embed`
+- [x] Fact extraction:
+  - [x] Update `LangChainFactExtractor.extract_facts()` to pass callbacks into `chain.ainvoke(..., config={"callbacks": [...]})`
+  - [x] Use `operation="fact_extract"` and `feature="graph"`
+- [x] Entity summary:
+  - [x] Update `LangChainDataSummarizer.summarize()` similarly with `operation="entity_summary"`
+- [x] Embeddings:
+  - [x] Wrap `EmbeddingService.embed_text()` / `embed_texts()` to record embedding usage events
+    - Finding: LangChain's `GoogleGenerativeAIEmbeddings` returns only the
+      embedding vector; the response object exposes `_pb` but not
+      `usage_metadata` (confirmed via live call in tests).
+    - Problem: without provider token usage, we cannot compute embedding costs.
+    - Requirement: update the embedding implementation to call the Google
+      client directly (or otherwise surface `usage_metadata`) so we can record
+      token-based cost for embeddings.
+  - [x] Ensure caller passes `operation` explicitly:
+    - [x] `QdrantRepository.add_semantic_memory()` → `semantic_memory_embed`
+    - [x] `QdrantRepository.search_semantic_memory()` → `rag_query_embed`
 
 ### Part 6 — Usage API endpoints (read-only)
 

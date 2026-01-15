@@ -3,13 +3,15 @@
 import json
 from typing import Any, cast
 
+from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.runnables import Runnable
+from langchain_core.runnables import Runnable, RunnableConfig
 from langchain_google_genai import ChatGoogleGenerativeAI
 from pydantic import BaseModel
 
 from app.core.settings import Settings
 from app.features.graph.dtos.knowledge_dto import GetEntityResponse
+from app.features.usage.langchain_callback import TokenUsageCallbackHandler
 
 
 class SummaryOutput(BaseModel):
@@ -103,9 +105,21 @@ Generate a natural language summary that a Large Language Model can easily under
         human_message += f"Here is the entity data to summarize:\n\n{entity_json}"
 
         # Call the LLM chain
+        callbacks: list[BaseCallbackHandler] = [
+            TokenUsageCallbackHandler(
+                feature="graph",
+                operation="entity_summary",
+                provider="google",
+                model="gemini-2.5-flash",
+            )
+        ]
+        config: RunnableConfig = {"callbacks": callbacks}
         response: SummaryOutput = cast(
             SummaryOutput,
-            await self.chain.ainvoke({"entity_data": human_message}),
+            await self.chain.ainvoke(
+                {"entity_data": human_message},
+                config=config,
+            ),
         )
 
         return response.summary
