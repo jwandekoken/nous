@@ -430,17 +430,17 @@ Initial implementation focuses on the API; frontend will be added later.
   - [x] `tracker.py`: `TokenUsageTracker` interface + `NoopTokenUsageTracker`
   - [x] `pricing.py` (or settings-backed): model pricing config + `cost_usd` computation helpers
 - [x] Add a `Settings` flag (e.g. `token_usage_enabled`) and wire it so the tracker resolves to Noop when disabled
-- [ ] Add model pricing config (e.g. `model_pricing` / `MODEL_PRICING` in settings) for cost calculation
+- [x] Add model pricing config (e.g. `model_pricing` / `MODEL_PRICING` in settings) for cost calculationq
 
 ### Part 4 — LangChain callback handler + usage extraction adapter
 
-- [ ] Implement `extract_usage_from_langchain_result(result) -> TokenCounts | None`
-  - [ ] Support multiple known shapes (`llm_output`, `usage_metadata`, `response_metadata`, etc.)
-  - [ ] Fallback to `input_chars` / `output_chars` when tokens are unavailable
-- [ ] Implement `TokenUsageCallbackHandler` (async) that:
-  - [ ] Captures model/provider metadata
-  - [ ] On LLM end/error, records an event via `TokenUsageTracker.record_chat(...)`
-  - [ ] Attaches request/tenant/actor context from contextvars
+- [x] Implement `extract_usage_from_langchain_result(result) -> TokenCounts | None`
+  - [x] Support multiple known shapes (`llm_output`, `usage_metadata`, `response_metadata`, etc.)
+  - [x] Fallback to `input_chars` / `output_chars` when tokens are unavailable
+- [x] Implement `TokenUsageCallbackHandler` (async) that:
+  - [x] Captures model/provider metadata
+  - [x] On LLM end/error, records an event via `TokenUsageTracker.record_chat(...)`
+  - [x] Attaches request/tenant/actor context from contextvars
 
 ### Part 5 — Wire tracking into existing graph call sites (minimal behavior change)
 

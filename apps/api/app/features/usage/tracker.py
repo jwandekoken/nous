@@ -47,9 +47,59 @@ class TokenUsageRecord:
 class TokenUsageTracker(Protocol):
     async def record(self, record: TokenUsageRecord) -> None: ...
 
+    async def record_chat(
+        self,
+        *,
+        feature: str,
+        operation: str,
+        provider: str | None,
+        model: str | None,
+        prompt_tokens: int | None,
+        completion_tokens: int | None,
+        total_tokens: int | None,
+        input_chars: int | None,
+        output_chars: int | None,
+        cost_usd: Decimal | None,
+        status: str,
+        error_type: str | None,
+    ) -> None: ...
+
 
 class NoopTokenUsageTracker:
     async def record(self, record: TokenUsageRecord) -> None:  # noqa: ARG002
+        _ = record
+        return
+
+    async def record_chat(
+        self,
+        *,
+        feature: str,
+        operation: str,
+        provider: str | None,
+        model: str | None,
+        prompt_tokens: int | None,
+        completion_tokens: int | None,
+        total_tokens: int | None,
+        input_chars: int | None,
+        output_chars: int | None,
+        cost_usd: Decimal | None,
+        status: str,
+        error_type: str | None,
+    ) -> None:
+        _ = (
+            feature,
+            operation,
+            provider,
+            model,
+            prompt_tokens,
+            completion_tokens,
+            total_tokens,
+            input_chars,
+            output_chars,
+            cost_usd,
+            status,
+            error_type,
+        )
         return
 
 
@@ -62,8 +112,10 @@ class PostgresTokenUsageTracker:
         ] = get_db_session,
         usage_repository: UsageRepository | None = None,
     ) -> None:
-        self._get_session = get_session
-        self._repo = usage_repository or UsageRepository()
+        self._get_session: Callable[[], AbstractAsyncContextManager[AsyncSession]] = (
+            get_session
+        )
+        self._repo: UsageRepository = usage_repository or UsageRepository()
 
     async def record(self, record: TokenUsageRecord) -> None:
         request_id = get_request_id()
@@ -96,6 +148,39 @@ class PostgresTokenUsageTracker:
         async with self._get_session() as session:
             await self._repo.insert_token_usage_event(session=session, event=event)
             await session.commit()
+
+    async def record_chat(
+        self,
+        *,
+        feature: str,
+        operation: str,
+        provider: str | None,
+        model: str | None,
+        prompt_tokens: int | None,
+        completion_tokens: int | None,
+        total_tokens: int | None,
+        input_chars: int | None,
+        output_chars: int | None,
+        cost_usd: Decimal | None,
+        status: str,
+        error_type: str | None,
+    ) -> None:
+        await self.record(
+            TokenUsageRecord(
+                feature=feature,
+                operation=operation,
+                provider=provider,
+                model=model,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                total_tokens=total_tokens,
+                input_chars=input_chars,
+                output_chars=output_chars,
+                cost_usd=cost_usd,
+                status=status,
+                error_type=error_type,
+            )
+        )
 
 
 def get_token_usage_tracker() -> TokenUsageTracker:
