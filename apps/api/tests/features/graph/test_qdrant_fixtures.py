@@ -56,10 +56,9 @@ class TestEmbeddingServiceFixture:
         self, embedding_service: EmbeddingService
     ) -> None:
         """Test that embeddings have correct dimension."""
-        embedding = await embedding_service.embed_text(
+        result = await embedding_service.embed_text(
             "test text",
-            feature="graph",
             operation="semantic_memory_embed",
         )
         # Check dimension matches what the service is configured for
-        assert len(embedding) == embedding_service.embedding_dim
+        assert len(result.embedding) == embedding_service.embedding_dim

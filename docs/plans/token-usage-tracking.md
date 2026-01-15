@@ -458,6 +458,11 @@ Initial implementation focuses on the API; frontend will be added later.
     - Requirement: update the embedding implementation to call the Google
       client directly (or otherwise surface `usage_metadata`) so we can record
       token-based cost for embeddings.
+    - **Resolution**: Refactored `EmbeddingService` to use `google-genai` SDK
+      directly via `genai.Client.aio.models.embed_content()`. Added
+      `EmbeddingResult`/`EmbeddingBatchResult` dataclasses with
+      `EmbeddingUsageMetadata`. Integrated `TokenUsageTracker` to record
+      embedding usage events automatically.
   - [x] Ensure caller passes `operation` explicitly:
     - [x] `QdrantRepository.add_semantic_memory()` → `semantic_memory_embed`
     - [x] `QdrantRepository.search_semantic_memory()` → `rag_query_embed`
