@@ -13,6 +13,7 @@ from app.db.postgres.session import init_db_session
 from app.db.qdrant import close_qdrant_client, get_qdrant_client, init_qdrant_db
 from app.features.auth.router import router as auth_router
 from app.features.graph.router import router as graph_router
+from app.features.usage.router import router as usage_router
 
 
 @asynccontextmanager
@@ -71,6 +72,7 @@ def create_app() -> FastAPI:
     # Include routers
     app.include_router(auth_router, prefix="/api/v1")
     app.include_router(graph_router, prefix="/api/v1")
+    app.include_router(usage_router, prefix="/api/v1")
 
     @app.get("/health")
     async def health_check() -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]

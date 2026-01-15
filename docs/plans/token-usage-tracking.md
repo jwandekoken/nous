@@ -469,10 +469,10 @@ Initial implementation focuses on the API; frontend will be added later.
 
 ### Part 6 — Usage API endpoints (read-only)
 
-- [ ] Create `apps/api/app/features/usage/router.py` under `/api/v1/usage`
-- [ ] Implement `GET /usage/events` (paginated) for tenant
-- [ ] Implement `GET /usage/summary` (aggregated by day + operation) for tenant
-- [ ] Add authorization rules consistent with existing tenant auth (all tenant users can view tenant usage)
+- [x] Create `apps/api/app/features/usage/router.py` under `/api/v1/usage`
+- [x] Implement `GET /usage/events` (paginated) for tenant
+- [x] Implement `GET /usage/summary` (aggregated by day + operation) for tenant
+- [x] Add authorization rules consistent with existing tenant auth (all tenant users can view tenant usage)
 
 ### Part 7 — Tests
 
