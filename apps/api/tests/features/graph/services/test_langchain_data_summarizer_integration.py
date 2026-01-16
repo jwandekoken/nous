@@ -5,6 +5,8 @@ from uuid import uuid4
 
 import pytest
 
+pytestmark = pytest.mark.integration
+
 from app.features.graph.dtos.knowledge_dto import (
     EntityDto,
     FactDto,

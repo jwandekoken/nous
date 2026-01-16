@@ -6,6 +6,9 @@ from uuid import uuid4
 
 import pytest
 import pytest_asyncio
+
+pytestmark = pytest.mark.integration
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.features.auth.models import Tenant

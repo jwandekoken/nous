@@ -9,6 +9,8 @@ from unittest.mock import patch
 
 import pytest
 
+pytestmark = pytest.mark.integration
+
 from app.features.graph.dtos.knowledge_dto import ExtractedFactDto, IdentifierDto
 from app.features.graph.services.langchain_fact_extractor import LangChainFactExtractor
 

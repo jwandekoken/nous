@@ -11,6 +11,8 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
+pytestmark = pytest.mark.integration
+
 from app.core.settings import Settings
 from app.features.graph.services.embedding_service import (
     EmbeddingBatchResult,

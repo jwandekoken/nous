@@ -10,6 +10,9 @@ from collections.abc import AsyncGenerator
 
 import asyncpg
 import pytest
+
+pytestmark = pytest.mark.integration
+
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from qdrant_client import AsyncQdrantClient

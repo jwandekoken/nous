@@ -56,6 +56,11 @@ python_classes = ["Test*"]
 python_functions = ["test_*"]
 asyncio_mode = "auto"
 addopts = "-v --tb=short"
+markers = [
+    "integration: tests that require external services (databases, APIs, Qdrant)",
+    "unit: isolated tests with mocked dependencies",
+    "slow: tests that take a long time to run",
+]
 
 [tool.ruff]
 # Same as Black

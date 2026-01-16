@@ -11,6 +11,8 @@ covering:
 import uuid
 
 import pytest
+
+pytestmark = pytest.mark.integration
 from qdrant_client import AsyncQdrantClient
 
 from app.features.graph.models import Fact
