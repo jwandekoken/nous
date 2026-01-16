@@ -1,6 +1,7 @@
 """Tests for the LangChainDataSummarizer service."""
 
 from datetime import datetime, timezone
+from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 import pytest
@@ -191,3 +192,59 @@ async def test_summarize_with_french_language(summarizer, sample_entity_data):
     # Verify we get a non-empty string
     assert isinstance(summary, str)
     assert len(summary) > 0
+
+
+class TestLangChainDataSummarizerUsageTracking:
+    """Tests for usage tracking in LangChainDataSummarizer."""
+
+    @pytest.mark.asyncio
+    async def test_summarize_calls_usage_tracker_on_success(
+        self, sample_entity_data: GetEntityResponse
+    ):
+        """Verify that summarization invokes the usage callback handler."""
+        mock_tracker = AsyncMock()
+
+        with patch(
+            "app.features.usage.langchain_callback.get_token_usage_tracker",
+            return_value=mock_tracker,
+        ):
+            summarizer = LangChainDataSummarizer()
+            await summarizer.summarize(sample_entity_data)
+
+            # Verify tracker was called
+            assert mock_tracker.record_chat.called
+            call_kwargs = mock_tracker.record_chat.call_args.kwargs
+            assert call_kwargs["feature"] == "graph"
+            assert call_kwargs["operation"] == "entity_summary"
+
+    @pytest.mark.asyncio
+    async def test_summarize_records_token_counts_when_available(
+        self, sample_entity_data: GetEntityResponse
+    ):
+        """Verify that token counts are recorded when available from Gemini."""
+        mock_tracker = AsyncMock()
+
+        with patch(
+            "app.features.usage.langchain_callback.get_token_usage_tracker",
+            return_value=mock_tracker,
+        ):
+            summarizer = LangChainDataSummarizer()
+            await summarizer.summarize(sample_entity_data)
+
+            call_kwargs = mock_tracker.record_chat.call_args.kwargs
+
+            # Verify input/output chars are captured
+            assert call_kwargs["input_chars"] is not None
+            assert call_kwargs["input_chars"] > 0
+
+            # Verify token counts from Gemini
+            assert call_kwargs["prompt_tokens"] is not None
+            assert call_kwargs["prompt_tokens"] > 0
+            assert call_kwargs["completion_tokens"] is not None
+            assert call_kwargs["completion_tokens"] > 0
+            assert call_kwargs["total_tokens"] is not None
+            assert call_kwargs["total_tokens"] > 0
+
+            # Verify cost is computed (since gemini-2.5-flash is in pricing config)
+            assert call_kwargs["cost_usd"] is not None
+            assert call_kwargs["cost_usd"] > 0

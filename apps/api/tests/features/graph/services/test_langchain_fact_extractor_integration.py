@@ -5,7 +5,7 @@ These tests actually call the Gemini LLM API, so they require:
 - Internet connection for API calls
 """
 
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -199,3 +199,73 @@ class TestLangChainFactExtractor:
             assert fact.type
             assert fact.verb
             assert 0.0 <= fact.confidence_score <= 1.0
+
+
+class TestLangChainFactExtractorUsageTracking:
+    """Tests for usage tracking in LangChainFactExtractor."""
+
+    @pytest.fixture
+    def extractor(self) -> LangChainFactExtractor:
+        """Create a LangChainFactExtractor instance for testing."""
+        return LangChainFactExtractor()
+
+    @pytest.mark.asyncio
+    async def test_extract_facts_calls_usage_tracker_on_success(
+        self, extractor: LangChainFactExtractor
+    ):
+        """Verify that fact extraction invokes the usage callback handler."""
+        _ = extractor  # unused, we create a fresh one inside the patch
+        mock_tracker = AsyncMock()
+
+        with patch(
+            "app.features.usage.langchain_callback.get_token_usage_tracker",
+            return_value=mock_tracker,
+        ):
+            # Create a fresh extractor so the callback uses our mock
+            fresh_extractor = LangChainFactExtractor()
+            content = "John lives in Paris."
+            entity_id = IdentifierDto(type="email", value="john@example.com")
+
+            _ = await fresh_extractor.extract_facts(content, entity_id)
+
+            # Verify tracker was called
+            assert mock_tracker.record_chat.called or mock_tracker.record.called
+            call_kwargs = mock_tracker.record_chat.call_args.kwargs
+            assert call_kwargs["feature"] == "graph"
+            assert call_kwargs["operation"] == "fact_extract"
+
+    @pytest.mark.asyncio
+    async def test_extract_facts_records_token_counts_when_available(
+        self, extractor: LangChainFactExtractor
+    ):
+        """Verify that token counts are recorded when available from Gemini."""
+        _ = extractor  # unused, we create a fresh one inside the patch
+        mock_tracker = AsyncMock()
+
+        with patch(
+            "app.features.usage.langchain_callback.get_token_usage_tracker",
+            return_value=mock_tracker,
+        ):
+            fresh_extractor = LangChainFactExtractor()
+            content = "Alice works as a Software Engineer at Google."
+            entity_id = IdentifierDto(type="email", value="alice@example.com")
+
+            _ = await fresh_extractor.extract_facts(content, entity_id)
+
+            call_kwargs = mock_tracker.record_chat.call_args.kwargs
+
+            # Verify input/output chars are captured
+            assert call_kwargs["input_chars"] is not None
+            assert call_kwargs["input_chars"] > 0
+
+            # Verify token counts from Gemini
+            assert call_kwargs["prompt_tokens"] is not None
+            assert call_kwargs["prompt_tokens"] > 0
+            assert call_kwargs["completion_tokens"] is not None
+            assert call_kwargs["completion_tokens"] > 0
+            assert call_kwargs["total_tokens"] is not None
+            assert call_kwargs["total_tokens"] > 0
+
+            # Verify cost is computed (since gemini-2.5-flash is in pricing config)
+            assert call_kwargs["cost_usd"] is not None
+            assert call_kwargs["cost_usd"] > 0

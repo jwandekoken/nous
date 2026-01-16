@@ -107,7 +107,7 @@ class Settings(BaseSettings):
                 "completion_per_1m_tokens": 0.30,
             },
             "models/gemini-embedding-001": {
-                "per_1m_tokens": 0.0,
+                "per_1m_tokens": 0.15,
             },
         },
         description="Per-model pricing (USD) used to compute usage costs",

@@ -406,3 +406,72 @@ class TestUsageRepositoryGetSummary:
         assert summary["total_cost_usd"] == 0
         assert summary["by_day"] == []
         assert summary["by_operation"] == []
+
+
+class TestUsageRepositoryAdditionalFilters:
+    """Additional filter and ordering tests for UsageRepository."""
+
+    @pytest.mark.asyncio
+    async def test_filters_by_model(
+        self,
+        db_session: AsyncSession,
+        test_tenant: Tenant,
+        usage_events: list[TokenUsageEvent],
+    ) -> None:
+        """Should filter events by model."""
+        repo = UsageRepository()
+        events, total = await repo.get_events_for_tenant(
+            session=db_session,
+            tenant_id=test_tenant.id,
+            from_date=date(2026, 1, 1),
+            to_date=date(2026, 1, 31),
+            model="gemini-2.5-flash",
+        )
+
+        # All test events use gemini-2.5-flash
+        assert total == 3
+        for event in events:
+            assert event.model == "gemini-2.5-flash"
+
+    @pytest.mark.asyncio
+    async def test_filters_by_actor_type(
+        self,
+        db_session: AsyncSession,
+        test_tenant: Tenant,
+        usage_events: list[TokenUsageEvent],
+    ) -> None:
+        """Should filter events by actor_type."""
+        repo = UsageRepository()
+        events, total = await repo.get_events_for_tenant(
+            session=db_session,
+            tenant_id=test_tenant.id,
+            from_date=date(2026, 1, 1),
+            to_date=date(2026, 1, 31),
+            actor_type="api_key",
+        )
+
+        # Two events are from api_key
+        assert total == 2
+        for event in events:
+            assert event.actor_type == "api_key"
+
+    @pytest.mark.asyncio
+    async def test_events_ordered_by_created_at_desc(
+        self,
+        db_session: AsyncSession,
+        test_tenant: Tenant,
+        usage_events: list[TokenUsageEvent],
+    ) -> None:
+        """Should return events ordered by created_at descending (most recent first)."""
+        repo = UsageRepository()
+        events, _ = await repo.get_events_for_tenant(
+            session=db_session,
+            tenant_id=test_tenant.id,
+            from_date=date(2026, 1, 1),
+            to_date=date(2026, 1, 31),
+        )
+
+        # Verify ordering - most recent first
+        assert len(events) == 3
+        for i in range(len(events) - 1):
+            assert events[i].created_at >= events[i + 1].created_at

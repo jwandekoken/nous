@@ -105,6 +105,10 @@ class EmbeddingService:
         # Extract usage metadata if available
         usage_metadata = self._extract_usage_metadata(response)
 
+        print("response", response)
+        print("response.metadata", response.metadata)
+        print("usage_metadata", usage_metadata)
+
         # Record usage if tracker provided
         await self._record_usage(
             tracker=tracker,

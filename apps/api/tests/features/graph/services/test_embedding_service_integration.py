@@ -246,3 +246,52 @@ class TestEmbeddingServiceUsageTracking:
 
         assert isinstance(result, EmbeddingResult)
         assert len(result.embedding) == service.embedding_dim
+
+    @pytest.mark.asyncio
+    async def test_embed_text_records_token_counts_and_cost(
+        self, service: EmbeddingService, mock_tracker: AsyncMock
+    ):
+        """Verify that prompt_tokens, total_tokens, and cost_usd are recorded."""
+        await service.embed_text(
+            "Test text for token counting",
+            operation="test_usage_metadata",
+            tracker=mock_tracker,
+        )
+
+        mock_tracker.record.assert_called_once()
+        record = mock_tracker.record.call_args[0][0]
+
+        # Verify token counts are captured from Gemini
+        assert record.prompt_tokens is not None
+        assert record.prompt_tokens > 0
+        assert record.total_tokens is not None
+        assert record.total_tokens > 0
+
+        # Verify cost is computed (since gemini-embedding-001 is in pricing config)
+        assert record.cost_usd is not None
+        assert record.cost_usd > 0
+
+    @pytest.mark.asyncio
+    async def test_embed_texts_records_token_counts_and_cost(
+        self, service: EmbeddingService, mock_tracker: AsyncMock
+    ):
+        """Verify that batch embedding records token counts and cost."""
+        texts = ["First text for batch", "Second text for batch"]
+        await service.embed_texts(
+            texts,
+            operation="test_batch_usage_metadata",
+            tracker=mock_tracker,
+        )
+
+        mock_tracker.record.assert_called_once()
+        record = mock_tracker.record.call_args[0][0]
+
+        # Verify token counts are captured from Gemini
+        assert record.prompt_tokens is not None
+        assert record.prompt_tokens > 0
+        assert record.total_tokens is not None
+        assert record.total_tokens > 0
+
+        # Verify cost is computed
+        assert record.cost_usd is not None
+        assert record.cost_usd > 0

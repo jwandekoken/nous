@@ -476,12 +476,70 @@ Initial implementation focuses on the API; frontend will be added later.
 
 ### Part 7 — Tests
 
-- [ ] Unit tests:
-  - [ ] `extract_usage_from_langchain_result` parses multiple shapes and handles missing usage
-  - [ ] Callback handler records events with correct status + computed cost when pricing exists
-- [ ] Integration tests (fast):
-  - [ ] Mock `chain.ainvoke` responses containing usage metadata
-  - [ ] Assert `token_usage_events` rows persisted with correct tenant attribution/context
+#### Unit tests: `langchain_callback.py`
+
+Create `tests/features/usage/test_langchain_callback_unit.py`:
+
+- [x] `extract_usage_from_langchain_result` adapter:
+  - [x] `test_extract_usage_from_none_returns_none`
+  - [x] `test_extract_usage_from_direct_mapping` — usage fields at top level
+  - [x] `test_extract_usage_from_llm_output_nested` — usage nested under `llm_output`
+  - [x] `test_extract_usage_from_generations_with_message_usage_metadata`
+  - [x] `test_extract_usage_from_generations_with_response_metadata`
+  - [x] `test_extract_usage_handles_gemini_style_keys` — `promptTokenCount`, `candidatesTokenCount`, etc.
+  - [x] `test_extract_usage_handles_openai_style_keys` — `prompt_tokens`, `completion_tokens`
+  - [x] `test_extract_usage_computes_total_when_missing` — derives `total_tokens` from components
+  - [x] `test_extract_usage_returns_none_when_no_token_fields`
+- [x] `TokenUsageCallbackHandler`:
+  - [x] `test_on_llm_end_records_event_with_ok_status`
+  - [x] `test_on_llm_error_records_event_with_error_status_and_error_type`
+  - [x] `test_input_chars_captured_from_prompts` — via `on_llm_start`
+  - [x] `test_input_chars_captured_from_chat_messages` — via `on_chat_model_start`
+  - [x] `test_output_chars_extracted_from_generations`
+  - [x] `test_cost_computed_from_pricing_config`
+  - [x] `test_cost_is_none_when_model_not_in_pricing`
+  - [x] `test_model_and_provider_inferred_from_serialized`
+  - [x] `test_record_failure_does_not_raise` — swallows exceptions to avoid failing main request
+
+#### Unit tests: `pricing.py`
+
+Create `tests/features/usage/test_pricing_unit.py`:
+
+- [x] `cost_usd_for_chat`:
+  - [x] `test_cost_usd_for_chat_computes_correctly`
+  - [x] `test_cost_usd_for_chat_returns_none_when_both_tokens_none`
+  - [x] `test_cost_usd_for_chat_handles_partial_tokens` — only prompt or only completion
+- [x] `cost_usd_for_embedding`:
+  - [x] `test_cost_usd_for_embedding_computes_correctly`
+  - [x] `test_cost_usd_for_embedding_returns_none_when_tokens_none`
+
+#### Integration tests: LLM service usage tracking
+
+Add usage tracking assertions to existing service tests:
+
+- [x] `tests/features/graph/services/test_langchain_fact_extractor_integration.py`:
+  - [x] `test_extract_facts_calls_usage_tracker_on_success` — verify tracker called with correct operation
+  - [x] `test_extract_facts_records_token_counts_when_available`
+- [x] `tests/features/graph/services/test_langchain_data_summarizer_integration.py`:
+  - [x] `test_summarize_calls_usage_tracker_on_success`
+  - [x] `test_summarize_records_token_counts_when_available`
+
+#### End-to-end integration tests: usage event persistence
+
+Create `tests/features/usage/test_usage_e2e_integration.py`:
+
+- [x] `test_assimilate_endpoint_persists_usage_events` — call endpoint, verify `token_usage_events` rows
+- [x] `test_lookup_summary_endpoint_persists_usage_events`
+- [x] `test_usage_events_have_correct_tenant_attribution` — `tenant_id` matches request tenant
+- [x] `test_usage_events_have_correct_operation_tags` — `feature`, `operation`, `endpoint` populated
+- [x] `test_usage_events_are_not_persisted_when_disabled` — `token_usage_enabled=False`
+
+#### Existing test enhancements
+
+- [x] `tests/features/usage/test_usage_repository_integration.py`:
+  - [x] `test_filters_by_model`
+  - [x] `test_filters_by_actor_type`
+  - [x] `test_events_ordered_by_created_at_desc`
 
 ### Part 8 — Rollout / ops polish
 
