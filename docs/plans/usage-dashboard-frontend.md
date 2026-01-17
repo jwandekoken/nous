@@ -112,28 +112,28 @@ If the dashboard becomes more data-heavy:
 
 ### Part 1 — Service Layer
 
-- [ ] Create `apps/web/src/services/usage/types.ts` with TypeScript types mirroring backend DTOs
-- [ ] Create `apps/web/src/services/usage/usageApi.ts` with fetch functions for `/usage/events` and `/usage/summary`
-- [ ] Create `apps/web/src/services/usage/index.ts` barrel export
+- [x] Create `apps/web/src/services/usage/types.ts` with TypeScript types mirroring backend DTOs
+- [x] Create `apps/web/src/services/usage/usageApi.ts` with fetch functions for `/usage/events` and `/usage/summary`
+- [x] Create `apps/web/src/services/usage/index.ts` barrel export
 
 ### Part 2 — Page & Route
 
-- [ ] Create `apps/web/src/pages/usage/views/UsageDashboardView.vue`
-- [ ] Add route `/usage` in `routes.ts` with guards for `tenant_admin` and `tenant_user`
+- [x] Create `apps/web/src/pages/usage/views/UsageDashboardView.vue`
+- [x] Add route `/usage` in `routes.ts` with guards for `tenant_admin` and `tenant_user`
 
 ### Part 3 — Dashboard UI
 
-- [ ] Summary cards (total tokens, total cost, date range)
-- [ ] Date range picker (from/to inputs)
-- [ ] Events table with pagination
-- [ ] Loading and empty states
-- [ ] Error handling
+- [x] Summary cards (total tokens, total cost, date range)
+- [x] Date range picker (from/to inputs)
+- [x] Events table with pagination
+- [x] Loading and empty states
+- [x] Error handling
 
 ### Part 4 — Polish
 
-- [ ] Add operation filter dropdown
-- [ ] Add status filter (ok/error)
-- [ ] Responsive design tweaks
+- [x] Add operation filter dropdown
+- [x] Add status filter (ok/error)
+- [x] Responsive design tweaks
 - [ ] CSV export (nice-to-have)
 
 ---
