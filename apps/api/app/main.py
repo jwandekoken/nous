@@ -50,11 +50,17 @@ def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
     settings = get_settings()
 
+    # Disable docs in production for security
+    is_production = settings.environment == "production"
+
     app = FastAPI(
         title=settings.app_name,
         version=settings.app_version,
         description="Nous API - The Knowledge Graph Memory Brain",
         lifespan=lifespan,
+        docs_url=None if is_production else "/docs",
+        redoc_url=None if is_production else "/redoc",
+        openapi_url=None if is_production else "/openapi.json",
     )
 
     # Request context middleware (request_id, timing, etc.)
