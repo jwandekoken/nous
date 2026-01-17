@@ -18,7 +18,6 @@ from app.features.graph.services.embedding_service import (
     EmbeddingBatchResult,
     EmbeddingResult,
     EmbeddingService,
-    EmbeddingUsageMetadata,
 )
 from app.features.usage.tracker import TokenUsageRecord, TokenUsageTracker
 
@@ -145,8 +144,8 @@ class TestEmbeddingServiceAPIContract:
         assert similarity < 0.9
 
 
-class TestEmbeddingServiceUsageMetadata:
-    """Test suite for usage metadata functionality."""
+class TestEmbeddingServiceTokenCounting:
+    """Test suite for token counting functionality."""
 
     @pytest.fixture
     def service(self, test_settings: Settings) -> EmbeddingService:
@@ -154,24 +153,26 @@ class TestEmbeddingServiceUsageMetadata:
         return EmbeddingService(settings=test_settings)
 
     @pytest.mark.asyncio
-    async def test_embed_text_returns_usage_metadata(self, service: EmbeddingService):
-        """Test that embed_text returns usage metadata when available."""
-        result = await service.embed_text("Test text for usage metadata")
+    async def test_embed_text_returns_token_count(self, service: EmbeddingService):
+        """Test that embed_text returns token count via count_tokens API."""
+        result = await service.embed_text("Test text for token counting")
 
-        # Verify result structure includes usage metadata field
-        assert hasattr(result, "usage_metadata")
-        # Metadata may be None if provider doesn't return it (non-Vertex)
-        if result.usage_metadata is not None:
-            assert isinstance(result.usage_metadata, EmbeddingUsageMetadata)
+        # Verify result structure includes token_count field
+        assert hasattr(result, "token_count")
+        # Token count should be available via count_tokens API
+        assert result.token_count is not None
+        assert isinstance(result.token_count, int)
+        assert result.token_count > 0
 
     @pytest.mark.asyncio
-    async def test_embed_texts_returns_usage_metadata(self, service: EmbeddingService):
-        """Test that embed_texts returns usage metadata when available."""
+    async def test_embed_texts_returns_token_count(self, service: EmbeddingService):
+        """Test that embed_texts returns token count via count_tokens API."""
         result = await service.embed_texts(["Test one", "Test two"])
 
-        assert hasattr(result, "usage_metadata")
-        if result.usage_metadata is not None:
-            assert isinstance(result.usage_metadata, EmbeddingUsageMetadata)
+        assert hasattr(result, "token_count")
+        assert result.token_count is not None
+        assert isinstance(result.token_count, int)
+        assert result.token_count > 0
 
 
 class TestEmbeddingServiceUsageTracking:

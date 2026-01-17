@@ -1,7 +1,8 @@
 """Embedding service using Google's Gemini embedding model.
 
 This module provides text embedding functionality for semantic memory operations,
-using the google-genai SDK directly for full usage metadata access.
+using the google-genai SDK directly. Token counting is performed via the
+count_tokens API since AI Studio does not return usage metadata for embeddings.
 """
 
 from dataclasses import dataclass
@@ -19,35 +20,26 @@ from app.features.usage.tracker import (
 
 
 @dataclass
-class EmbeddingUsageMetadata:
-    """Usage metadata from embedding API call."""
-
-    prompt_token_count: int | None = None
-    total_token_count: int | None = None
-    billable_character_count: int | None = None
-
-
-@dataclass
 class EmbeddingResult:
-    """Result of a single embedding operation with usage metadata."""
+    """Result of a single embedding operation."""
 
     embedding: list[float]
-    usage_metadata: EmbeddingUsageMetadata | None = None
+    token_count: int | None = None
 
 
 @dataclass
 class EmbeddingBatchResult:
-    """Result of batch embedding operation with usage metadata."""
+    """Result of batch embedding operation."""
 
     embeddings: list[list[float]]
-    usage_metadata: EmbeddingUsageMetadata | None = None
+    token_count: int | None = None
 
 
 class EmbeddingService:
     """Service for generating text embeddings using Google's Gemini model.
 
-    This service uses the google-genai SDK directly to access usage metadata
-    for token tracking.
+    This service uses the google-genai SDK directly. Token counts are obtained
+    via the count_tokens API since AI Studio does not return usage metadata.
     """
 
     def __init__(self, settings: Settings | None = None):
@@ -59,7 +51,7 @@ class EmbeddingService:
         Raises:
             ValueError: If GOOGLE_API_KEY is not set.
         """
-        self._settings = settings or Settings()
+        self._settings: Settings = settings or Settings()
         if not self._settings.google_api_key:
             raise ValueError("GOOGLE_API_KEY environment variable not set.")
 
@@ -90,7 +82,7 @@ class EmbeddingService:
                      uses the default tracker.
 
         Returns:
-            EmbeddingResult containing the embedding vector and usage metadata.
+            EmbeddingResult containing the embedding vector and token count.
         """
         config = types.EmbedContentConfig(
             output_dimensionality=self._settings.embedding_dim,
@@ -102,17 +94,13 @@ class EmbeddingService:
             config=config,
         )
 
-        # Extract usage metadata if available
-        usage_metadata = self._extract_usage_metadata(response)
-
         # Count tokens for accurate usage tracking
         token_count = await self._count_tokens(text)
 
-        # Record usage if tracker provided
+        # Record usage
         await self._record_usage(
             tracker=tracker,
             operation=operation,
-            usage_metadata=usage_metadata,
             input_chars=len(text),
             counted_tokens=token_count,
             status="ok",
@@ -123,7 +111,7 @@ class EmbeddingService:
 
         return EmbeddingResult(
             embedding=list(embedding) if embedding else [],
-            usage_metadata=usage_metadata,
+            token_count=token_count,
         )
 
     async def embed_texts(
@@ -141,10 +129,10 @@ class EmbeddingService:
             tracker: Optional usage tracker.
 
         Returns:
-            EmbeddingBatchResult containing embedding vectors and usage metadata.
+            EmbeddingBatchResult containing embedding vectors and token count.
         """
         if not texts:
-            return EmbeddingBatchResult(embeddings=[], usage_metadata=None)
+            return EmbeddingBatchResult(embeddings=[], token_count=None)
 
         config = types.EmbedContentConfig(
             output_dimensionality=self._settings.embedding_dim,
@@ -156,9 +144,6 @@ class EmbeddingService:
             config=config,
         )
 
-        # Extract usage metadata
-        usage_metadata = self._extract_usage_metadata(response)
-
         # Count tokens for accurate usage tracking
         token_count = await self._count_tokens_batch(texts)
 
@@ -166,7 +151,6 @@ class EmbeddingService:
         await self._record_usage(
             tracker=tracker,
             operation=operation,
-            usage_metadata=usage_metadata,
             input_chars=sum(len(t) for t in texts),
             counted_tokens=token_count,
             status="ok",
@@ -180,18 +164,7 @@ class EmbeddingService:
 
         return EmbeddingBatchResult(
             embeddings=embeddings,
-            usage_metadata=usage_metadata,
-        )
-
-    def _extract_usage_metadata(
-        self, response: types.EmbedContentResponse
-    ) -> EmbeddingUsageMetadata | None:
-        """Extract usage metadata from the API response."""
-        if response.metadata is None:
-            return None
-
-        return EmbeddingUsageMetadata(
-            billable_character_count=response.metadata.billable_character_count,
+            token_count=token_count,
         )
 
     async def _count_tokens(self, text: str) -> int | None:
@@ -238,7 +211,6 @@ class EmbeddingService:
         *,
         tracker: TokenUsageTracker | None,
         operation: str,
-        usage_metadata: EmbeddingUsageMetadata | None,
         input_chars: int,
         counted_tokens: int | None,
         status: str,
@@ -249,7 +221,6 @@ class EmbeddingService:
         Args:
             tracker: Usage tracker to record to.
             operation: Operation name for usage tracking.
-            usage_metadata: Usage metadata from API response (may be None for AI Studio).
             input_chars: Character count of input text.
             counted_tokens: Token count from count_tokens API.
             status: Status of the operation ("ok" or "error").
@@ -259,19 +230,12 @@ class EmbeddingService:
         if tracker is None:
             tracker = get_token_usage_tracker()
 
-        # Use counted tokens as primary source, fallback to usage_metadata
-        prompt_tokens = counted_tokens
-        total_tokens = counted_tokens
-        if prompt_tokens is None and usage_metadata:
-            prompt_tokens = usage_metadata.prompt_token_count
-            total_tokens = usage_metadata.total_token_count
-
         # Compute cost from counted tokens
         cost_usd = None
         model_pricing = self._settings.model_pricing.get(self._settings.embedding_model)
         if model_pricing and "per_1m_tokens" in model_pricing:
             cost_usd = cost_usd_for_embedding(
-                total_tokens=total_tokens,
+                total_tokens=counted_tokens,
                 per_1m_tokens=model_pricing.get("per_1m_tokens", 0.0),
             )
 
@@ -282,8 +246,8 @@ class EmbeddingService:
                     operation=operation,
                     provider="google",
                     model=self._settings.embedding_model,
-                    prompt_tokens=prompt_tokens,
-                    total_tokens=total_tokens,
+                    prompt_tokens=counted_tokens,
+                    total_tokens=counted_tokens,
                     input_chars=input_chars,
                     cost_usd=cost_usd,
                     status=status,
