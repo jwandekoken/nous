@@ -98,7 +98,7 @@ class Settings(BaseSettings):
 
     # Usage tracking
     token_usage_enabled: bool = Field(
-        default=False, description="Enable token usage event persistence"
+        default=True, description="Enable token usage event persistence"
     )
     model_pricing: dict[str, dict[str, float]] = Field(
         default_factory=lambda: {
