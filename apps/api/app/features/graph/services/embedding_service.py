@@ -105,9 +105,8 @@ class EmbeddingService:
         # Extract usage metadata if available
         usage_metadata = self._extract_usage_metadata(response)
 
-        print("response", response)
-        print("response.metadata", response.metadata)
-        print("usage_metadata", usage_metadata)
+        # Count tokens for accurate usage tracking
+        token_count = await self._count_tokens(text)
 
         # Record usage if tracker provided
         await self._record_usage(
@@ -115,6 +114,7 @@ class EmbeddingService:
             operation=operation,
             usage_metadata=usage_metadata,
             input_chars=len(text),
+            counted_tokens=token_count,
             status="ok",
         )
 
@@ -159,12 +159,16 @@ class EmbeddingService:
         # Extract usage metadata
         usage_metadata = self._extract_usage_metadata(response)
 
+        # Count tokens for accurate usage tracking
+        token_count = await self._count_tokens_batch(texts)
+
         # Record usage
         await self._record_usage(
             tracker=tracker,
             operation=operation,
             usage_metadata=usage_metadata,
             input_chars=sum(len(t) for t in texts),
+            counted_tokens=token_count,
             status="ok",
         )
 
@@ -190,6 +194,45 @@ class EmbeddingService:
             billable_character_count=response.metadata.billable_character_count,
         )
 
+    async def _count_tokens(self, text: str) -> int | None:
+        """Count tokens for text using Google's tokenizer API.
+
+        Args:
+            text: The text to count tokens for.
+
+        Returns:
+            Token count, or None if counting fails.
+        """
+        try:
+            response = await self._client.aio.models.count_tokens(
+                model=self._settings.embedding_model,
+                contents=text,
+            )
+            return response.total_tokens
+        except Exception:
+            # Don't fail embedding if token counting fails
+            return None
+
+    async def _count_tokens_batch(self, texts: list[str]) -> int | None:
+        """Count tokens for multiple texts.
+
+        Args:
+            texts: The list of texts to count tokens for.
+
+        Returns:
+            Total token count for all texts, or None if counting fails.
+        """
+        if not texts:
+            return 0
+        try:
+            response = await self._client.aio.models.count_tokens(
+                model=self._settings.embedding_model,
+                contents=texts,
+            )
+            return response.total_tokens
+        except Exception:
+            return None
+
     async def _record_usage(
         self,
         *,
@@ -197,19 +240,33 @@ class EmbeddingService:
         operation: str,
         usage_metadata: EmbeddingUsageMetadata | None,
         input_chars: int,
+        counted_tokens: int | None,
         status: str,
         error_type: str | None = None,
     ) -> None:
-        """Record embedding usage event."""
+        """Record embedding usage event.
+
+        Args:
+            tracker: Usage tracker to record to.
+            operation: Operation name for usage tracking.
+            usage_metadata: Usage metadata from API response (may be None for AI Studio).
+            input_chars: Character count of input text.
+            counted_tokens: Token count from count_tokens API.
+            status: Status of the operation ("ok" or "error").
+            error_type: Error type if status is "error".
+        """
         # Resolve tracker if not provided
         if tracker is None:
             tracker = get_token_usage_tracker()
 
-        # Extract token counts from usage metadata
-        prompt_tokens = usage_metadata.prompt_token_count if usage_metadata else None
-        total_tokens = usage_metadata.total_token_count if usage_metadata else None
+        # Use counted tokens as primary source, fallback to usage_metadata
+        prompt_tokens = counted_tokens
+        total_tokens = counted_tokens
+        if prompt_tokens is None and usage_metadata:
+            prompt_tokens = usage_metadata.prompt_token_count
+            total_tokens = usage_metadata.total_token_count
 
-        # Compute cost
+        # Compute cost from counted tokens
         cost_usd = None
         model_pricing = self._settings.model_pricing.get(self._settings.embedding_model)
         if model_pricing and "per_1m_tokens" in model_pricing:
