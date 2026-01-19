@@ -38,7 +38,7 @@ class SetupAdminUseCaseImpl:
             get_db_session: Function to get database session
         """
         self.password_hasher = password_hasher
-        self.get_auth_db_session = get_db_session
+        self.get_db_session = get_db_session
 
     async def execute(self, request: SetupAdminRequest) -> SetupAdminResponse:
         """Create the first super admin user. Only allowed if no super admin exists.
@@ -52,7 +52,7 @@ class SetupAdminUseCaseImpl:
         Raises:
             HTTPException: With appropriate status codes for validation and creation errors
         """
-        async with self.get_auth_db_session() as session:
+        async with self.get_db_session() as session:
             async with session.begin():
                 # Check if super admin already exists
                 query = (

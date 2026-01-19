@@ -1,7 +1,7 @@
-"""SQLAlchemy database session management for auth operations.
+"""SQLAlchemy database session management for the Postgres database.
 
-This module provides SQLAlchemy ORM sessions for authentication and authorization operations.
-Used primarily by the auth features for user management, tenant operations, and API key management.
+Provides async sessions for all features requiring structured data persistence
+(auth, usage, etc.).
 """
 
 from collections.abc import AsyncGenerator
@@ -23,7 +23,7 @@ class Base(DeclarativeBase):
 _async_session_maker: async_sessionmaker[AsyncSession] | None = None
 
 
-def init_auth_db_session() -> None:
+def init_db_session() -> None:
     """Initialize the database session factory."""
     global _async_session_maker
 
@@ -48,10 +48,10 @@ def init_auth_db_session() -> None:
 
 
 @asynccontextmanager
-async def get_auth_db_session() -> AsyncGenerator[AsyncSession, None]:
+async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
     """Get a database session."""
     if _async_session_maker is None:
-        init_auth_db_session()
+        init_db_session()
 
     if _async_session_maker is None:
         raise RuntimeError("Failed to initialize database session")

@@ -14,7 +14,7 @@ from app.core.authentication import (
 )
 from app.core.schemas import AuthenticatedUser
 from app.core.settings import get_settings
-from app.db.postgres.auth_session import get_auth_db_session
+from app.db.postgres.session import get_db_session
 from app.features.auth.dtos import (
     LoginRequest,
     LoginResponse,
@@ -85,7 +85,7 @@ async def get_login_use_case() -> LoginUseCase:
         password_verifier=PasswordVerifierImpl(),
         token_creator=TokenCreatorImpl(),
         refresh_token_creator=RefreshTokenCreatorImpl(),
-        get_db_session=get_auth_db_session,
+        get_db_session=get_db_session,
     )
 
 
@@ -95,7 +95,7 @@ async def get_refresh_token_use_case() -> RefreshTokenUseCase:
         token_creator=TokenCreatorImpl(),
         refresh_token_creator=RefreshTokenCreatorImpl(),
         refresh_token_verifier=RefreshTokenVerifierImpl(),
-        get_db_session=get_auth_db_session,
+        get_db_session=get_db_session,
     )
 
 
@@ -194,7 +194,7 @@ async def logout(
 
     # Optional: Revoke refresh token in database
     if refresh_token:
-        async with get_auth_db_session() as session:
+        async with get_db_session() as session:
             from sqlalchemy import select
 
             result = await session.execute(
@@ -221,7 +221,7 @@ async def get_current_user_info(
     current_user: AuthenticatedUser = Depends(verify_auth),
 ) -> dict[str, str | None]:
     """Get current authenticated user information."""
-    async with get_auth_db_session() as session:
+    async with get_db_session() as session:
         user = await session.get(User, current_user.user_id)
         if not user:
             raise HTTPException(

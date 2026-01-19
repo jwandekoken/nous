@@ -130,7 +130,11 @@ class QdrantRepository(VectorRepository):
 
         # Generate embedding for the synthetic sentence
         synthetic_sentence = self._create_synthetic_sentence(fact, verb)
-        embedding = await self.embedding_service.embed_text(synthetic_sentence)
+        result = await self.embedding_service.embed_text(
+            synthetic_sentence,
+            operation="semantic_memory_embed",
+        )
+        embedding = result.embedding
 
         # Generate deterministic point ID for idempotent upserts
         point_id = self._generate_point_id(entity_id, verb, fact.fact_id)
@@ -185,7 +189,11 @@ class QdrantRepository(VectorRepository):
             List of SemanticSearchResult ordered by score (descending).
         """
         # Embed the query text
-        query_embedding = await self.embedding_service.embed_text(query_text)
+        result = await self.embedding_service.embed_text(
+            query_text,
+            operation="rag_query_embed",
+        )
+        query_embedding = result.embedding
 
         # Build filter with tenant and entity isolation
         search_filter = Filter(

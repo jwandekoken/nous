@@ -25,7 +25,7 @@ class UpdateTenantUseCaseImpl:
         Args:
             get_db_session: Function to get database session
         """
-        self.get_auth_db_session = get_db_session
+        self.get_db_session = get_db_session
 
     async def execute(
         self, tenant_id: UUID, request: UpdateTenantRequest
@@ -55,7 +55,7 @@ class UpdateTenantUseCaseImpl:
                 detail="Tenant name can only contain alphanumeric characters, hyphens, and underscores",
             )
 
-        async with self.get_auth_db_session() as session:
+        async with self.get_db_session() as session:
             async with session.begin():
                 try:
                     # Check if tenant exists

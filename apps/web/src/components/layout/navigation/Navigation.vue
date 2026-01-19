@@ -20,7 +20,7 @@ watch(
   (newUser) => {
     console.log("🔐 Navigation - currentUser changed:", newUser);
   },
-  { immediate: true }
+  { immediate: true },
 );
 
 onMounted(() => {
@@ -53,6 +53,11 @@ const navigationItems = computed(() => {
       label: "API Keys",
       to: "/api-keys",
       roles: ["tenant_admin"],
+    },
+    {
+      label: "Usage",
+      to: "/usage",
+      roles: ["tenant_admin", "tenant_user"],
     },
     {
       label: "Graph Explorer",

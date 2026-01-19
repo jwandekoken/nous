@@ -64,7 +64,7 @@ class RefreshTokenUseCaseImpl:
         self.token_creator = token_creator
         self.refresh_token_creator = refresh_token_creator
         self.refresh_token_verifier = refresh_token_verifier
-        self.get_auth_db_session = get_db_session
+        self.get_db_session = get_db_session
 
     async def execute(self, refresh_token: str) -> RefreshTokenResponse:
         """Refresh access token using a valid refresh token.
@@ -78,7 +78,7 @@ class RefreshTokenUseCaseImpl:
         Raises:
             HTTPException: With appropriate status codes for validation errors
         """
-        async with self.get_auth_db_session() as session:
+        async with self.get_db_session() as session:
             # Find refresh token in database
             result = await session.execute(
                 select(RefreshToken)

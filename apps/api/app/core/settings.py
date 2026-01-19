@@ -1,6 +1,7 @@
 """Application settings and configuration."""
 
 from functools import lru_cache
+from typing import ClassVar
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -9,7 +10,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
-    model_config = SettingsConfigDict(
+    model_config: ClassVar[SettingsConfigDict] = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=False,
@@ -19,6 +20,10 @@ class Settings(BaseSettings):
     # Application
     app_name: str = Field(default="Nous API", description="Application name")
     app_version: str = Field(default="0.1.0", description="Application version")
+    environment: str = Field(
+        default="development",
+        description="Environment: 'development' or 'production'",
+    )
     debug: bool = Field(default=False, description="Debug mode")
     testing: bool = Field(default=False, description="Testing mode")
     host: str = Field(default="0.0.0.0", description="Host to bind to")
@@ -93,6 +98,23 @@ class Settings(BaseSettings):
     # Vector Collection
     vector_collection_name: str = Field(
         default="agent_memory", description="Qdrant collection name for agent memory"
+    )
+
+    # Usage tracking
+    token_usage_enabled: bool = Field(
+        default=True, description="Enable token usage event persistence"
+    )
+    model_pricing: dict[str, dict[str, float]] = Field(
+        default_factory=lambda: {
+            "gemini-2.5-flash": {
+                "prompt_per_1m_tokens": 0.075,
+                "completion_per_1m_tokens": 0.30,
+            },
+            "models/gemini-embedding-001": {
+                "per_1m_tokens": 0.15,
+            },
+        },
+        description="Per-model pricing (USD) used to compute usage costs",
     )
 
 

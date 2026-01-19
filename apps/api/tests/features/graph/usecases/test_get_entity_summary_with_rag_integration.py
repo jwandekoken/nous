@@ -9,6 +9,9 @@ import uuid
 
 import asyncpg
 import pytest
+
+pytestmark = pytest.mark.integration
+
 from qdrant_client import AsyncQdrantClient
 
 from app.features.graph.dtos.knowledge_dto import (

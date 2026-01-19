@@ -71,4 +71,11 @@ export const routes: RouteRecordRaw[] = [
     component: () => import("@/pages/api-keys/views/ApiKeysManagementView.vue"),
     beforeEnter: [requireAuth, requireRole(["tenant_admin"])],
   },
+  // ==================== USAGE DASHBOARD ====================
+  {
+    path: "/usage",
+    name: "UsageDashboard",
+    component: () => import("@/pages/usage/views/UsageDashboardView.vue"),
+    beforeEnter: [requireAuth, requireRole(["tenant_admin", "tenant_user"])],
+  },
 ];

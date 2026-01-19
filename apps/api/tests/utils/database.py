@@ -10,7 +10,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 
 from app.core.settings import Settings
-from app.db.postgres.auth_session import Base
+from app.db.postgres.session import Base
 
 # Import all models to ensure they are registered with Base.metadata
 # This allows Base.metadata.create_all() and Base.metadata.drop_all() to work properly

@@ -10,10 +10,11 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 # add your model's MetaData object here
 # for 'autogenerate' support
 from app.core.settings import get_settings
-from app.db.postgres.auth_session import Base
+from app.db.postgres.session import Base
 
 # Import all models to ensure they are registered with Base.metadata
 from app.features.auth import models  # noqa: F401
+from app.features.usage import models  # noqa: F401
 
 # Add parent directory to path to allow for package imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

@@ -6,12 +6,14 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.core.middleware import request_context_middleware
 from app.core.settings import get_settings
-from app.db.postgres.auth_session import init_auth_db_session
 from app.db.postgres.graph_connection import close_graph_db_pool, get_graph_db_pool
+from app.db.postgres.session import init_db_session
 from app.db.qdrant import close_qdrant_client, get_qdrant_client, init_qdrant_db
 from app.features.auth.router import router as auth_router
 from app.features.graph.router import router as graph_router
+from app.features.usage.router import router as usage_router
 
 
 @asynccontextmanager
@@ -24,8 +26,8 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
     print(f"Starting {settings.app_name} v{settings.app_version}")
 
     # Initialize database connections
-    init_auth_db_session()
-    print("Auth database session initialized.")
+    init_db_session()
+    print("Database session initialized.")
     _ = await get_graph_db_pool()
     print("Graph database connection pool created.")
 
@@ -48,12 +50,21 @@ def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
     settings = get_settings()
 
+    # Disable docs in production for security
+    is_production = settings.environment == "production"
+
     app = FastAPI(
         title=settings.app_name,
         version=settings.app_version,
-        description="FastAPI application with modular architecture",
+        description="Nous API - The Knowledge Graph Memory Brain",
         lifespan=lifespan,
+        docs_url=None if is_production else "/docs",
+        redoc_url=None if is_production else "/redoc",
+        openapi_url=None if is_production else "/openapi.json",
     )
+
+    # Request context middleware (request_id, timing, etc.)
+    _ = app.middleware("http")(request_context_middleware)
 
     # Add CORS middleware
     app.add_middleware(
@@ -67,6 +78,7 @@ def create_app() -> FastAPI:
     # Include routers
     app.include_router(auth_router, prefix="/api/v1")
     app.include_router(graph_router, prefix="/api/v1")
+    app.include_router(usage_router, prefix="/api/v1")
 
     @app.get("/health")
     async def health_check() -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]

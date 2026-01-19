@@ -28,7 +28,7 @@ class DeleteTenantUseCaseImpl:
             get_db_session: Function to get database session
             get_db_pool: Function to get graph database pool
         """
-        self.get_auth_db_session = get_db_session
+        self.get_db_session = get_db_session
         self.get_graph_db_pool = get_db_pool
 
     async def execute(self, tenant_id: UUID) -> DeleteTenantResponse:
@@ -43,7 +43,7 @@ class DeleteTenantUseCaseImpl:
         Raises:
             HTTPException: With appropriate status codes for deletion errors
         """
-        async with self.get_auth_db_session() as session:
+        async with self.get_db_session() as session:
             async with session.begin():
                 try:
                     # Fetch tenant

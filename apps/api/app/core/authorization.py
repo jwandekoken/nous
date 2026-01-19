@@ -14,8 +14,14 @@ from app.core.authentication import (
     verify_auth_optional,
 )
 from app.core.schemas import AuthenticatedUser, UserRole
-from app.db.postgres.auth_session import get_auth_db_session
+from app.db.postgres.session import get_db_session
 from app.features.auth.models import ApiKey, Tenant
+from app.features.usage.context import (
+    set_actor_id,
+    set_actor_type,
+    set_graph_name,
+    set_tenant_id,
+)
 
 
 # A dependency factory
@@ -56,6 +62,8 @@ class TenantInfo(BaseModel):
 
     tenant_id: UUID
     graph_name: str
+    actor_type: str = "unknown"
+    actor_id: UUID | None = None
 
 
 # API Key security scheme
@@ -72,7 +80,7 @@ async def get_tenant_from_api_key(
 
     prefix, _ = key.split(".", 1)
 
-    async with get_auth_db_session() as session:
+    async with get_db_session() as session:
         result = await session.execute(
             select(ApiKey).where(
                 and_(
@@ -102,7 +110,12 @@ async def get_tenant_from_api_key(
         found_key.last_used_at = datetime.now(UTC)
         await session.commit()
 
-        return TenantInfo(tenant_id=tenant.id, graph_name=tenant.age_graph_name)
+        return TenantInfo(
+            tenant_id=tenant.id,
+            graph_name=tenant.age_graph_name,
+            actor_type="api_key",
+            actor_id=found_key.id,
+        )
 
 
 async def get_tenant_from_cookie(
@@ -113,14 +126,19 @@ async def get_tenant_from_cookie(
     if not user or not user.tenant_id:
         return None
 
-    async with get_auth_db_session() as session:
+    async with get_db_session() as session:
         tenant = await session.get(Tenant, user.tenant_id)
         if not tenant:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Tenant not found for authenticated user",
             )
-        return TenantInfo(tenant_id=user.tenant_id, graph_name=tenant.age_graph_name)
+        return TenantInfo(
+            tenant_id=user.tenant_id,
+            graph_name=tenant.age_graph_name,
+            actor_type="user",
+            actor_id=user.user_id,
+        )
 
 
 async def get_tenant_info(
@@ -132,11 +150,13 @@ async def get_tenant_info(
     Prioritizes JWT over API key authentication.
     """
 
-    if cookie_tenant:
-        return cookie_tenant
-
-    if api_key_tenant:
-        return api_key_tenant
+    chosen = cookie_tenant or api_key_tenant
+    if chosen:
+        set_tenant_id(chosen.tenant_id)
+        set_graph_name(chosen.graph_name)
+        set_actor_type(chosen.actor_type)
+        set_actor_id(chosen.actor_id)
+        return chosen
 
     # Neither authentication method provided or valid
     raise HTTPException(

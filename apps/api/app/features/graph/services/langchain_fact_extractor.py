@@ -2,12 +2,15 @@
 
 from typing import cast
 
+from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import RunnableConfig
 from langchain_google_genai import ChatGoogleGenerativeAI
 from pydantic import BaseModel, Field
 
 from app.core.settings import Settings
 from app.features.graph.dtos.knowledge_dto import ExtractedFactDto, IdentifierDto
+from app.features.usage.langchain_callback import TokenUsageCallbackHandler
 
 
 class ExtractedFact(BaseModel):
@@ -131,6 +134,15 @@ If the entity is 'name:Mariele' and the text is 'De tomar a decisão correta em 
                 + "\n\n"
             )
 
+        callbacks: list[BaseCallbackHandler] = [
+            TokenUsageCallbackHandler(
+                feature="graph",
+                operation="fact_extract",
+                provider="google",
+                model="gemini-2.5-flash",
+            )
+        ]
+        config: RunnableConfig = {"callbacks": callbacks}
         response: FactList = cast(
             FactList,
             await self.chain.ainvoke(
@@ -138,7 +150,8 @@ If the entity is 'name:Mariele' and the text is 'De tomar a decisão correta em 
                     "content": content,
                     "entity_identifier": f"{entity_identifier.type}:{entity_identifier.value}",
                     "history_section": history_section,
-                }
+                },
+                config=config,
             ),
         )
         return [

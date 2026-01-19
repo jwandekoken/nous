@@ -1,20 +1,45 @@
 """Embedding service using Google's Gemini embedding model.
 
 This module provides text embedding functionality for semantic memory operations,
-wrapping the langchain-google-genai embeddings for async usage.
+using the google-genai SDK directly. Token counting is performed via the
+count_tokens API since AI Studio does not return usage metadata for embeddings.
 """
 
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
-from pydantic import SecretStr
+from dataclasses import dataclass
+
+from google import genai
+from google.genai import types
 
 from app.core.settings import Settings
+from app.features.usage.pricing import cost_usd_for_embedding
+from app.features.usage.tracker import (
+    TokenUsageRecord,
+    TokenUsageTracker,
+    get_token_usage_tracker,
+)
+
+
+@dataclass
+class EmbeddingResult:
+    """Result of a single embedding operation."""
+
+    embedding: list[float]
+    token_count: int | None = None
+
+
+@dataclass
+class EmbeddingBatchResult:
+    """Result of batch embedding operation."""
+
+    embeddings: list[list[float]]
+    token_count: int | None = None
 
 
 class EmbeddingService:
     """Service for generating text embeddings using Google's Gemini model.
 
-    This service wraps the GoogleGenerativeAIEmbeddings from langchain-google-genai
-    and provides an async interface for embedding text.
+    This service uses the google-genai SDK directly. Token counts are obtained
+    via the count_tokens API since AI Studio does not return usage metadata.
     """
 
     def __init__(self, settings: Settings | None = None):
@@ -26,14 +51,11 @@ class EmbeddingService:
         Raises:
             ValueError: If GOOGLE_API_KEY is not set.
         """
-        self._settings = settings or Settings()
+        self._settings: Settings = settings or Settings()
         if not self._settings.google_api_key:
             raise ValueError("GOOGLE_API_KEY environment variable not set.")
 
-        self._embeddings = GoogleGenerativeAIEmbeddings(
-            model=self._settings.embedding_model,
-            google_api_key=SecretStr(self._settings.google_api_key),
-        )
+        self._client: genai.Client = genai.Client(api_key=self._settings.google_api_key)
 
     @property
     def embedding_dim(self) -> int:
@@ -44,37 +66,194 @@ class EmbeddingService:
         """
         return self._settings.embedding_dim
 
-    async def embed_text(self, text: str) -> list[float]:
+    async def embed_text(
+        self,
+        text: str,
+        *,
+        operation: str = "embed",
+        tracker: TokenUsageTracker | None = None,
+    ) -> EmbeddingResult:
         """Generate an embedding vector for the given text.
 
         Args:
             text: The text to embed.
+            operation: Operation name for usage tracking (e.g., "semantic_memory_embed").
+            tracker: Optional usage tracker. If None and usage tracking is enabled,
+                     uses the default tracker.
 
         Returns:
-            A list of floats representing the embedding vector.
-            Dimension is controlled by embedding_dim setting (default 768).
+            EmbeddingResult containing the embedding vector and token count.
         """
-        # GoogleGenerativeAIEmbeddings.aembed_query with output_dimensionality
-        # Note: output_dimensionality must be passed to the method, not constructor
-        embedding = await self._embeddings.aembed_query(
-            text,
+        config = types.EmbedContentConfig(
             output_dimensionality=self._settings.embedding_dim,
         )
-        return embedding
 
-    async def embed_texts(self, texts: list[str]) -> list[list[float]]:
+        response = await self._client.aio.models.embed_content(
+            model=self._settings.embedding_model,
+            contents=text,
+            config=config,
+        )
+
+        # Count tokens for accurate usage tracking
+        token_count = await self._count_tokens(text)
+
+        # Record usage
+        await self._record_usage(
+            tracker=tracker,
+            operation=operation,
+            input_chars=len(text),
+            counted_tokens=token_count,
+            status="ok",
+        )
+
+        # Extract embedding values
+        embedding = response.embeddings[0].values if response.embeddings else []
+
+        return EmbeddingResult(
+            embedding=list(embedding) if embedding else [],
+            token_count=token_count,
+        )
+
+    async def embed_texts(
+        self,
+        texts: list[str],
+        *,
+        operation: str = "embed_batch",
+        tracker: TokenUsageTracker | None = None,
+    ) -> EmbeddingBatchResult:
         """Generate embedding vectors for multiple texts.
 
         Args:
             texts: The list of texts to embed.
+            operation: Operation name for usage tracking.
+            tracker: Optional usage tracker.
 
         Returns:
-            A list of embedding vectors.
-            Dimension is controlled by embedding_dim setting (default 768).
+            EmbeddingBatchResult containing embedding vectors and token count.
         """
-        # GoogleGenerativeAIEmbeddings.aembed_documents with output_dimensionality
-        embeddings = await self._embeddings.aembed_documents(
-            texts,
+        if not texts:
+            return EmbeddingBatchResult(embeddings=[], token_count=None)
+
+        config = types.EmbedContentConfig(
             output_dimensionality=self._settings.embedding_dim,
         )
-        return embeddings
+
+        response = await self._client.aio.models.embed_content(
+            model=self._settings.embedding_model,
+            contents=texts,
+            config=config,
+        )
+
+        # Count tokens for accurate usage tracking
+        token_count = await self._count_tokens_batch(texts)
+
+        # Record usage
+        await self._record_usage(
+            tracker=tracker,
+            operation=operation,
+            input_chars=sum(len(t) for t in texts),
+            counted_tokens=token_count,
+            status="ok",
+        )
+
+        # Extract all embeddings
+        embeddings = [
+            list(emb.values) if emb.values else []
+            for emb in (response.embeddings or [])
+        ]
+
+        return EmbeddingBatchResult(
+            embeddings=embeddings,
+            token_count=token_count,
+        )
+
+    async def _count_tokens(self, text: str) -> int | None:
+        """Count tokens for text using Google's tokenizer API.
+
+        Args:
+            text: The text to count tokens for.
+
+        Returns:
+            Token count, or None if counting fails.
+        """
+        try:
+            response = await self._client.aio.models.count_tokens(
+                model=self._settings.embedding_model,
+                contents=text,
+            )
+            return response.total_tokens
+        except Exception:
+            # Don't fail embedding if token counting fails
+            return None
+
+    async def _count_tokens_batch(self, texts: list[str]) -> int | None:
+        """Count tokens for multiple texts.
+
+        Args:
+            texts: The list of texts to count tokens for.
+
+        Returns:
+            Total token count for all texts, or None if counting fails.
+        """
+        if not texts:
+            return 0
+        try:
+            response = await self._client.aio.models.count_tokens(
+                model=self._settings.embedding_model,
+                contents=texts,
+            )
+            return response.total_tokens
+        except Exception:
+            return None
+
+    async def _record_usage(
+        self,
+        *,
+        tracker: TokenUsageTracker | None,
+        operation: str,
+        input_chars: int,
+        counted_tokens: int | None,
+        status: str,
+        error_type: str | None = None,
+    ) -> None:
+        """Record embedding usage event.
+
+        Args:
+            tracker: Usage tracker to record to.
+            operation: Operation name for usage tracking.
+            input_chars: Character count of input text.
+            counted_tokens: Token count from count_tokens API.
+            status: Status of the operation ("ok" or "error").
+            error_type: Error type if status is "error".
+        """
+        # Resolve tracker if not provided
+        if tracker is None:
+            tracker = get_token_usage_tracker()
+
+        # Compute cost from counted tokens
+        cost_usd = None
+        model_pricing = self._settings.model_pricing.get(self._settings.embedding_model)
+        if model_pricing and "per_1m_tokens" in model_pricing:
+            cost_usd = cost_usd_for_embedding(
+                total_tokens=counted_tokens,
+                per_1m_tokens=model_pricing.get("per_1m_tokens", 0.0),
+            )
+
+        try:
+            await tracker.record(
+                TokenUsageRecord(
+                    feature="graph",
+                    operation=operation,
+                    provider="google",
+                    model=self._settings.embedding_model,
+                    prompt_tokens=counted_tokens,
+                    total_tokens=counted_tokens,
+                    input_chars=input_chars,
+                    cost_usd=cost_usd,
+                    status=status,
+                    error_type=error_type,
+                )
+            )
+        except Exception:
+            # Never let usage tracking fail the main request
+            pass
