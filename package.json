@@ -5,6 +5,7 @@
   "scripts": {
     "install:all": "pnpm install && pnpm turbo install",
     "dev": "pnpm turbo dev",
+    "build": "pnpm turbo build",
     "test": "pnpm turbo test",
     "lint": "pnpm turbo lint"
   },
