@@ -34,6 +34,7 @@ export default defineConfig({
 						{ label: 'Introduction', slug: 'getting-started/introduction' },
 						{ label: 'Installation', slug: 'getting-started/installation' },
 						{ label: 'Quick Start', slug: 'getting-started/quickstart' },
+						{ label: 'Deployment', slug: 'getting-started/deployment' },
 					],
 				},
 				{
@@ -42,9 +43,9 @@ export default defineConfig({
 					items: [
 						{ label: 'Overview', slug: 'concepts/overview' },
 						{ label: 'Entities', slug: 'concepts/entities' },
+						{ label: 'Identifiers', slug: 'concepts/identifiers' },
 						{ label: 'Facts', slug: 'concepts/facts' },
 						{ label: 'Sources', slug: 'concepts/sources' },
-						{ label: 'Identifiers', slug: 'concepts/identifiers' },
 					],
 				},
 				{
