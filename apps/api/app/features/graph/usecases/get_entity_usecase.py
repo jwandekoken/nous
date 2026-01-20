@@ -122,6 +122,7 @@ class GetEntityUseCaseImpl:
         _ = rag_expand_hops  # Suppress unused variable warning
 
         use_rag = bool(rag_query and self.vector_repository is not None)
+
         rag_debug_dto: RagDebugDto | None = None
         vector_hits: list[RagDebugHit] = []
         verified_fact_ids: set[str] = set()
