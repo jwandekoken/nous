@@ -122,7 +122,6 @@ class GetEntityUseCaseImpl:
         _ = rag_expand_hops  # Suppress unused variable warning
 
         use_rag = bool(rag_query and self.vector_repository is not None)
-        print(f"---> use_rag: {use_rag}")
 
         rag_debug_dto: RagDebugDto | None = None
         vector_hits: list[RagDebugHit] = []
@@ -141,7 +140,6 @@ class GetEntityUseCaseImpl:
                 top_k=rag_top_k,
                 min_score=rag_min_score,
             )
-            print(f"---> search_results: {search_results}")
             timings["vector_search_ms"] = (time.perf_counter() - start_time) * 1000
 
             # Build a lookup of graph fact_ids for verification
