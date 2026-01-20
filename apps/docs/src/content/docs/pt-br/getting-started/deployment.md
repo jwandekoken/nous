@@ -27,7 +27,7 @@ O Nous suporta dois modos de implantação:
 ### 1. Clone o Repositório
 
 ```bash
-git clone https://github.com/your-org/nous.git
+git clone https://github.com/jwandekoken/nous.git
 cd nous
 ```
 

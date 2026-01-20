@@ -23,7 +23,7 @@ Antes de começar, certifique-se de ter as seguintes ferramentas instaladas:
 ### 1. Clone e Instale as Dependências
 
 ```bash
-git clone https://github.com/your-org/nous.git
+git clone https://github.com/jwandekoken/nous.git
 cd nous
 pnpm install
 ```

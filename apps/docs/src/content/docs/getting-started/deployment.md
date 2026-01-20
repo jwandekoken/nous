@@ -27,7 +27,7 @@ Nous supports two deployment modes:
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/your-org/nous.git
+git clone https://github.com/jwandekoken/nous.git
 cd nous
 ```
 
